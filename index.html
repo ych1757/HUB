@@ -10048,7 +10048,11 @@ function renderKpiStrip(allEmp, showAllFactories, userFactory) {
   } else if (showAllFactories) {
     allTotal = Object.values(employees).flat().length;
   } else {
-    allTotal = (employees[userFactory] || []).length;
+    // v252: userFactory 可能是多廠陣列，逐廠加總
+    allTotal = 0;
+    FACTORIES.forEach(f => {
+      if (hasFactoryAccess(currentUser, f.code)) allTotal += (employees[f.code] || []).length;
+    });
   }
 
   const total = allEmp.length;
@@ -10153,7 +10157,7 @@ function renderCustomBody() {
   const allEmp = [];
   FACTORIES.forEach(f => {
     // 單廠模式：只取本廠資料
-    if (!showAllFactories && f.code !== userFactory) return;
+    if (!showAllFactories && !hasFactoryAccess(currentUser, f.code)) return; // v252: 支援多廠陣列
     // BU 主管：強制只看自己 BU 下的廠
     if (isBuManager && currentUser.bu && f.group !== currentUser.bu) return;
     // 篩選列的 BU 過濾（admin / hq_manager / bu_manager）
@@ -10650,7 +10654,7 @@ function setChartType(modId, type) {
   const userFactory = currentUser ? currentUser.factories : null;
   const allEmp = [];
   FACTORIES.forEach(f => {
-    if (!showAllFactories && f.code !== userFactory) return;
+    if (!showAllFactories && !hasFactoryAccess(currentUser, f.code)) return; // v252: 支援多廠陣列
     if (isBuManager && currentUser.bu && f.group !== currentUser.bu) return;
     if (canFilter && dashFilterBu && f.group !== dashFilterBu) return;
     if (canFilter && dashFilterFactory && f.code !== dashFilterFactory) return;
