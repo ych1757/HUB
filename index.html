@@ -5092,6 +5092,66 @@ async function addLogToSB(entry) {
 }
 
 
+// v251: 進 OMS 密碼驗證機制（7 天免驗）
+const OMS_VERIFY_KEY = 'oms_verify_v1';
+const OMS_VERIFY_DAYS = 7;
+
+// 讀取驗證記錄 { username: timestamp }
+function loadOmsVerify() {
+  try { return JSON.parse(localStorage.getItem(OMS_VERIFY_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+// 記錄某帳號已在這台電腦驗證
+function markOmsVerified(username) {
+  const rec = loadOmsVerify();
+  rec[username] = Date.now();
+  try { localStorage.setItem(OMS_VERIFY_KEY, JSON.stringify(rec)); } catch(e) {}
+}
+// 檢查某帳號是否在 7 天內驗證過
+function isOmsVerified(username) {
+  const rec = loadOmsVerify();
+  const t = rec[username];
+  if (!t) return false;
+  const days = (Date.now() - t) / (1000 * 60 * 60 * 24);
+  return days < OMS_VERIFY_DAYS;
+}
+
+// 顯示進 OMS 密碼驗證視窗
+function showOmsVerifyModal() {
+  const overlay = document.getElementById('omsVerifyOverlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    document.getElementById('omsVerifyPwd').value = '';
+    document.getElementById('omsVerifyError').style.display = 'none';
+    document.getElementById('omsVerifyName').textContent = currentUser.name || currentUser.username;
+    setTimeout(() => document.getElementById('omsVerifyPwd').focus(), 100);
+  }
+}
+
+// 提交進 OMS 驗證
+async function submitOmsVerify() {
+  const pwd = document.getElementById('omsVerifyPwd').value;
+  const errEl = document.getElementById('omsVerifyError');
+  if (!pwd) { errEl.textContent = '請輸入密碼'; errEl.style.display = 'block'; return; }
+  // 即時從 Supabase 撈最新密碼比對
+  let correctPwd = currentUser.password;
+  try {
+    const rows = await sbSelect('oms_users', 'username=eq.' + encodeURIComponent(currentUser.username));
+    if (rows && rows.length > 0) correctPwd = rows[0].password;
+  } catch(e) { console.warn('omsVerify: 無法讀取最新密碼，使用快取', e); }
+  if (pwd !== correctPwd) {
+    errEl.textContent = '密碼錯誤';
+    errEl.style.display = 'block';
+    document.getElementById('omsVerifyPwd').value = '';
+    return;
+  }
+  // 驗證成功
+  markOmsVerified(currentUser.username);
+  document.getElementById('omsVerifyOverlay').style.display = 'none';
+  document.getElementById('syncHubPage').classList.remove('show');
+  showMainApp();
+}
+
 // v239: 強制重設密碼
 function checkMustChangePwd(user) {
   if (user.mustChangePwd) {
@@ -5131,6 +5191,10 @@ function submitForcePwd() {
     currentUser.mustChangePwd = false;
   }
   document.getElementById('forcePwdOverlay').style.display = 'none';
+  // v251: 改完密碼視同驗證，記錄 7 天並進入 OMS
+  markOmsVerified(currentUser.username);
+  document.getElementById('syncHubPage').classList.remove('show');
+  showMainApp();
   showToast('密碼已更新，請妥善保管');
 }
 
@@ -7346,19 +7410,28 @@ function enterOMS() {
     showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
     return;
   }
-  // v248: 即時從 Supabase 讀取最新 must_change_pwd，避免 session 快取問題
+  // v248: 即時從 Supabase 讀取最新 must_change_pwd
+  // v251: 加入進 OMS 密碼驗證（7 天免驗）
   (async () => {
     try {
       const rows = await sbSelect('oms_users', 'username=eq.' + encodeURIComponent(currentUser.username));
       if (rows && rows.length > 0) {
         currentUser.mustChangePwd = rows[0].must_change_pwd === true;
+        currentUser.password = rows[0].password;
       }
     } catch(e) {
       console.warn('enterOMS: 無法讀取最新權限，使用快取', e);
     }
+    // 首次登入/被重設 → 先改密碼（改完視同驗證）
     if (checkMustChangePwd(currentUser)) return;
-    document.getElementById('syncHubPage').classList.remove('show');
-    showMainApp();
+    // 7 天內這台電腦驗證過 → 直接進
+    if (isOmsVerified(currentUser.username)) {
+      document.getElementById('syncHubPage').classList.remove('show');
+      showMainApp();
+      return;
+    }
+    // 否則要求輸入密碼驗證
+    showOmsVerifyModal();
   })();
 }
 
@@ -11208,6 +11281,21 @@ function drawRadar(factories, allEmp, size=200) {
     </div>
     <div id="forcePwdError" style="color:#D42B3A;font-size:12px;margin-bottom:12px;display:none;"></div>
     <button onclick="submitForcePwd()" style="width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:2px;">確認設定</button>
+  </div>
+</div>
+
+<!-- v251: 進 OMS 密碼驗證視窗 -->
+<div id="omsVerifyOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,30,80,0.45);z-index:99999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border-radius:12px;padding:36px 32px;width:400px;max-width:90vw;box-shadow:0 8px 32px rgba(10,30,80,0.18);">
+    <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px;">進入 OMS · 請輸入密碼</div>
+    <div style="font-size:12px;color:var(--text-soft);margin-bottom:24px;">身分：<span id="omsVerifyName" style="font-weight:700;"></span></div>
+    <div style="margin-bottom:24px;">
+      <label style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:6px;">密碼</label>
+      <input id="omsVerifyPwd" type="password" placeholder="請輸入您的 OMS 密碼" onkeydown="if(event.key==='Enter')submitOmsVerify()"
+        style="width:100%;padding:10px 12px;border:1px solid var(--line-soft);border-radius:6px;font-size:14px;background:var(--bg-paper);color:var(--text-main);letter-spacing:2px;">
+    </div>
+    <div id="omsVerifyError" style="color:#D42B3A;font-size:12px;margin-bottom:12px;display:none;"></div>
+    <button onclick="submitOmsVerify()" style="width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:2px;">確認進入</button>
   </div>
 </div>
 
