@@ -9776,37 +9776,47 @@ function toggleDashTheme() {
   applyDashTheme(next);
 }
 
+// v253: 取得使用者在看板可選的廠區 code 陣列（hr/viewer 用）
+function getDashAuthFactories() {
+  const f = currentUser ? currentUser.factories : null;
+  if (f === 'ALL') return FACTORIES.map(x => x.code);
+  if (Array.isArray(f)) return f.slice();
+  if (typeof f === 'string' && f) return [f];
+  return [];
+}
+
 function openCustomDash() {
   closeUserMenu();
   const role = currentUser ? currentUser.role : '';
+  // v253: group_hr 視同全集團視野（同 admin）
+  const fullVision = role === 'admin' || role === 'group_hr' || role === 'hq_manager';
   // 依角色決定預設模式
-  // admin / hq_manager → 集團
-  // bu_manager → 集團（但鎖 BU）
-  // hr / viewer → 本廠
-  if (role === 'admin' || role === 'hq_manager' || role === 'bu_manager') {
+  if (fullVision || role === 'bu_manager') {
     dashViewMode = 'group';
   } else {
-    dashViewMode = 'factory';
+    dashViewMode = 'factory'; // hr / viewer
   }
 
-  // 篩選列：admin / hq_manager / bu_manager 都看得到
-  // BU 主管：自動鎖在自己管的 BU，不能切到其他 BU
   if (role === 'bu_manager') {
     dashFilterBu = getUserBuList(currentUser)[0] || '';
-    // 載入廠區篩選（讓 BU 主管可以切到 BU 下單廠）
     try {
       const savedFilter = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}');
       dashFilterFactory = savedFilter.factory || '';
     } catch(e) { dashFilterFactory = ''; }
-  } else if (role === 'admin' || role === 'hq_manager') {
+  } else if (fullVision) {
     try {
       const savedFilter = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}');
       dashFilterBu = savedFilter.bu || '';
       dashFilterFactory = savedFilter.factory || '';
     } catch(e) { dashFilterBu = ''; dashFilterFactory = ''; }
   } else {
+    // v253: hr / viewer — 無 BU，廠區須在授權清單內
     dashFilterBu = '';
-    dashFilterFactory = '';
+    try {
+      const savedFilter = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}');
+      const auth = getDashAuthFactories();
+      dashFilterFactory = (savedFilter.factory && auth.includes(savedFilter.factory)) ? savedFilter.factory : '';
+    } catch(e) { dashFilterFactory = ''; }
   }
   // 載入已儲存的版面
   try {
@@ -9887,14 +9897,17 @@ function renderDashFilterBar() {
   if (!bar) return;
   const role = currentUser ? currentUser.role : '';
   const isAdmin = role === 'admin';
+  const isGroupHr = role === 'group_hr';
   const isHqManager = role === 'hq_manager';
   const isBuManager = role === 'bu_manager';
-  const canFilter = isAdmin || isHqManager || isBuManager;
+  // v253: group_hr 視同全集團視野；hr/viewer 廠區受限
+  const fullVision = isAdmin || isGroupHr || isHqManager;
+  const isFactoryLimited = role === 'hr' || role === 'viewer';
+  const canFilter = fullVision || isBuManager || isFactoryLimited;
   if (!canFilter) { bar.style.display = 'none'; return; }
   bar.style.display = 'flex';
 
   // BU 清單（從 FACTORIES 萃取）
-  // BU 主管：只有自己管的 BU（鎖定）
   let buList;
   if (isBuManager) {
     buList = getUserBuList(currentUser);
@@ -9902,10 +9915,14 @@ function renderDashFilterBar() {
     buList = [...new Set(FACTORIES.map(f => f.group))];
   }
 
-  // 廠區清單（依目前選的 BU 過濾）
+  // 廠區清單
   // BU 主管：只能切自己 BU 下的廠
+  // hr/viewer：只列授權的廠
   let factoryList;
-  if (isBuManager) {
+  if (isFactoryLimited) {
+    const auth = getDashAuthFactories();
+    factoryList = FACTORIES.filter(f => auth.includes(f.code)).slice().sort((a,b)=>a.code.localeCompare(b.code));
+  } else if (isBuManager) {
     factoryList = FACTORIES.filter(f => userHasBu(currentUser, f.group)).slice().sort((a,b)=>a.code.localeCompare(b.code));
   } else if (dashFilterBu) {
     factoryList = FACTORIES.filter(f => f.group === dashFilterBu).slice().sort((a,b)=>a.code.localeCompare(b.code));
@@ -9913,7 +9930,7 @@ function renderDashFilterBar() {
     factoryList = FACTORIES.slice().sort((a,b)=>a.code.localeCompare(b.code));
   }
 
-  // BU 主管的 BU 下拉鎖定（不可改）
+  // BU 下拉 options（hr/viewer 不顯示 BU 下拉）
   let buOptions;
   if (isBuManager) {
     buOptions = getUserBuList(currentUser).map(b=>`<option value="${b}">${b}</option>`).join('');
@@ -9929,11 +9946,15 @@ function renderDashFilterBar() {
       `<option value="${f.code}" ${f.code===dashFilterFactory?'selected':''}>${f.code} · ${f.name}</option>`
     )).join('');
 
+  // v253: hr/viewer 的「全部廠區」= 其授權廠合集
+  const authForLimit = isFactoryLimited ? getDashAuthFactories() : null;
+
   // 計算目前篩選範圍的人數摘要
   let activeCnt = 0;
   FACTORIES.forEach(f => {
+    if (isFactoryLimited && !authForLimit.includes(f.code)) return;
     if (isBuManager && !userHasBu(currentUser, f.group)) return;
-    if (!isBuManager && dashFilterBu && f.group !== dashFilterBu) return;
+    if (!isBuManager && !isFactoryLimited && dashFilterBu && f.group !== dashFilterBu) return;
     if (dashFilterFactory && f.code !== dashFilterFactory) return;
     (employees[f.code] || []).forEach(e => {
       if (!e.status || e.status === '在職') activeCnt++;
@@ -9941,7 +9962,7 @@ function renderDashFilterBar() {
   });
 
   // 篩選範圍標籤
-  let scopeLabel = '全集團';
+  let scopeLabel = isFactoryLimited ? '我的廠區' : '全集團';
   if (dashFilterFactory) {
     const f = FACTORIES.find(x => x.code === dashFilterFactory);
     scopeLabel = f ? (f.code + ' · ' + f.name) : dashFilterFactory;
@@ -9953,19 +9974,31 @@ function renderDashFilterBar() {
 
   // 角色標籤
   const roleBadge = isAdmin ? '🔧 ADMIN'
+    : isGroupHr ? '🏢 集團 HR'
     : isHqManager ? '🏢 集團主管'
-    : isBuManager ? '📦 BU 主管' : '';
+    : isBuManager ? '📦 BU 主管'
+    : (role === 'hr' ? '👤 廠區 HR' : '👁 廠區檢視');
 
-  // BU 主管的 BU 下拉用 disabled，廠區下拉可用
+  // hr/viewer：「全部廠區」標籤改為「全部我的廠區」
+  const factoryFirstOpt = isFactoryLimited
+    ? '<option value="">全部我的廠區</option>'
+    : '<option value="">全部廠區</option>';
+  const factoryOptionsFinal = [factoryFirstOpt]
+    .concat(factoryList.map(f =>
+      `<option value="${f.code}" ${f.code===dashFilterFactory?'selected':''}>${f.code} · ${f.name}</option>`
+    )).join('');
+
+  // BU 下拉：hr/viewer 不顯示；BU 主管鎖定；其餘可改
   const buSelectAttr = isBuManager ? 'disabled' : `onchange="changeDashBu(this.value)"`;
-  const showClearBtn = (!isBuManager && (dashFilterBu || dashFilterFactory))
-    || (isBuManager && dashFilterFactory);
+  const buSelectHtml = isFactoryLimited ? '' :
+    `<select class="dash-filter-select" ${buSelectAttr}>${buOptions}</select>`;
+  const showClearBtn = dashFilterFactory || (!isBuManager && !isFactoryLimited && dashFilterBu);
 
   bar.innerHTML = `
     <span class="dash-filter-role">${roleBadge}</span>
     <span class="dash-filter-label">範圍：</span>
-    <select class="dash-filter-select" ${buSelectAttr}>${buOptions}</select>
-    <select class="dash-filter-select" onchange="changeDashFactory(this.value)">${factoryOptions}</select>
+    ${buSelectHtml}
+    <select class="dash-filter-select" onchange="changeDashFactory(this.value)">${factoryOptionsFinal}</select>
     ${showClearBtn ?
       '<button class="dash-filter-clear" onclick="clearDashFilter()" title="清除篩選">✕ 清除</button>' : ''}
     <span class="dash-filter-summary">${scopeLabel} · ${activeCnt} 人</span>
@@ -9974,7 +10007,11 @@ function renderDashFilterBar() {
   // 同步副標
   const subtitle = document.getElementById('customDashSubtitle');
   if (subtitle) {
-    subtitle.textContent = scopeLabel === '全集團' ? '集團檢視 · 全廠資料' : scopeLabel;
+    if (isFactoryLimited) {
+      subtitle.textContent = dashFilterFactory ? scopeLabel : '我的廠區 · ' + (authForLimit.join('、'));
+    } else {
+      subtitle.textContent = scopeLabel === '全集團' ? '集團檢視 · 全廠資料' : scopeLabel;
+    }
   }
 }
 
@@ -9984,34 +10021,9 @@ function updateDashModeUI() {
   const subtitle = document.getElementById('customDashSubtitle');
   if (!switcher) return;
   const role = currentUser ? currentUser.role : '';
-
-  if (role === 'admin' || role === 'hq_manager' || role === 'bu_manager') {
-    // 集團/總部/BU 主管：隱藏本廠/集團切換按鈕（用篩選列代替）
-    switcher.style.display = 'none';
-    if (subtitle) {
-      if (role === 'bu_manager') {
-        subtitle.textContent = (getUserBuList(currentUser).join('、') || 'BU') + ' 主管視野';
-      } else if (role === 'hq_manager') {
-        subtitle.textContent = '集團主管 · 全集團檢視';
-      } else {
-        subtitle.textContent = '集團檢視 · 全廠資料';
-      }
-    }
-  } else {
-    // 單廠：顯示切換按鈕（單行表頭中的 inline-flex）
-    switcher.style.display = 'inline-flex';
-    const factoryCode = currentUser ? currentUser.factories : '';
-    const factoryName = (FACTORIES.find(f => f.code === factoryCode) || {}).name || factoryCode;
-    document.getElementById('dashModeFactory').textContent = '🏭 本廠';
-    document.getElementById('dashModeGroup').textContent = '🌐 集團';
-    document.getElementById('dashModeFactory').classList.toggle('active', dashViewMode === 'factory');
-    document.getElementById('dashModeGroup').classList.toggle('active', dashViewMode === 'group');
-    if (subtitle) {
-      subtitle.textContent = (dashViewMode === 'factory')
-        ? '本廠：' + factoryName
-        : '集團概覽 · 不含個別資料';
-    }
-  }
+  // v253: 全視野(admin/group_hr/hq_manager)、BU 主管、hr/viewer 全部改用篩選列，隱藏本廠/集團按鈕
+  switcher.style.display = 'none';
+  // 副標由 renderDashFilterBar 接手設定（避免重複，這裡不再覆寫）
 }
 
 // 重設為集團預設範本
@@ -10032,12 +10044,17 @@ function renderKpiStrip(allEmp, showAllFactories, userFactory) {
   // 「在職率」分母：依檢視範圍而定
   const role = currentUser ? currentUser.role : '';
   const isAdmin = role === 'admin';
+  const isGroupHr = role === 'group_hr';
   const isHqManager = role === 'hq_manager';
   const isBuManager = role === 'bu_manager';
-  const canFilter = isAdmin || isHqManager || isBuManager;
+  const fullVision = isAdmin || isGroupHr || isHqManager;
+  const isFactoryLimited = role === 'hr' || role === 'viewer';
 
   let allTotal;
-  if (canFilter && (dashFilterBu || dashFilterFactory || isBuManager)) {
+  if (isFactoryLimited && dashFilterFactory) {
+    // v253: hr/viewer 選了單一廠 → 分母為該廠
+    allTotal = (employees[dashFilterFactory] || []).length;
+  } else if ((fullVision || isBuManager) && (dashFilterBu || dashFilterFactory || isBuManager)) {
     allTotal = 0;
     FACTORIES.forEach(f => {
       if (isBuManager && !userHasBu(currentUser, f.group)) return;
@@ -10048,7 +10065,7 @@ function renderKpiStrip(allEmp, showAllFactories, userFactory) {
   } else if (showAllFactories) {
     allTotal = Object.values(employees).flat().length;
   } else {
-    // v252: userFactory 可能是多廠陣列，逐廠加總
+    // hr/viewer 看「全部我的廠區」：逐廠加總授權廠（v252）
     allTotal = 0;
     FACTORIES.forEach(f => {
       if (hasFactoryAccess(currentUser, f.code)) allTotal += (employees[f.code] || []).length;
@@ -10146,30 +10163,34 @@ function renderCustomBody() {
   // === 權限過濾：依使用者角色與檢視模式決定資料範圍 ===
   const role = currentUser ? currentUser.role : '';
   const isAdmin = role === 'admin';
+  const isGroupHr = role === 'group_hr';
   const isHqManager = role === 'hq_manager';
   const isBuManager = role === 'bu_manager';
-  const canFilter = isAdmin || isHqManager || isBuManager; // 篩選列適用對象
+  // v253: group_hr 全視野；hr/viewer 受限於授權廠
+  const fullVision = isAdmin || isGroupHr || isHqManager;
+  const isFactoryLimited = role === 'hr' || role === 'viewer';
+  const canFilter = fullVision || isBuManager || isFactoryLimited;
   const userFactory = currentUser ? currentUser.factories : null;
 
-  // 全集團視野：admin / hq_manager / bu_manager / 集團模式 hr-viewer
-  const showAllFactories = isAdmin || isHqManager || isBuManager || dashViewMode === 'group';
+  // 全集團視野：admin / group_hr / hq_manager / bu_manager
+  const showAllFactories = fullVision || isBuManager;
 
   const allEmp = [];
   FACTORIES.forEach(f => {
-    // 單廠模式：只取本廠資料
-    if (!showAllFactories && !hasFactoryAccess(currentUser, f.code)) return; // v252: 支援多廠陣列
+    // hr/viewer：只取授權廠資料
+    if (isFactoryLimited && !hasFactoryAccess(currentUser, f.code)) return;
     // BU 主管：強制只看自己 BU 下的廠
     if (isBuManager && currentUser.bu && f.group !== currentUser.bu) return;
-    // 篩選列的 BU 過濾（admin / hq_manager / bu_manager）
-    if (canFilter && dashFilterBu && f.group !== dashFilterBu) return;
-    // 篩選列的廠區過濾
+    // 篩選列的 BU 過濾（fullVision / bu_manager）
+    if ((fullVision || isBuManager) && dashFilterBu && f.group !== dashFilterBu) return;
+    // 篩選列的廠區過濾（所有可篩選角色）
     if (canFilter && dashFilterFactory && f.code !== dashFilterFactory) return;
     (employees[f.code] || []).forEach(e => {
       if (!e.status || e.status === '在職') allEmp.push({...e, _factory: f});
     });
   });
 
-  // === 同步篩選列 UI（admin / hq_manager / bu_manager 才看到）===
+  // === 同步篩選列 UI ===
   if (canFilter) renderDashFilterBar();
 
   // === 渲染頂部固定 KPI 條 ===
@@ -10197,13 +10218,11 @@ function renderCustomBody() {
   } else if (isBuManager) {
     // BU 主管沒額外篩選時：保留廠區分布，藏地區（BU 通常同地區）
     hideIds = ['region-dist'];
-  } else if (showAllFactories && !isAdmin && !isHqManager && !isBuManager) {
-    // 單廠使用者切到集團概覽：隱藏部門排行
-    hideIds = [...GROUP_OVERVIEW_HIDE];
-  } else if (!showAllFactories) {
-    // 單廠模式：隱藏廠區/地區
-    hideIds = [...FACTORY_MODE_HIDE];
+  } else if (isFactoryLimited) {
+    // v253: hr/viewer 看「全部我的廠區」：保留廠區分布（比較自己的廠），藏地區
+    hideIds = ['region-dist'];
   } else {
+    // 全視野（admin/group_hr/hq_manager）無篩選：全部顯示
     hideIds = [];
   }
 
@@ -10271,13 +10290,15 @@ function renderWidget(modId, el, allEmp) {
       // 分母：依目前篩選範圍的總建檔人數（含離職）
       let filteredTotal = 0;
       const role2 = currentUser ? currentUser.role : '';
-      const isAdmin2 = role2 === 'admin', isHq2 = role2 === 'hq_manager', isBu2 = role2 === 'bu_manager';
-      const canFilter2 = isAdmin2 || isHq2 || isBu2;
+      const isAdmin2 = role2 === 'admin', isGroupHr2 = role2 === 'group_hr', isHq2 = role2 === 'hq_manager', isBu2 = role2 === 'bu_manager';
+      const fullVision2 = isAdmin2 || isGroupHr2 || isHq2;
+      const isFactoryLimited2 = role2 === 'hr' || role2 === 'viewer';
+      const canFilter2 = fullVision2 || isBu2;
       FACTORIES.forEach(f => {
+        if (isFactoryLimited2 && !hasFactoryAccess(currentUser, f.code)) return;
         if (isBu2 && f.group !== currentUser.bu) return;
         if (canFilter2 && dashFilterBu && f.group !== dashFilterBu) return;
-        if (canFilter2 && dashFilterFactory && f.code !== dashFilterFactory) return;
-        if (!canFilter2 && f.code !== (currentUser ? currentUser.factories : '')) return;
+        if ((canFilter2 || isFactoryLimited2) && dashFilterFactory && f.code !== dashFilterFactory) return;
         filteredTotal += (employees[f.code] || []).length;
       });
       const rate = filteredTotal > 0 ? Math.round(total/filteredTotal*100) : 0;
@@ -10302,13 +10323,15 @@ function renderWidget(modId, el, allEmp) {
       // 分母：依篩選範圍計算（與 kpi-total 相同邏輯）
       let filteredTotal4 = 0;
       const role4 = currentUser ? currentUser.role : '';
-      const isAdmin4 = role4==='admin', isHq4=role4==='hq_manager', isBu4=role4==='bu_manager';
-      const canFilter4 = isAdmin4||isHq4||isBu4;
+      const isAdmin4 = role4==='admin', isGroupHr4 = role4==='group_hr', isHq4=role4==='hq_manager', isBu4=role4==='bu_manager';
+      const fullVision4 = isAdmin4 || isGroupHr4 || isHq4;
+      const isFactoryLimited4 = role4 === 'hr' || role4 === 'viewer';
+      const canFilter4 = fullVision4 || isBu4;
       FACTORIES.forEach(f => {
+        if (isFactoryLimited4 && !hasFactoryAccess(currentUser, f.code)) return;
         if (isBu4 && f.group !== currentUser.bu) return;
         if (canFilter4 && dashFilterBu && f.group !== dashFilterBu) return;
-        if (canFilter4 && dashFilterFactory && f.code !== dashFilterFactory) return;
-        if (!canFilter4 && f.code !== (currentUser ? currentUser.factories : '')) return;
+        if ((canFilter4 || isFactoryLimited4) && dashFilterFactory && f.code !== dashFilterFactory) return;
         filteredTotal4 += (employees[f.code] || []).length;
       });
       const rate = filteredTotal4>0?Math.round(total/filteredTotal4*100):0;
@@ -10648,15 +10671,16 @@ function setChartType(modId, type) {
   localStorage.setItem(CHART_TYPE_KEY, JSON.stringify(chartTypeMap));
   // 重新渲染該 widget — 依目前篩選條件組 allEmp（與 renderCustomBody 邏輯一致）
   const role = currentUser ? currentUser.role : '';
-  const isAdmin = role === 'admin', isHqManager = role === 'hq_manager', isBuManager = role === 'bu_manager';
-  const canFilter = isAdmin || isHqManager || isBuManager;
-  const showAllFactories = isAdmin || isHqManager || isBuManager || dashViewMode === 'group';
-  const userFactory = currentUser ? currentUser.factories : null;
+  const isAdmin = role === 'admin', isGroupHr = role === 'group_hr', isHqManager = role === 'hq_manager', isBuManager = role === 'bu_manager';
+  const fullVision = isAdmin || isGroupHr || isHqManager;
+  const isFactoryLimited = role === 'hr' || role === 'viewer';
+  const canFilter = fullVision || isBuManager || isFactoryLimited;
+  const showAllFactories = fullVision || isBuManager;
   const allEmp = [];
   FACTORIES.forEach(f => {
-    if (!showAllFactories && !hasFactoryAccess(currentUser, f.code)) return; // v252: 支援多廠陣列
+    if (isFactoryLimited && !hasFactoryAccess(currentUser, f.code)) return;
     if (isBuManager && currentUser.bu && f.group !== currentUser.bu) return;
-    if (canFilter && dashFilterBu && f.group !== dashFilterBu) return;
+    if ((fullVision || isBuManager) && dashFilterBu && f.group !== dashFilterBu) return;
     if (canFilter && dashFilterFactory && f.code !== dashFilterFactory) return;
     (employees[f.code] || []).forEach(e => {
       if (!e.status || e.status === '在職') allEmp.push({...e, _factory: f});
