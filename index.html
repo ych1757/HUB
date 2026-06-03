@@ -5756,8 +5756,8 @@ function renderFactoryList() { renderBuPanel(); } // 向下相容
 function canAccessFactory(code) {
   if (!currentUser) return false;
   const role = currentUser.role;
-  // admin / 集團主管：全部廠區可進
-  if (role === 'admin' || role === 'hq_manager') return true;
+  // admin / 集團主管 / 集團 HR：全部廠區可進
+  if (role === 'admin' || role === 'hq_manager' || role === 'group_hr') return true;
   // BU 主管：自己 BU 下的廠
   if (role === 'bu_manager') {
     const f = FACTORIES.find(x => x.code === code);
@@ -10201,7 +10201,7 @@ function renderCustomBody() {
     // hr/viewer：只取授權廠資料
     if (isFactoryLimited && !hasFactoryAccess(currentUser, f.code)) return;
     // BU 主管：強制只看自己 BU 下的廠
-    if (isBuManager && currentUser.bu && f.group !== currentUser.bu) return;
+    if (isBuManager && !userHasBu(currentUser, f.group)) return; // v259: BU 可為陣列
     // 篩選列的 BU 過濾（fullVision / bu_manager）
     if ((fullVision || isBuManager) && dashFilterBu && f.group !== dashFilterBu) return;
     // 篩選列的廠區過濾（所有可篩選角色）
@@ -10317,7 +10317,7 @@ function renderWidget(modId, el, allEmp) {
       const canFilter2 = fullVision2 || isBu2;
       FACTORIES.forEach(f => {
         if (isFactoryLimited2 && !hasFactoryAccess(currentUser, f.code)) return;
-        if (isBu2 && f.group !== currentUser.bu) return;
+        if (isBu2 && !userHasBu(currentUser, f.group)) return; // v259: BU 可為陣列
         if (canFilter2 && dashFilterBu && f.group !== dashFilterBu) return;
         if ((canFilter2 || isFactoryLimited2) && dashFilterFactory && f.code !== dashFilterFactory) return;
         filteredTotal += (employees[f.code] || []).length;
@@ -10350,7 +10350,7 @@ function renderWidget(modId, el, allEmp) {
       const canFilter4 = fullVision4 || isBu4;
       FACTORIES.forEach(f => {
         if (isFactoryLimited4 && !hasFactoryAccess(currentUser, f.code)) return;
-        if (isBu4 && f.group !== currentUser.bu) return;
+        if (isBu4 && !userHasBu(currentUser, f.group)) return; // v259: BU 可為陣列
         if (canFilter4 && dashFilterBu && f.group !== dashFilterBu) return;
         if ((canFilter4 || isFactoryLimited4) && dashFilterFactory && f.code !== dashFilterFactory) return;
         filteredTotal4 += (employees[f.code] || []).length;
@@ -10700,7 +10700,7 @@ function setChartType(modId, type) {
   const allEmp = [];
   FACTORIES.forEach(f => {
     if (isFactoryLimited && !hasFactoryAccess(currentUser, f.code)) return;
-    if (isBuManager && currentUser.bu && f.group !== currentUser.bu) return;
+    if (isBuManager && !userHasBu(currentUser, f.group)) return; // v259: BU 可為陣列
     if ((fullVision || isBuManager) && dashFilterBu && f.group !== dashFilterBu) return;
     if (canFilter && dashFilterFactory && f.code !== dashFilterFactory) return;
     (employees[f.code] || []).forEach(e => {
