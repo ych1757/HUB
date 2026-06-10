@@ -963,7 +963,7 @@
     -webkit-overflow-scrolling: touch;
 
   }
-  .emp-table { width: 100%; min-width: 680px; border-collapse: separate; border-spacing: 0; font-size: 12.5px; table-layout: fixed; }
+  .emp-table { width: auto; border-collapse: separate; border-spacing: 0; font-size: 12.5px; table-layout: fixed; }
   .emp-table colgroup col:nth-child(1) { width: 80px; }   /* 工號 */
   .emp-table colgroup col:nth-child(2) { width: 72px; }   /* 姓名 */
   .emp-table colgroup col:nth-child(3) { width: auto; }   /* 部門 */
@@ -993,6 +993,10 @@
     transition: background 0.15s ease;
   }
   .emp-table tbody tr:hover { background: var(--bg-paper); }
+  /* 操作欄凍結在右側（橫向捲動時固定可見） */
+  .emp-table thead th.col-actions { right: 0 !important; z-index: 11 !important; box-shadow: inset 1px 0 0 var(--line), inset 0 -1px 0 var(--line); }
+  .emp-table tbody td.col-actions { position: sticky; right: 0; z-index: 4; background: #fff !important; box-shadow: inset 1px 0 0 var(--line); }
+  .emp-table tbody tr:hover td.col-actions { background: #FAF8F4 !important; }
   .emp-table tbody td {
     padding: 8px 12px;
     color: var(--text-main);
@@ -4231,6 +4235,90 @@
   </div>
 </div>
 
+<!-- ============ 系統資料授權頁 ============ -->
+<div id="systemAccessPage" class="users-page hidden">
+  <div class="users-header">
+    <button class="btn btn-ghost" onclick="closeSystemAccessPage()" style="font-size:12px;">← 返回</button>
+    <span class="users-title">系統資料授權</span>
+    <span style="margin-left:12px;font-size:10px;letter-spacing:1px;color:var(--text-soft);">從 OMS 名單挑人，勾選其可使用的系統</span>
+    <button class="btn btn-primary" onclick="openSaBatch()" style="margin-left:auto;font-size:11px;">📥 批量加入</button>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;color:var(--text-soft);">單筆加入</span>
+      <select id="saAddFactory" onchange="saAddScopeChange()" style="padding:7px 8px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <select id="saAddDept" onchange="saSearchEmp(document.getElementById('saEmpSearch').value)" style="padding:7px 8px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <div style="position:relative;width:200px;">
+        <input id="saEmpSearch" type="text" placeholder="姓名 / 工號" autocomplete="off"
+          oninput="saSearchEmp(this.value)" onfocus="saSearchEmp(this.value)"
+          style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid var(--gold);border-radius:6px;font-size:12px;">
+        <div id="saEmpDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--gold);border-radius:4px;max-height:260px;overflow-y:auto;z-index:9999;box-shadow:0 8px 24px rgba(10,30,80,0.12);"></div>
+      </div>
+    </div>
+  </div>
+  <div class="users-body" style="display:flex;flex-direction:column;overflow:hidden;">
+    <!-- 篩選列 -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <span style="font-size:11px;color:var(--text-soft);letter-spacing:1px;">篩選</span>
+      <select id="saFltFactory" onchange="saFilter.factory=this.value;saFilter.dept='';saPopulateFilterDropdowns();renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <select id="saFltDept" onchange="saFilter.dept=this.value;renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <select id="saFltSystem" onchange="saFilter.system=this.value;renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <input id="saFltKeyword" type="text" placeholder="姓名 / 工號 / Email" oninput="saFilter.keyword=this.value;renderSystemAccessTable();"
+        style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;width:180px;">
+      <button onclick="saClearFilter()" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">清除</button>
+      <span id="saFltCount" style="margin-left:auto;font-size:11px;color:var(--text-soft);"></span>
+    </div>
+    <div class="users-table-wrapper" style="flex:1;min-height:0;overflow:auto;">
+      <table class="users-table" id="systemAccessTable">
+        <thead id="systemAccessHead"></thead>
+        <tbody id="systemAccessBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 批量加入 Modal ============ -->
+<div class="user-modal-overlay" id="saBatchOverlay" onclick="if(event.target===this)closeSaBatch()">
+  <div class="user-modal" style="width:680px;">
+    <div class="edit-modal-header">
+      <div class="edit-modal-title">📥 批量加入授權</div>
+      <span style="cursor:pointer;font-size:18px;color:var(--text-soft);" onclick="closeSaBatch()">✕</span>
+    </div>
+    <div class="edit-modal-body" style="display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div>
+          <label style="display:block;font-size:11px;color:var(--text-soft);margin-bottom:4px;">廠區</label>
+          <select id="saBatchFactory" onchange="saBatchFactoryChange()" style="padding:7px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;min-width:160px;background:#fff;"></select>
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;color:var(--text-soft);margin-bottom:4px;">部門</label>
+          <select id="saBatchDept" onchange="saBatchRenderEmps()" style="padding:7px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;min-width:200px;background:#fff;"></select>
+        </div>
+        <div style="flex:1;min-width:160px;">
+          <label style="display:block;font-size:11px;color:var(--text-soft);margin-bottom:4px;">關鍵字</label>
+          <input id="saBatchKeyword" type="text" placeholder="姓名 / 工號 / Email / 英文名 / 職稱" oninput="saBatchRenderEmps()"
+            style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;">
+        </div>
+      </div>
+      <div style="border:1px solid var(--line-soft);border-radius:6px;background:var(--bg-paper);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line-soft);background:var(--bg-tint);">
+          <label style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;cursor:pointer;">
+            <input type="checkbox" id="saBatchAll" onchange="saBatchToggleAll(this.checked)" style="width:15px;height:15px;cursor:pointer;"> 全選
+          </label>
+          <span id="saBatchSelCount" style="font-size:11px;color:var(--text-soft);"></span>
+        </div>
+        <div id="saBatchEmpList" style="max-height:280px;overflow-y:auto;"></div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--text-soft);margin-bottom:6px;">這批人開通哪些系統（加入時一起勾上）</label>
+        <div id="saBatchSystems" style="display:flex;gap:18px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line-soft);border-radius:6px;background:var(--bg-paper);"></div>
+      </div>
+    </div>
+    <div class="edit-modal-footer">
+      <button class="btn btn-ghost" onclick="closeSaBatch()">取消</button>
+      <button class="btn btn-primary" id="saBatchConfirmBtn" onclick="saBatchConfirm()">加入</button>
+    </div>
+  </div>
+</div>
+
 <!-- ============ 員工修改 Modal ============ -->
 <div class="edit-modal-overlay" id="editModalOverlay" onclick="if(event.target===this)closeEditModal()">
   <div class="edit-modal">
@@ -4594,6 +4682,10 @@
               <div id="mgmtDropdown" style="display:none;position:absolute;top:36px;right:0;background:var(--bg-card);border:1px solid var(--line-soft);border-radius:8px;box-shadow:0 8px 24px rgba(10,30,80,0.15);min-width:150px;z-index:200;overflow:hidden;">
                 <button id="mgmtItemUsers" onclick="closeMgmtDropdown();openUsersPage();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
                   <span>👥</span>使用者管理
+                </button>
+                <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
+                <button id="mgmtItemSysAccess" onclick="closeMgmtDropdown();openSystemAccessPage();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
+                  <span>🔐</span>系統資料授權
                 </button>
                 <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
                 <button id="mgmtItemFactory" onclick="closeMgmtDropdown();openFactoryMgmt();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
@@ -5962,6 +6054,19 @@ function fmtDate(val) {
   return s;
 }
 
+// 出生資料只保留「年月」（隱私：Excel 可給完整年月日，匯入時自動截掉「日」）
+function birthToYM(val) {
+  if (!val) return '';
+  const s = String(val).trim();
+  // 年在前：1971/10/4、1984-3-24、1971.10、1971/10 …
+  const m = s.match(/(\d{4})[\/\-.](\d{1,2})/);
+  if (m) return m[1] + '/' + m[2].padStart(2, '0');
+  // 退路：交給 Date 解析（如 Excel 日期物件字串）
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0');
+  return s; // 無法解析就原樣，不擋匯入
+}
+
 function calcAge(e) {
   if (!e.birth) return '<span style="color:var(--text-soft);font-style: normal;font-size:11px;">未填</span>';
   const b = new Date(e.birth);
@@ -6028,15 +6133,20 @@ function refreshEmpTable(code) {
     .filter(Boolean);
 
   const thead = document.getElementById('empTableHead');
-  thead.innerHTML = cols.map((c, i) =>
-    '<th style="min-width:40px;cursor:pointer;user-select:none;" data-col="' + c.key + '" onclick="sortEmpTable(\'' + c.key + '\')">' +
-    c.label +
-    '<span class="sort-arrow" style="margin-left:4px;font-size:9px;color:rgba(0,0,0,0.3);">' +
-      (empSortKey === c.key ? (empSortDir === 1 ? '▲' : '▼') : '⇅') +
-    '</span>' +
-    '<span class="col-resizer" data-idx="' + i + '" onmousedown="startColResize(event,' + i + ')"></span>' +
-    '</th>'
-  ).join('') + '<th style="width:48px;">操作</th>';
+  let _tblW = 88; // 操作欄固定寬
+  thead.innerHTML = cols.map(function(c, i) {
+    const cw = (window._savedColWidths && window._savedColWidths[c.key]) || ((c.w || 110) + 'px');
+    _tblW += (parseInt(cw, 10) || 110);
+    return '<th style="width:' + cw + ';min-width:40px;cursor:pointer;user-select:none;" data-col="' + c.key + '" onclick="sortEmpTable(\'' + c.key + '\')">' +
+      c.label +
+      '<span class="sort-arrow" style="margin-left:4px;font-size:9px;color:rgba(0,0,0,0.3);">' +
+        (empSortKey === c.key ? (empSortDir === 1 ? '▲' : '▼') : '⇅') +
+      '</span>' +
+      '<span class="col-resizer" data-idx="' + i + '" onmousedown="startColResize(event,' + i + ')"></span>' +
+      '</th>';
+  }).join('') + '<th class="col-actions" style="width:88px;">操作</th>';
+  // 明確設定表格總寬＝各欄相加，欄寬固定不受內容影響（避免內容撐欄、透出凍結欄）
+  document.getElementById('empTable').style.width = _tblW + 'px';
 
   const tbody = document.getElementById('empTableBody');
   if (!list.length) {
@@ -6113,10 +6223,10 @@ function refreshEmpTable(code) {
       : '<span style="color:var(--text-soft);font-size:11px;letter-spacing:1px;opacity:0.5;" title="您沒有編輯權限">—</span>';
     return '<tr data-index="' + i + '" onclick="openEmpModal(\'' + code + '\',' + i + ')" title="點擊查看完整資料">' +
       cells +
-      '<td style="display:flex;gap:8px;align-items:center;">' +
+      '<td class="col-actions"><div style="display:flex;gap:8px;align-items:center;">' +
         editBtn +
         delBtn +
-      '</td></tr>';
+      '</div></td></tr>';
   }).join('');
 
   filterTable();
@@ -6175,23 +6285,23 @@ function closeModalDirect() {
 }
 
 const COL_DEFS = [
-  { key: 'empId',      label: '工號',     default: true  },
-  { key: 'name',       label: '姓名',     default: true  },
-  { key: 'engName',    label: '英文名',   default: false },
-  { key: 'department', label: '部門',     default: true  },
-  { key: 'title',      label: '職稱',     default: true  },
-  { key: 'level',      label: '職等',     default: true  },
-  { key: 'supervisor', label: '直屬主管', default: false },
-  { key: 'joinDate',   label: '到職日',   default: true  },
-  { key: 'leaveDate',  label: '離職日',   default: false },
-  { key: 'status',     label: '狀態',     default: true  },
-  { key: 'category',   label: '人員分類', default: false },
-  { key: 'mail',       label: 'Email',    default: false },
-  { key: 'gender',     label: '性別',     default: false },
-  { key: 'account',    label: '會計科目', default: false },
-  { key: '_seniority', label: '年資',     default: false, virtual: true },
-  { key: '_age',       label: '年齡',     default: false, virtual: true },
-  { key: 'birth',      label: '出生年月', default: false },
+  { key: 'empId',      label: '工號',     default: true,  w: 80  },
+  { key: 'name',       label: '姓名',     default: true,  w: 90  },
+  { key: 'engName',    label: '英文名',   default: false, w: 84  },
+  { key: 'department', label: '部門',     default: true,  w: 190 },
+  { key: 'title',      label: '職稱',     default: true,  w: 96  },
+  { key: 'level',      label: '職等',     default: true,  w: 64  },
+  { key: 'supervisor', label: '直屬主管', default: false, w: 110 },
+  { key: 'joinDate',   label: '到職日',   default: true,  w: 104 },
+  { key: 'leaveDate',  label: '離職日',   default: false, w: 104 },
+  { key: 'status',     label: '狀態',     default: true,  w: 72  },
+  { key: 'category',   label: '人員分類', default: false, w: 88  },
+  { key: 'mail',       label: 'Email',    default: false, w: 210 },
+  { key: 'gender',     label: '性別',     default: false, w: 60  },
+  { key: 'account',    label: '會計科目', default: false, w: 104 },
+  { key: '_seniority', label: '年資',     default: false, virtual: true, w: 100 },
+  { key: '_age',       label: '年齡',     default: false, virtual: true, w: 64  },
+  { key: 'birth',      label: '出生年月', default: false, w: 100 },
 ];
 
 let visibleCols = COL_DEFS.filter(c => c.default).map(c => c.key);
@@ -6210,8 +6320,9 @@ function saveColPrefs() {
   document.querySelectorAll('#empTableHead th[data-col]').forEach(th => {
     if (th.style.width) widths[th.dataset.col] = th.style.width;
   });
+  window._savedColWidths = widths;  // 同步記憶體，重繪時才不會還原成預設
   try {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ colOrder, visibleCols, widths }));
+    localStorage.setItem(PREF_KEY, JSON.stringify({ colOrder, visibleCols, widths, layoutV2: true }));
   } catch(e) {}
 }
 
@@ -6230,6 +6341,8 @@ function loadColPrefs() {
       visibleCols = prefs.visibleCols.filter(k => validKeys.includes(k));
     }
     window._savedColWidths = prefs.widths || {};
+    // v263：版型改為 auto，舊 fixed 版型存的欄寬不適用 → 一次性清掉，之後新拖的會正常記住
+    if (!prefs.layoutV2) window._savedColWidths = {};
   } catch(e) {}
 }
 
@@ -6385,10 +6498,14 @@ function startColResize(e, idx) {
   _resizeStartW = _resizeTh.offsetWidth;
   e.target.classList.add('resizing');
 
+  const _tbl = document.getElementById('empTable');
+  const _tblStartW = _tbl ? _tbl.offsetWidth : 0;
   const onMove = mv => {
     const diff = mv.clientX - _resizeStartX;
     const newW = Math.max(40, _resizeStartW + diff);
+    const applied = newW - _resizeStartW;  // 實際寬度變化
     _resizeTh.style.width = newW + 'px';
+    if (_tbl) _tbl.style.width = (_tblStartW + applied) + 'px';  // 表格同步加寬，不擠壓別欄
   };
   const onUp = () => {
     e.target.classList.remove('resizing');
@@ -6833,7 +6950,7 @@ function parseExcelBinary(buffer, fileName) {
       expense:  (get(row,idx.expense)||'').trim().toUpperCase() || '',
       account:  normalizeAccount(get(row,idx.account)),
       gender:   normalizeGender(get(row,idx.gender)),
-      birth:    get(row,idx.birth),
+      birth:    birthToYM(get(row,idx.birth)),
       leaveDate: get(row,idx.leaveDate),
       education: normalizeEducation(get(row,idx.education)),
       postingFactory: get(row,idx.postingFactory),
@@ -7508,11 +7625,13 @@ function showMainApp() {
 
   // 控制下拉內各項目的顯示
   const mgmtItemUsers = document.getElementById('mgmtItemUsers');
+  const mgmtItemSysAccess = document.getElementById('mgmtItemSysAccess');
   const mgmtItemFactory = document.getElementById('mgmtItemFactory');
   const mgmtItemLog = document.getElementById('mgmtItemLog');
   const mgmtItemMissing = document.getElementById('mgmtItemMissing');
   const mgmtItemAnomaly = document.getElementById('mgmtItemAnomaly');
   if (mgmtItemUsers) mgmtItemUsers.style.display = isAdmin ? 'flex' : 'none';
+  if (mgmtItemSysAccess) mgmtItemSysAccess.style.display = isAdmin ? 'flex' : 'none';
   if (mgmtItemFactory) mgmtItemFactory.style.display = isAdmin ? 'flex' : 'none';
   if (mgmtItemLog) mgmtItemLog.style.display = isAdmin ? 'flex' : 'none';
   if (mgmtItemMissing) mgmtItemMissing.style.display = canCheckMissing ? 'flex' : 'none';
@@ -8361,15 +8480,15 @@ let editingIndex = -1;
 const EDIT_FIELDS = [
   { key: 'empId',     label: '工號',     type: 'text',   readonly: true },
   { key: 'name',      label: '姓名',     type: 'text' },
-  { key: 'dept',      label: '部門',     type: 'text' },
+  { key: 'department', label: '部門',    type: 'text' },
   { key: 'joinDate',  label: '到職日',   type: 'date' },
-  { key: 'email',     label: 'Email',    type: 'email' },
-  { key: 'position',  label: '職稱',     type: 'text' },
-  { key: 'grade',     label: '職等',     type: 'text' },
+  { key: 'mail',      label: 'Email',    type: 'email' },
+  { key: 'title',     label: '職稱',     type: 'text' },
+  { key: 'level',     label: '職等',     type: 'text' },
   { key: 'gender',    label: '性別',     type: 'select', options: ['','男','女'] },
-  { key: 'birth',     label: '出生日期', type: 'date' },
+  { key: 'birth',     label: '出生年月', type: 'text', ph: 'yyyy/mm（例 1971/10）' },
   { key: 'category',  label: '人員分類', type: 'text' },
-  { key: 'costType',  label: '費用類別', type: 'text' },
+  { key: 'expense',   label: '費用類別', type: 'text' },
   { key: 'account',   label: '會計科目', type: 'text' },
   { key: 'education', label: '學歷',     type: 'text' },
   { key: 'leaveDate', label: '離職日',   type: 'date' },
@@ -8406,7 +8525,7 @@ function openEditModal(code, index) {
         ? `<select id="ef_${f.key}" ${f.readonly ? 'disabled' : ''}>
             ${f.options.map(o => `<option value="${o}" ${e[f.key]===o?'selected':''}>${o||'—'}</option>`).join('')}
            </select>`
-        : `<input id="ef_${f.key}" type="${f.type}" value="${e[f.key]||''}" ${f.readonly ? 'readonly style="background:var(--bg-tint);color:var(--text-soft);"' : ''}>`
+        : `<input id="ef_${f.key}" type="${f.type}" value="${e[f.key]||''}" placeholder="${f.ph || ''}" ${f.readonly ? 'readonly style="background:var(--bg-tint);color:var(--text-soft);"' : ''}>`
       }
     </div>
   `).join('');
@@ -8607,6 +8726,417 @@ document.addEventListener('click', e => {
 
 
 // ============================================================
+// 系統資料授權（system_access）— 哪些人員可使用哪些外部系統
+// ============================================================
+// 可用系統清單：未來新增系統 → 加一行即可，勾選欄會自動長出來
+const SYNCHUB_SYSTEMS = [
+  { code: 'QMS', name: '品質管理系統' },
+  { code: 'PMP', name: '專案管理平台' },
+  { code: 'CFS', name: '客戶回饋系統' },
+];
+
+let systemAccessRows = [];  // 記憶體快取：[{factory_code, emp_id, name, eng_name, dept, title, email, systems:[]}]
+let saSearchResults = {};   // 搜尋結果暫存（key=工號），加入時用工號回查完整資料
+const saFilter = { factory: '', dept: '', keyword: '', system: '' };  // 名單篩選狀態
+let saBatchSelected = new Set();  // 批量加入：選中的工號
+let saSort = { key: 'factory_code', dir: 1 };  // 名單排序（dir：1 升冪、-1 降冪）
+
+function saSortBy(key) {
+  if (saSort.key === key) saSort.dir *= -1;
+  else { saSort.key = key; saSort.dir = 1; }
+  renderSystemAccessTable();
+}
+
+function saSafeParseArr(s) { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+function saEscapeCell(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function openSystemAccessPage() {
+  closeUserMenu();
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團主管可使用', 'error'); return; }
+  document.getElementById('systemAccessPage').classList.remove('hidden');
+  document.getElementById('systemAccessHead').innerHTML = '';
+  document.getElementById('systemAccessBody').innerHTML =
+    '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:20px;text-align:center;color:var(--text-soft);">載入中…</td></tr>';
+  try {
+    const rows = await sbSelect('system_access', 'order=factory_code.asc');
+    systemAccessRows = rows.map(r => ({
+      factory_code: r.factory_code || '',
+      emp_id: r.emp_id,
+      name: r.name || '',
+      eng_name: r.eng_name || '',
+      dept: r.dept || '',
+      title: r.title || '',
+      email: r.email || '',
+      systems: Array.isArray(r.systems) ? r.systems : (typeof r.systems === 'string' ? saSafeParseArr(r.systems) : []),
+    }));
+  } catch (e) {
+    console.error('[system_access] load failed:', e);
+    showToast('載入授權名單失敗：' + e.message, 'error');
+    systemAccessRows = [];
+  }
+  saPopulateFilterDropdowns();
+  saPopulateAddScope();
+  renderSystemAccessTable();
+}
+
+function closeSystemAccessPage() {
+  document.getElementById('systemAccessPage').classList.add('hidden');
+  const dd = document.getElementById('saEmpDropdown'); if (dd) dd.style.display = 'none';
+  const inp = document.getElementById('saEmpSearch'); if (inp) inp.value = '';
+}
+
+function renderSystemAccessTable() {
+  // 基本欄位設窄，最右加彈性空白欄吸收多餘寬度→欄位往左集中、系統變多也不掉出畫面
+  const cellPad = 'padding:10px 14px;';
+  // 表頭凍結：sticky + 不透明底色 + 陰影分隔線（border-collapse 下用 box-shadow 才不會在捲動時消失）
+  const thSticky = 'position:sticky;top:0;z-index:5;background:#E8EDF3;box-shadow:inset 0 -2px 0 var(--line);';
+  const thStyle = cellPad + thSticky;
+  const head = document.getElementById('systemAccessHead');
+  const _arrow = k => saSort.key === k ? (saSort.dir === 1 ? ' ▲' : ' ▼') : ' ⇅';
+  const _sth = (label, key, w, center) =>
+    `<th style="${thStyle}${center ? 'text-align:center;' : ''}width:${w}px;cursor:pointer;user-select:none;" onclick="saSortBy('${key}')" title="點擊排序">${label}<span style="font-size:9px;color:rgba(0,0,0,.35);">${_arrow(key)}</span></th>`;
+  head.innerHTML = '<tr>' +
+    _sth('廠區', 'factory_code', 50) +
+    _sth('工號', 'emp_id', 84) +
+    _sth('姓名', 'name', 84) +
+    _sth('英文名', 'eng_name', 78) +
+    _sth('部門', 'dept', 130) +
+    _sth('職稱', 'title', 90) +
+    _sth('Email', 'email', 200) +
+    SYNCHUB_SYSTEMS.map(s => _sth(s.code, 'sys:' + s.code, 56, true)).join('') +
+    `<th style="${thStyle}width:56px;">操作</th>` +
+    `<th style="${thSticky}width:auto;padding:0;"></th></tr>`;
+
+  const rows = saApplyFilter(systemAccessRows);
+  // 排序：文字欄用 localeCompare（簡繁/中英皆可）；系統欄依「是否勾選」
+  const _sk = saSort.key, _dir = saSort.dir;
+  rows.sort((a, b) => {
+    if (_sk.indexOf('sys:') === 0) {
+      const c = _sk.slice(4);
+      return (((a.systems || []).includes(c) ? 1 : 0) - ((b.systems || []).includes(c) ? 1 : 0)) * _dir;
+    }
+    return ((a[_sk] || '').toString()).localeCompare((b[_sk] || '').toString(), 'zh-Hant') * _dir;
+  });
+  const countEl = document.getElementById('saFltCount');
+  if (countEl) countEl.textContent = rows.length === systemAccessRows.length
+    ? '共 ' + systemAccessRows.length + ' 人'
+    : '符合 ' + rows.length + ' / 共 ' + systemAccessRows.length + ' 人';
+  const body = document.getElementById('systemAccessBody');
+  if (!systemAccessRows.length) {
+    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:24px;text-align:center;color:var(--text-soft);">尚無授權名單，請用右上「📥 批量加入」或「＋ 單筆加入」挑選人員</td></tr>';
+    return;
+  }
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:24px;text-align:center;color:var(--text-soft);">無符合篩選條件的人員</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(r => {
+    const checks = SYNCHUB_SYSTEMS.map(s =>
+      `<td style="${cellPad}text-align:center;"><input type="checkbox" ${r.systems.includes(s.code) ? 'checked' : ''}
+        onchange="saToggleSystem('${r.emp_id}','${s.code}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>`).join('');
+    return `<tr>
+      <td style="${cellPad}font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);font-size:12px;">${r.factory_code || '—'}</td>
+      <td style="${cellPad}font-family:'Inter',monospace;font-weight:600;font-size:13px;">${r.emp_id}</td>
+      <td style="${cellPad}font-size:13px;">${saEscapeCell(r.name)}</td>
+      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.eng_name)}</td>
+      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.dept)}</td>
+      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.title)}</td>
+      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.email)}</td>
+      ${checks}
+      <td style="${cellPad}"><span style="font-size:11px;color:var(--rust);cursor:pointer;" onclick="saRemovePerson('${r.emp_id}')">移除</span></td>
+      <td style="padding:0;"></td>
+    </tr>`;
+  }).join('');
+}
+
+// === 名單篩選 ===
+function saApplyFilter(rows) {
+  const kw = (saFilter.keyword || '').trim().toLowerCase();
+  return rows.filter(r => {
+    if (saFilter.factory && r.factory_code !== saFilter.factory) return false;
+    if (saFilter.dept && r.dept !== saFilter.dept) return false;
+    if (saFilter.system && !(r.systems || []).includes(saFilter.system)) return false;
+    if (kw) {
+      const hay = [r.name, r.eng_name, r.emp_id, r.email].map(x => (x || '').toLowerCase()).join(' ');
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+}
+
+function saClearFilter() {
+  saFilter.factory = ''; saFilter.dept = ''; saFilter.keyword = ''; saFilter.system = '';
+  const kwEl = document.getElementById('saFltKeyword'); if (kwEl) kwEl.value = '';
+  saPopulateFilterDropdowns();
+  renderSystemAccessTable();
+}
+
+function saPopulateFilterDropdowns() {
+  // 下方篩選＝查「已授權名單」，所以只列名單中出現過的廠區/部門
+  const facs = [...new Set(systemAccessRows.map(r => r.factory_code).filter(Boolean))].sort();
+  const facSel = document.getElementById('saFltFactory');
+  if (facSel) {
+    facSel.innerHTML = '<option value="">全部廠區</option>' + facs.map(f => `<option value="${f}">${f}</option>`).join('');
+    facSel.value = saFilter.factory;
+  }
+  const deptPool = systemAccessRows.filter(r => !saFilter.factory || r.factory_code === saFilter.factory);
+  const depts = [...new Set(deptPool.map(r => r.dept).filter(Boolean))].sort();
+  const deptSel = document.getElementById('saFltDept');
+  if (deptSel) {
+    deptSel.innerHTML = '<option value="">全部部門</option>' + depts.map(d => `<option value="${d.replace(/"/g,'&quot;')}">${saEscapeCell(d)}</option>`).join('');
+    deptSel.value = saFilter.dept;
+  }
+  const sysSel = document.getElementById('saFltSystem');
+  if (sysSel) {
+    sysSel.innerHTML = '<option value="">全部系統</option>' + SYNCHUB_SYSTEMS.map(s => `<option value="${s.code}">可用 ${s.code}</option>`).join('');
+    sysSel.value = saFilter.system;
+  }
+}
+
+// === 批量加入 ===
+function openSaBatch() {
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團主管可使用', 'error'); return; }
+  saBatchSelected = new Set();
+  const kwEl = document.getElementById('saBatchKeyword'); if (kwEl) kwEl.value = '';
+  const facSel = document.getElementById('saBatchFactory');
+  const facs = Object.keys(employees).sort();
+  const facLabel = c => { const f = (typeof FACTORIES !== 'undefined' ? FACTORIES : []).find(x => x.code === c); return f ? c + ' - ' + f.name : c; };
+  facSel.innerHTML = facs.map(c => `<option value="${c}">${saEscapeCell(facLabel(c))}</option>`).join('');
+  document.getElementById('saBatchSystems').innerHTML = SYNCHUB_SYSTEMS.map(s =>
+    `<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+      <input type="checkbox" class="saBatchSysChk" value="${s.code}" style="width:16px;height:16px;cursor:pointer;"> ${s.code} <span style="color:var(--text-soft);font-size:11px;">${s.name}</span>
+    </label>`).join('');
+  saBatchFactoryChange();
+  document.getElementById('saBatchOverlay').classList.add('show');
+}
+
+function closeSaBatch() {
+  document.getElementById('saBatchOverlay').classList.remove('show');
+}
+
+function saBatchFactoryChange() {
+  const code = document.getElementById('saBatchFactory').value;
+  const list = employees[code] || [];
+  const depts = [...new Set(list.map(e => e.department || '').filter(Boolean))].sort();
+  const deptSel = document.getElementById('saBatchDept');
+  deptSel.innerHTML = '<option value="">全部部門</option>' + depts.map(d => `<option value="${d.replace(/"/g,'&quot;')}">${saEscapeCell(d)}</option>`).join('');
+  saBatchRenderEmps();
+}
+
+function saBatchRenderEmps() {
+  const code = document.getElementById('saBatchFactory').value;
+  const dept = document.getElementById('saBatchDept').value;
+  const kwEl = document.getElementById('saBatchKeyword');
+  const kw = (kwEl ? kwEl.value : '').trim().toLowerCase();
+  let list = (employees[code] || []).filter(e => !dept || (e.department || '') === dept);
+  if (kw) {
+    list = list.filter(e => {
+      const hay = [e.name, e.engName, e.empId, e.mail, e.title].map(x => (x || '').toLowerCase()).join(' ');
+      return hay.includes(kw) ||
+        toSimplified(e.name || '').includes(toSimplified(kw)) ||
+        toTraditional(e.name || '').includes(toTraditional(kw));
+    });
+  }
+  const cont = document.getElementById('saBatchEmpList');
+  saBatchSelected = new Set();
+  if (!list.length) {
+    cont.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-soft);font-size:12px;">此範圍沒有員工</div>';
+    document.getElementById('saBatchAll').checked = false;
+    saBatchUpdateCount();
+    return;
+  }
+  cont.innerHTML = list.map(e => {
+    const exists = systemAccessRows.some(x => x.emp_id === e.empId);
+    if (!exists) saBatchSelected.add(e.empId);
+    return `<label style="display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line-soft);font-size:12px;cursor:${exists ? 'default' : 'pointer'};${exists ? 'opacity:0.45;' : ''}">
+      <input type="checkbox" class="saBatchEmpChk" value="${e.empId}" ${exists ? 'disabled' : 'checked'} onchange="saBatchOnToggle(this)" style="width:15px;height:15px;cursor:pointer;flex-shrink:0;">
+      <span style="font-family:'Inter',monospace;font-weight:600;color:var(--gold-deep);width:74px;flex-shrink:0;">${e.empId}</span>
+      <span style="width:80px;flex-shrink:0;">${saEscapeCell(e.name || '')}</span>
+      <span style="color:var(--text-soft);width:130px;flex-shrink:0;">${saEscapeCell(e.department || '')}</span>
+      <span style="color:var(--text-soft);">${saEscapeCell(e.title || '')}</span>
+      ${exists ? '<span style="margin-left:auto;color:var(--text-soft);font-size:10px;flex-shrink:0;">已在名單</span>' : ''}
+    </label>`;
+  }).join('');
+  const selectable = list.filter(e => !systemAccessRows.some(x => x.emp_id === e.empId));
+  document.getElementById('saBatchAll').checked = selectable.length > 0 && selectable.every(e => saBatchSelected.has(e.empId));
+  saBatchUpdateCount();
+}
+
+function saBatchOnToggle(cb) {
+  if (cb.checked) saBatchSelected.add(cb.value); else saBatchSelected.delete(cb.value);
+  saBatchUpdateCount();
+}
+
+function saBatchToggleAll(checked) {
+  document.querySelectorAll('#saBatchEmpList .saBatchEmpChk:not(:disabled)').forEach(cb => {
+    cb.checked = checked;
+    if (checked) saBatchSelected.add(cb.value); else saBatchSelected.delete(cb.value);
+  });
+  saBatchUpdateCount();
+}
+
+function saBatchUpdateCount() {
+  const el = document.getElementById('saBatchSelCount');
+  if (el) el.textContent = '已選 ' + saBatchSelected.size + ' 人';
+}
+
+async function saBatchConfirm() {
+  const empIds = [...saBatchSelected];
+  if (!empIds.length) { showToast('請至少選一位員工', 'error'); return; }
+  const picked = [...document.querySelectorAll('#saBatchSystems .saBatchSysChk:checked')].map(c => c.value);
+  const systems = SYNCHUB_SYSTEMS.map(s => s.code).filter(c => picked.includes(c)); // 固定順序
+  const code = document.getElementById('saBatchFactory').value;
+  const byId = {}; (employees[code] || []).forEach(e => { byId[e.empId] = e; });
+  const newRows = [];
+  empIds.forEach(id => {
+    if (systemAccessRows.some(x => x.emp_id === id)) return; // 跳過已存在
+    const e = byId[id]; if (!e) return;
+    newRows.push({ factory_code: code, emp_id: id, name: e.name || '', eng_name: e.engName || '', dept: e.department || '', title: e.title || '', email: e.mail || '', systems });
+  });
+  if (!newRows.length) { showToast('選中的人都已在名單中', 'error'); return; }
+  const btn = document.getElementById('saBatchConfirmBtn');
+  btn.disabled = true; const oldTxt = btn.textContent; btn.textContent = '加入中…';
+  try {
+    await sbUpsert('system_access', newRows.map(r => ({ ...r, updated_at: new Date().toISOString() })), 'emp_id');
+    newRows.forEach(r => systemAccessRows.push(r));
+    systemAccessRows.sort((a, b) => (a.factory_code || '').localeCompare(b.factory_code || ''));
+    saPopulateFilterDropdowns();
+    renderSystemAccessTable();
+    showToast('已加入 ' + newRows.length + ' 人' + (systems.length ? '（開通 ' + systems.join('、') + '）' : '（未勾系統）'), 'ok');
+    closeSaBatch();
+  } catch (e) {
+    console.error('[system_access] batch failed:', e);
+    showToast('批量加入失敗：' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = oldTxt;
+  }
+}
+
+// 單筆加入：先選廠區/部門範圍，再以姓名/工號搜尋
+function saAddScopeChange() {
+  const fac = document.getElementById('saAddFactory').value;
+  const depts = fac ? [...new Set((employees[fac] || []).map(e => e.department || '').filter(Boolean))].sort() : [];
+  const deptEl = document.getElementById('saAddDept');
+  deptEl.innerHTML = '<option value="">全部部門</option>' + depts.map(d => `<option value="${d.replace(/"/g,'&quot;')}">${saEscapeCell(d)}</option>`).join('');
+  deptEl.disabled = !fac;
+  saSearchEmp(document.getElementById('saEmpSearch').value);
+}
+
+function saPopulateAddScope() {
+  const facEl = document.getElementById('saAddFactory');
+  if (!facEl) return;
+  const facs = Object.keys(employees).sort();
+  facEl.innerHTML = '<option value="">全部廠區</option>' + facs.map(f => `<option value="${f}">${f}</option>`).join('');
+  facEl.value = '';
+  const deptEl = document.getElementById('saAddDept');
+  if (deptEl) { deptEl.innerHTML = '<option value="">全部部門</option>'; deptEl.disabled = true; }
+  const inp = document.getElementById('saEmpSearch'); if (inp) inp.value = '';
+}
+
+// 搜尋 OMS 員工名單（範圍=廠區/部門下拉；關鍵字=姓名/工號，支援簡繁）
+function saSearchEmp(keyword) {
+  const dropdown = document.getElementById('saEmpDropdown');
+  keyword = (keyword || '').trim();
+  const facEl = document.getElementById('saAddFactory');
+  const deptEl = document.getElementById('saAddDept');
+  const fac = facEl ? facEl.value : '';
+  const dept = deptEl ? deptEl.value : '';
+  // 沒選廠區也沒打字 → 不查（避免一次列出全公司）
+  if (!fac && !keyword) { dropdown.style.display = 'none'; return; }
+  const results = [];
+  saSearchResults = {};
+  const codes = fac ? [fac] : Object.keys(employees);
+  codes.forEach(code => {
+    (employees[code] || []).forEach(e => {
+      if (results.length >= 50) return;
+      if (dept && (e.department || '') !== dept) return;
+      const name = e.name || '', empId = e.empId || '';
+      const matchKw = !keyword ||
+        name.includes(keyword) || empId.toLowerCase().includes(keyword.toLowerCase()) ||
+        toSimplified(name).includes(toSimplified(keyword)) ||
+        toTraditional(name).includes(toTraditional(keyword));
+      if (matchKw) {
+        const item = { code, empId, name, eng_name: e.engName || '', dept: e.department || '', title: e.title || '', email: e.mail || '' };
+        results.push(item);
+        saSearchResults[empId] = item;
+      }
+    });
+  });
+  if (!results.length) {
+    dropdown.innerHTML = '<div style="padding:12px 16px;font-size:12px;color:var(--text-soft);">找不到符合的員工</div>';
+    dropdown.style.display = 'block'; return;
+  }
+  dropdown.innerHTML = results.map(r => {
+    const already = systemAccessRows.some(x => x.emp_id === r.empId);
+    const clickAttr = already ? '' : `onclick="saAddPerson('${r.empId}')" onmouseover="this.style.background='var(--bg-tint)'" onmouseout="this.style.background=''"`;
+    const mark = already ? ' <span style="color:var(--text-soft);font-size:10px;">（已在名單）</span>' : '';
+    const sub = [r.code, r.dept, r.title].filter(Boolean).join(' · ');
+    return `<div ${clickAttr} style="padding:10px 16px;cursor:${already ? 'default' : 'pointer'};border-bottom:1px solid var(--line-soft);font-size:12px;${already ? 'opacity:0.5;' : ''}">
+      <div style="font-weight:600;color:var(--navy);">${saEscapeCell(r.name)}${r.eng_name ? ' <span style="color:var(--text-soft);font-weight:400;">' + saEscapeCell(r.eng_name) + '</span>' : ''} <span style="color:var(--gold-deep);">${r.empId}</span>${mark}</div>
+      <div style="font-size:10px;color:var(--text-soft);margin-top:2px;">${saEscapeCell(sub)}${r.email ? ' · ' + saEscapeCell(r.email) : ''}</div>
+    </div>`;
+  }).join('');
+  dropdown.style.display = 'block';
+}
+
+async function saAddPerson(empId) {
+  document.getElementById('saEmpDropdown').style.display = 'none';
+  document.getElementById('saEmpSearch').value = '';
+  const src = saSearchResults[empId];
+  if (!src) { showToast('找不到員工資料，請重新搜尋', 'error'); return; }
+  if (systemAccessRows.some(x => x.emp_id === empId)) { showToast('此員工已在名單中', 'error'); return; }
+  const row = { factory_code: src.code, emp_id: empId, name: src.name, eng_name: src.eng_name, dept: src.dept, title: src.title, email: src.email, systems: [] };
+  try {
+    await sbUpsert('system_access', [{ ...row, updated_at: new Date().toISOString() }], 'emp_id');
+    systemAccessRows.push(row);
+    systemAccessRows.sort((a,b) => (a.factory_code||'').localeCompare(b.factory_code||''));
+    renderSystemAccessTable();
+    showToast('已加入 ' + src.name, 'ok');
+  } catch (e) {
+    console.error('[system_access] add failed:', e);
+    showToast('加入失敗：' + e.message, 'error');
+  }
+}
+
+async function saToggleSystem(empId, sysCode, checked) {
+  const row = systemAccessRows.find(x => x.emp_id === empId);
+  if (!row) return;
+  const set = new Set(row.systems);
+  if (checked) set.add(sysCode); else set.delete(sysCode);
+  const newSystems = SYNCHUB_SYSTEMS.map(s => s.code).filter(c => set.has(c)); // 固定順序
+  try {
+    await sbUpsert('system_access', [{ factory_code: row.factory_code, emp_id: row.emp_id, name: row.name, eng_name: row.eng_name, dept: row.dept, title: row.title, email: row.email, systems: newSystems, updated_at: new Date().toISOString() }], 'emp_id');
+    row.systems = newSystems;
+  } catch (e) {
+    console.error('[system_access] toggle failed:', e);
+    showToast('更新失敗：' + e.message, 'error');
+    renderSystemAccessTable();
+  }
+}
+
+async function saRemovePerson(empId) {
+  const row = systemAccessRows.find(x => x.emp_id === empId);
+  if (!row) return;
+  if (!confirm('確定要將「' + row.name + '」從授權名單移除？')) return;
+  try {
+    await sbDelete('system_access', 'emp_id=eq.' + encodeURIComponent(empId));
+    systemAccessRows = systemAccessRows.filter(x => x.emp_id !== empId);
+    renderSystemAccessTable();
+    showToast('已移除 ' + row.name, 'ok');
+  } catch (e) {
+    console.error('[system_access] remove failed:', e);
+    showToast('移除失敗：' + e.message, 'error');
+  }
+}
+
+// 點擊外部關閉系統授權搜尋下拉
+document.addEventListener('click', e => {
+  const dd = document.getElementById('saEmpDropdown');
+  if (dd && !e.target.closest('#saEmpSearch') && !e.target.closest('#saEmpDropdown')) dd.style.display = 'none';
+});
+
+
+// ============================================================
 // 異動紀錄查詢頁
 // ============================================================
 
@@ -8649,7 +9179,7 @@ const MISSING_CHECK_FIELDS = [
   { key: 'expense',    label: '費用類別' },
   { key: 'account',    label: '會計科目' },
   { key: 'gender',     label: '性別' },
-  { key: 'birth',      label: '出生日期' },
+  { key: 'birth',      label: '出生年月' },
   { key: 'education',  label: '學歷' }
 ];
 
@@ -11423,5 +11953,3 @@ function drawRadar(factories, allEmp, size=200) {
 </script>
 </body>
 </html>
-
-<!-- deploy 259-1: group_hr factory-access fix -->
