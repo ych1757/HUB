@@ -7849,7 +7849,7 @@ function selectAuthEmp(empId) {
 }
 
 // === 主登入函式（新版） ===
-function doLogin() {
+async function doLogin() {
   const factoryCode = document.getElementById('authFactory').value;
   const errEl = document.getElementById('authError');
   errEl.textContent = '';
@@ -7859,23 +7859,44 @@ function doLogin() {
     return;
   }
 
-  // === DTO：用密碼登入 ===
+  // === DTO：v265 改走 Supabase Auth（不再比對 oms_users 明碼）===
   if (factoryCode === 'DTO') {
     const pwd = document.getElementById('authPassword').value;
     if (!pwd) { errEl.textContent = '請輸入管理員密碼'; return; }
-    const users = loadUsers();
-    const adminUser = users.find(u => u.username === 'admin' && u.password === pwd);
-    if (!adminUser) {
-      errEl.textContent = '管理員密碼錯誤';
+    // 1) Auth 驗證 → 拿 JWT（admin 的合成 email）
+    try {
+      await sbAuthSignIn('admin@id.syncmold.com.tw', pwd);
+    } catch (e) {
+      errEl.textContent = (e.status === 400 || e.status === 401) ? '管理員密碼錯誤' : ('登入失敗：' + e.message);
       document.getElementById('authPassword').value = '';
       return;
     }
-    if (!adminUser.active) {
-      errEl.textContent = '管理員帳號已停用';
+    startTokenAutoRefresh();
+    // 2) 用 JWT 讀 synchub_profiles 拿權威角色、檢查停用
+    let prof = null;
+    try {
+      const rows = await sbSelect('synchub_profiles', 'id=eq.' + encodeURIComponent(_omsAuthUser.id));
+      prof = rows && rows[0];
+    } catch (e) { console.warn('讀 synchub_profiles 失敗', e); }
+    if (!prof) { clearAuthSession(); errEl.textContent = '找不到管理員設定檔，請洽 DTO'; return; }
+    if (prof.active === false) { clearAuthSession(); errEl.textContent = '管理員帳號已停用'; return; }
+    currentUser = {
+      id: prof.id,
+      username: prof.username,
+      name: prof.name || 'DTO',
+      role: prof.role || 'admin',
+      factories: (prof.factories !== undefined && prof.factories !== null) ? prof.factories : 'ALL',
+      bu: (prof.bu !== undefined && prof.bu !== null) ? prof.bu : '',
+      empId: prof.emp_id || prof.username,
+      active: true
+    };
+    saveSession(currentUser);
+    // 3) 首次登入/被重設 → 強制改密（走 Auth，同進 OMS 那道）
+    if (omsMustChange()) {
+      const ov = document.getElementById('forcePwdOverlay');
+      if (ov) { ov.style.display = 'flex'; document.getElementById('newPwd1').value = ''; document.getElementById('newPwd2').value = ''; document.getElementById('forcePwdError').style.display = 'none'; }
       return;
     }
-    currentUser = adminUser;
-    saveSession(adminUser);
     showSyncHub();
     return;
   }
@@ -9992,39 +10013,31 @@ function closePwdModal() {
   document.getElementById('pwdModalOverlay').classList.remove('show');
 }
 
-function savePwd() {
+async function savePwd() {
   const newPwd    = document.getElementById('pwdNew').value;
   const confirmPwd = document.getElementById('pwdConfirm').value;
   const errEl     = document.getElementById('pwdError');
   errEl.textContent = '';
 
   if (newPwd.length < 8) { errEl.textContent = '新密碼至少需要 8 個字元'; return; }
+  if (!/[A-Za-z]/.test(newPwd) || !/[0-9]/.test(newPwd)) { errEl.textContent = '密碼需含英文字母與數字'; return; }
   if (newPwd !== confirmPwd) { errEl.textContent = '兩次輸入的密碼不一致'; return; }
 
-  const users = loadUsers();
-
+  // v265：改密一律走 Supabase Auth，不再寫 oms_users 明碼
+  // 重設他人密碼請改用「使用者管理」(走 Edge Function)
   if (pwdTargetUserId) {
-    // 管理員重設他人密碼
-    const idx = users.findIndex(u => u.username === pwdTargetUserId);
-    if (idx === -1) { errEl.textContent = '找不到使用者'; return; }
-    users[idx].password = newPwd;
-    saveUsers(users);
-    closePwdModal();
-    showToast('密碼已重設', 'ok');
-  } else {
-    // 自行修改密碼
-    const oldPwd = document.getElementById('pwdOld').value;
-    const idx = users.findIndex(u => u.username === currentUser.username);
-    if (idx === -1) { errEl.textContent = '找不到帳號'; return; }
-    if (users[idx].password !== oldPwd) { errEl.textContent = '目前密碼錯誤'; return; }
-    users[idx].password = newPwd;
-    // 同步更新 session
-    currentUser.password = newPwd;
-    saveSession(currentUser);
-    saveUsers(users);
-    closePwdModal();
-    showToast('密碼已修改', 'ok');
+    errEl.textContent = '請改用「使用者管理」重設他人密碼';
+    return;
   }
+  if (!_omsJWT) { errEl.textContent = '請先登入後再修改密碼'; return; }
+  try {
+    await sbAuthUpdatePassword(newPwd);
+  } catch (e) {
+    errEl.textContent = '改密失敗：' + e.message;
+    return;
+  }
+  closePwdModal();
+  showToast('密碼已修改', 'ok');
 }
 
 // Enter 鍵送出密碼修改
