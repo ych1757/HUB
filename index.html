@@ -5207,6 +5207,27 @@ async function loadEmployeesFromSB() {
   }
   return result;
 }
+// v266：登入前只讀公開精簡 view（僅在職、4 欄：工號/姓名/英文名/廠區），不含任何敏感 PII。
+// 完整 employees 待進 OMS（已過 Auth、有 JWT）後由 ensureFullEmployees() 補齊。
+async function loadEmployeesPickerFromSB() {
+  const rows = await sbSelect('employees_picker', 'order=factory_code,emp_id');
+  const fList = (typeof FACTORIES !== 'undefined') ? FACTORIES : [];
+  const result = {};
+  for (const row of rows) {
+    const code = row.factory_code;
+    if (!result[code]) result[code] = [];
+    const fac = fList.find(f => f.code === code);
+    const factoryLabel = fac ? fac.code + ' - ' + fac.name : (code || '');
+    result[code].push({
+      factory: factoryLabel,
+      name: row.name || '',
+      engName: row.eng_name || '',
+      empId: row.emp_id || '',
+      status: '在職',   // picker 只含在職，補上讓既有判斷式一致
+    });
+  }
+  return result;
+}
 async function persistAllToSB() {
   const rows = [];
   for (const [code, list] of Object.entries(employees)) {
@@ -5340,7 +5361,7 @@ async function submitOmsVerify() {
     return;
   }
   document.getElementById('syncHubPage').classList.remove('show');
-  showMainApp();
+  await showMainApp();
 }
 
 // v239: 強制重設密碼
@@ -5376,7 +5397,7 @@ async function submitForcePwd() {
   currentUser.mustChangePwd = false;
   document.getElementById('forcePwdOverlay').style.display = 'none';
   document.getElementById('syncHubPage').classList.remove('show');
-  showMainApp();
+  await showMainApp();
   showToast('密碼已更新，請妥善保管');
 }
 
@@ -5391,8 +5412,8 @@ async function appInit() {
   const msg = document.getElementById('sbLoadingMsg');
   const setMsg = t => { if (msg) msg.textContent = t; };
   try {
-    setMsg('載入員工資料…');
-    employees = await loadEmployeesFromSB();
+    setMsg('載入員工名單…');
+    employees = await loadEmployeesPickerFromSB();   // v266：登入前只載公開精簡名單（無敏感 PII）
     const total = Object.values(employees).reduce((s, a) => s + a.length, 0);
     if (total === 0 && typeof BATCH_DATA !== 'undefined') {
       setMsg('首次啟動，匯入員工資料（共 ' + Object.values(BATCH_DATA).reduce((s,a)=>s+a.length,0) + ' 筆）…');
@@ -7612,7 +7633,7 @@ function syncHubTickClock() {
   setTimeout(syncHubTickClock, 1000);
 }
 
-function enterOMS() {
+async function enterOMS() {
   if (currentUser && currentUser.role === 'no_oms') {
     showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
     return;
@@ -7620,7 +7641,7 @@ function enterOMS() {
   // v264：進 OMS 改用 Supabase Auth。本次瀏覽器 session 已登入(有 JWT) → 直接進；否則跳密碼登入
   if (_omsJWT) {
     document.getElementById('syncHubPage').classList.remove('show');
-    showMainApp();
+    await showMainApp();
     return;
   }
   showOmsVerifyModal();
@@ -7641,7 +7662,26 @@ function showSyncHubToast(msg) {
   setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function showMainApp() {
+// v266：完整 employees（含敏感欄）只在進 OMS（已過 Auth、有 JWT）後載入；
+// 這樣登入前記憶體只有精簡名單，之後 employees 全表上 RLS 也不會弄壞登入前畫面。
+let _fullEmpLoaded = false;
+async function ensureFullEmployees() {
+  if (_fullEmpLoaded || !_omsJWT) return;
+  const overlay = document.getElementById('sbLoadingOverlay');
+  const msg = document.getElementById('sbLoadingMsg');
+  try {
+    if (overlay) overlay.style.display = 'flex';
+    if (msg) msg.textContent = '載入員工資料…';
+    employees = await loadEmployeesFromSB();
+    _fullEmpLoaded = true;
+  } catch (e) {
+    console.error('載入完整員工資料失敗', e);
+  } finally {
+    if (overlay) overlay.style.display = 'none';
+  }
+}
+async function showMainApp() {
+  await ensureFullEmployees();   // v266：確保完整員工資料就緒再渲染 OMS
   document.getElementById('authPage').style.display = 'none';
   document.getElementById('syncHubPage').classList.remove('show');
   // 更新 topbar 使用者資訊
