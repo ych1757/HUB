@@ -4994,8 +4994,66 @@ const SB_HDR = {
   'Accept': 'application/json',
 };
 
+// ====== v264：進 OMS 改用 Supabase Auth（登入後 REST 帶 JWT，RLS 才認得） ======
+let _omsJWT = null, _omsRefresh = null, _omsAuthUser = null;
+function sbBearer() { return 'Bearer ' + (_omsJWT || SB_KEY); }   // 登入後帶 JWT，否則 anon
+function sbHdr(extra) {
+  return Object.assign({ 'apikey': SB_KEY, 'Authorization': sbBearer(), 'Content-Type': 'application/json', 'Accept': 'application/json' }, extra || {});
+}
+const AUTH_SESSION_KEY = 'synchub_auth_v1';
+function saveAuthSession(j) {
+  if (j.access_token) _omsJWT = j.access_token;
+  if (j.refresh_token) _omsRefresh = j.refresh_token;
+  if (j.user) _omsAuthUser = j.user;
+  try { sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify({ t: _omsJWT, r: _omsRefresh, u: _omsAuthUser })); } catch (e) {}
+}
+function loadAuthSession() {
+  try { const o = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY) || 'null'); if (o) { _omsJWT = o.t || null; _omsRefresh = o.r || null; _omsAuthUser = o.u || null; } } catch (e) {}
+}
+function clearAuthSession() {
+  _omsJWT = null; _omsRefresh = null; _omsAuthUser = null;
+  try { sessionStorage.removeItem(AUTH_SESSION_KEY); } catch (e) {}
+}
+async function sbAuthSignIn(email, password) {
+  const res = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
+    method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(j.error_description || j.msg || j.error || ('登入失敗 ' + res.status)); e.status = res.status; throw e; }
+  saveAuthSession(j);
+  return j;
+}
+async function sbAuthRefresh() {
+  if (!_omsRefresh) return false;
+  try {
+    const res = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: _omsRefresh }),
+    });
+    if (!res.ok) return false;
+    saveAuthSession(await res.json());
+    return true;
+  } catch (e) { return false; }
+}
+async function sbAuthUpdatePassword(newPwd) {
+  const res = await fetch(SB_URL + '/auth/v1/user', {
+    method: 'PUT', headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + _omsJWT, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: newPwd, data: { must_change: false } }),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.msg || j.error_description || j.error || ('改密失敗 ' + res.status));
+  return j;
+}
+function omsMustChange() { return !!(_omsAuthUser && _omsAuthUser.user_metadata && _omsAuthUser.user_metadata.must_change); }
+let _omsRefreshTimer = null;
+function startTokenAutoRefresh() {
+  if (_omsRefreshTimer) clearInterval(_omsRefreshTimer);
+  _omsRefreshTimer = setInterval(() => { if (_omsJWT) sbAuthRefresh(); }, 45 * 60 * 1000);
+}
+
 async function sbSelect(table, qs) {
-  const res = await fetch(SB_URL + '/rest/v1/' + table + '?' + (qs||''), { headers: SB_HDR });
+  const res = await fetch(SB_URL + '/rest/v1/' + table + '?' + (qs||''), { headers: sbHdr() });
   if (!res.ok) throw new Error('sbSelect ' + table + ': ' + await res.text());
   return res.json();
 }
@@ -5003,14 +5061,14 @@ async function sbUpsert(table, data, conflict) {
   const url = SB_URL + '/rest/v1/' + table + (conflict ? '?on_conflict=' + conflict : '');
   const res = await fetch(url, {
     method: 'POST',
-    headers: { ...SB_HDR, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    headers: sbHdr({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('sbUpsert ' + table + ': ' + await res.text());
 }
 async function sbDelete(table, filter) {
   const res = await fetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
-    method: 'DELETE', headers: SB_HDR,
+    method: 'DELETE', headers: sbHdr(),
   });
   if (!res.ok) throw new Error('sbDelete ' + table + ': ' + await res.text());
 }
@@ -5246,21 +5304,41 @@ async function submitOmsVerify() {
   const pwd = document.getElementById('omsVerifyPwd').value;
   const errEl = document.getElementById('omsVerifyError');
   if (!pwd) { errEl.textContent = '請輸入密碼'; errEl.style.display = 'block'; return; }
-  // 即時從 Supabase 撈最新密碼比對
-  let correctPwd = currentUser.password;
+  const email = (currentUser.username || '').trim().toLowerCase() + '@id.syncmold.com.tw';
+  // v264：用 Supabase Auth 驗證密碼 → 拿 JWT
   try {
-    const rows = await sbSelect('oms_users', 'username=eq.' + encodeURIComponent(currentUser.username));
-    if (rows && rows.length > 0) correctPwd = rows[0].password;
-  } catch(e) { console.warn('omsVerify: 無法讀取最新密碼，使用快取', e); }
-  if (pwd !== correctPwd) {
-    errEl.textContent = '密碼錯誤';
+    await sbAuthSignIn(email, pwd);
+  } catch (e) {
+    errEl.textContent = (e.status === 400 || e.status === 401) ? '密碼錯誤' : ('登入失敗：' + e.message);
     errEl.style.display = 'block';
     document.getElementById('omsVerifyPwd').value = '';
     return;
   }
-  // 驗證成功
-  markOmsVerified(currentUser.username);
+  startTokenAutoRefresh();
+  // 用 JWT 讀 synchub_profiles 取得權威角色/廠區，並檢查是否停用
+  try {
+    const prof = await sbSelect('synchub_profiles', 'id=eq.' + encodeURIComponent(_omsAuthUser.id));
+    if (prof && prof[0]) {
+      if (prof[0].active === false) {        // 已停用 → 擋下、清掉本次 Auth
+        clearAuthSession();
+        errEl.textContent = '此帳號已停用，請洽 DTO';
+        errEl.style.display = 'block';
+        document.getElementById('omsVerifyPwd').value = '';
+        return;
+      }
+      currentUser.role = prof[0].role || currentUser.role;
+      if (prof[0].factories !== undefined && prof[0].factories !== null) currentUser.factories = prof[0].factories;
+      if (prof[0].bu !== undefined && prof[0].bu !== null) currentUser.bu = prof[0].bu;
+      saveSession(currentUser);
+    }
+  } catch (e) { console.warn('讀 synchub_profiles 失敗，沿用現有角色', e); }
   document.getElementById('omsVerifyOverlay').style.display = 'none';
+  // 首次登入/被重設 → 強制改密（走 Auth）
+  if (omsMustChange()) {
+    const ov = document.getElementById('forcePwdOverlay');
+    if (ov) { ov.style.display = 'flex'; document.getElementById('newPwd1').value = ''; document.getElementById('newPwd2').value = ''; document.getElementById('forcePwdError').style.display = 'none'; }
+    return;
+  }
   document.getElementById('syncHubPage').classList.remove('show');
   showMainApp();
 }
@@ -5280,32 +5358,23 @@ function checkMustChangePwd(user) {
   return false;
 }
 
-function submitForcePwd() {
+async function submitForcePwd() {
   const p1 = document.getElementById('newPwd1').value;
   const p2 = document.getElementById('newPwd2').value;
   const errEl = document.getElementById('forcePwdError');
-  if (p1.length !== 8) {
-    errEl.textContent = '密碼必須為 8 碼'; errEl.style.display = 'block'; return;
+  if (p1.length < 8) { errEl.textContent = '密碼至少 8 碼'; errEl.style.display = 'block'; return; }
+  if (!/[A-Za-z]/.test(p1) || !/[0-9]/.test(p1)) { errEl.textContent = '密碼需含英文字母與數字'; errEl.style.display = 'block'; return; }
+  if (p1 !== p2) { errEl.textContent = '兩次輸入不一致'; errEl.style.display = 'block'; return; }
+  if (p1 === 'abcd1234' || p1 === 'Oms12345') { errEl.textContent = '不能使用預設密碼，請另設'; errEl.style.display = 'block'; return; }
+  // v264：走 Supabase Auth 改密 + 清 must_change
+  try {
+    await sbAuthUpdatePassword(p1);
+  } catch (e) {
+    errEl.textContent = '改密失敗：' + e.message; errEl.style.display = 'block'; return;
   }
-  if (p1 !== p2) {
-    errEl.textContent = '兩次輸入不一致'; errEl.style.display = 'block'; return;
-  }
-  if (p1 === 'abcd1234') {
-    errEl.textContent = '新密碼不能與初始密碼相同'; errEl.style.display = 'block'; return;
-  }
-  // 更新密碼
-  const users = loadUsers();
-  const idx = users.findIndex(u => u.username === currentUser.username);
-  if (idx >= 0) {
-    users[idx].password = p1;
-    users[idx].mustChangePwd = false;
-    saveUsers(users);
-    currentUser.password = p1;
-    currentUser.mustChangePwd = false;
-  }
+  if (_omsAuthUser && _omsAuthUser.user_metadata) _omsAuthUser.user_metadata.must_change = false;
+  currentUser.mustChangePwd = false;
   document.getElementById('forcePwdOverlay').style.display = 'none';
-  // v251: 改完密碼視同驗證，記錄 7 天並進入 OMS
-  markOmsVerified(currentUser.username);
   document.getElementById('syncHubPage').classList.remove('show');
   showMainApp();
   showToast('密碼已更新，請妥善保管');
@@ -7548,34 +7617,19 @@ function enterOMS() {
     showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
     return;
   }
-  // v248: 即時從 Supabase 讀取最新 must_change_pwd
-  // v251: 加入進 OMS 密碼驗證（7 天免驗）
-  (async () => {
-    try {
-      const rows = await sbSelect('oms_users', 'username=eq.' + encodeURIComponent(currentUser.username));
-      if (rows && rows.length > 0) {
-        currentUser.mustChangePwd = rows[0].must_change_pwd === true;
-        currentUser.password = rows[0].password;
-      }
-    } catch(e) {
-      console.warn('enterOMS: 無法讀取最新權限，使用快取', e);
-    }
-    // 首次登入/被重設 → 先改密碼（改完視同驗證）
-    if (checkMustChangePwd(currentUser)) return;
-    // 7 天內這台電腦驗證過 → 直接進
-    if (isOmsVerified(currentUser.username)) {
-      document.getElementById('syncHubPage').classList.remove('show');
-      showMainApp();
-      return;
-    }
-    // 否則要求輸入密碼驗證
-    showOmsVerifyModal();
-  })();
+  // v264：進 OMS 改用 Supabase Auth。本次瀏覽器 session 已登入(有 JWT) → 直接進；否則跳密碼登入
+  if (_omsJWT) {
+    document.getElementById('syncHubPage').classList.remove('show');
+    showMainApp();
+    return;
+  }
+  showOmsVerifyModal();
 }
 
 function syncHubLogout() {
   document.getElementById('syncHubPage').classList.remove('show');
   currentUser = null;
+  clearAuthSession();
   try { sessionStorage.removeItem(OMS_SESSION_KEY); } catch(e) {}
   showAuthPage();
 }
@@ -7899,6 +7953,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function doLogout() {
   sessionStorage.removeItem(OMS_SESSION_KEY);
+  clearAuthSession();
   currentUser = null;
   closeUserMenu();
   // 登出回到登入頁
@@ -8081,8 +8136,34 @@ const _origEnterFactory = enterFactory;
 // --- 使用者管理 ---
 function openUsersPage() {
   closeUserMenu();
-  renderUsersTable();
   document.getElementById('usersPage').classList.remove('hidden');
+  loadProfileUsers();   // v264：使用者管理改讀 synchub_profiles（經 Edge Function）
+}
+
+// ====== v264 (2b)：使用者管理走 Edge Function（synchub_profiles + Auth）======
+let profileUsers = [];
+async function sbCallAdminFn(action, payload) {
+  const res = await fetch(SB_URL + '/functions/v1/synchub-admin-users', {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (_omsJWT || SB_KEY), 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ action }, payload || {})),
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error || ('操作失敗 ' + res.status));
+  return j;
+}
+async function loadProfileUsers() {
+  try {
+    const j = await sbCallAdminFn('list');
+    profileUsers = (j.users || []).map(p => ({
+      ...p, createdAt: p.created_at, empId: p.emp_id, mustChangePwd: p.must_change_pwd,
+    }));
+  } catch (e) {
+    console.error('loadProfileUsers:', e);
+    showToast('讀取帳號失敗：' + e.message, 'error');
+    profileUsers = [];
+  }
+  renderUsersTable();
 }
 
 function closeUsersPage() {
@@ -8129,7 +8210,7 @@ function renderUsersTable() {
 
   const buCodeMap = {'信錦台北':'SHQ','信鋐科技':'XBU','組裝產品事業群':'ABU','自製零件事業群':'MBU','敬得科技':'GBU','陸合企業':'LBU'};
 
-  let users = loadUsers();
+  let users = profileUsers;   // v264：使用者管理改用 synchub_profiles（經 EF 載入）
 
   // 附加排序用欄位
   users = users.map((u, i) => {
@@ -8220,33 +8301,39 @@ function renderUsersTable() {
   }
 }
 
-function toggleUserActive(index) {
-  const users = loadUsers();
-  users[index].active = !users[index].active;
-  saveUsers(users);
-  renderUsersTable();
-  showToast(users[index].active ? '帳號已啟用' : '帳號已停用', 'ok');
+async function toggleUserActive(index) {
+  const u = profileUsers[index];
+  if (!u) return;
+  const newActive = !u.active;
+  try {
+    await sbCallAdminFn('update', { username: u.username, active: newActive });
+    u.active = newActive;
+    renderUsersTable();
+    showToast(newActive ? '帳號已啟用' : '帳號已停用', 'ok');
+  } catch (e) { showToast('失敗：' + e.message, 'error'); }
 }
 
-function removeUser(index) {
-  const users = loadUsers();
-  const u = users[index];
-  if (!confirm('確定要移除「' + u.name + '（' + u.username + '）」的 OMS 權限？\n此操作只移除登入權限，不影響員工資料。')) return;
-  deleteUserFromSB(u.username).catch(e => console.error('deleteUserFromSB:', e));
-  users.splice(index, 1);
-  cachedUsers = users;
-  renderUsersTable();
-  showToast('已移除 ' + u.name + ' 的 OMS 權限');
+async function removeUser(index) {
+  const u = profileUsers[index];
+  if (!u) return;
+  if (!confirm('確定要移除「' + u.name + '（' + u.username + '）」的 OMS 帳號？\n此操作會刪除其登入帳號，不影響員工主檔資料。')) return;
+  try {
+    await sbCallAdminFn('delete', { username: u.username });
+    profileUsers.splice(index, 1);
+    renderUsersTable();
+    showToast('已移除 ' + u.name + ' 的 OMS 帳號');
+  } catch (e) { showToast('移除失敗：' + e.message, 'error'); }
 }
 
-function resetUserPassword(index) {
-  const users = loadUsers();
-  const u = users[index];
-  if (!confirm('確定要將「' + u.name + '」的密碼重設為初始密碼 abcd1234？\n該使用者下次登入時將被要求重新設定密碼。')) return;
-  users[index].password = 'abcd1234';
-  users[index].mustChangePwd = true;
-  saveUsers(users);
-  showToast(u.name + ' 密碼已重設為初始密碼');
+async function resetUserPassword(index) {
+  const u = profileUsers[index];
+  if (!u) return;
+  if (!confirm('確定要將「' + u.name + '」的密碼重設為 oms12345？\n該使用者下次登入時將被要求重新設定密碼。')) return;
+  try {
+    await sbCallAdminFn('resetPassword', { username: u.username });
+    u.mustChangePwd = true;
+    showToast('已重設為 oms12345，請通知本人下次登入修改', 'ok');
+  } catch (e) { showToast('重設失敗：' + e.message, 'error'); }
 }
 
 // === 重設原廠員工資料（admin 限定，v230: 寫入 Supabase）===
@@ -8316,8 +8403,8 @@ function openAddUserModal() {
 
 function openEditUserModal(index) {
   editingUserIndex = index;
-  const users = loadUsers();
-  const u = users[index];
+  const u = profileUsers[index];
+  if (!u) return;
   document.getElementById('userModalTitle').textContent = '編輯使用者';
   document.getElementById('uUsername').value = u.username;
   document.getElementById('uName').value = u.name;
@@ -8344,7 +8431,7 @@ function closeAddUserModal() {
   document.getElementById('userModalOverlay').classList.remove('show');
 }
 
-function saveUserModal() {
+async function saveUserModal() {
   const username = document.getElementById('uUsername').value.trim();
   const name = document.getElementById('uName').value.trim();
   const password = document.getElementById('uPassword').value;
@@ -8369,33 +8456,27 @@ function saveUserModal() {
     if (found) { detectedEmpId = username; break; }
   }
 
-  const users = loadUsers();
   // 將 factories 統一為陣列格式（'ALL' 例外，仍存字串）
   const factoriesStored = (role === 'admin' || role === 'hq_manager' || role === 'group_hr') ? 'ALL'
                         : (Array.isArray(factories) ? factories : []);
-  if (editingUserIndex === -1) {
-    // 新增
-    // v239: 密碼統一預設 abcd1234，不需要 admin 手動填寫
-    if (users.find(u => u.username === username)) { showToast('帳號已存在', 'error'); return; }
-    users.push({
-      id: 'u' + Date.now(), username, password: 'abcd1234', name, role,
-      factories: factoriesStored, bu, empId: detectedEmpId, active: true,
-      mustChangePwd: true, createdAt: new Date().toISOString()
-    });
-    showToast(detectedEmpId ? '使用者已新增（已綁定員工 ' + detectedEmpId + '）' : '使用者已新增', 'ok');
-  } else {
-    // 編輯
-    users[editingUserIndex].name = name;
-    users[editingUserIndex].role = role;
-    users[editingUserIndex].factories = factoriesStored;
-    users[editingUserIndex].bu = bu;
-    if (detectedEmpId) users[editingUserIndex].empId = detectedEmpId;
-    if (password) users[editingUserIndex].password = password;
-    showToast('使用者已更新', 'ok');
+  try {
+    if (editingUserIndex === -1) {
+      // 新增 → EF create（建 Auth 帳號 + synchub_profiles，預設密碼 oms12345）
+      if (profileUsers.find(u => u.username === username)) { showToast('帳號已存在', 'error'); return; }
+      const r = await sbCallAdminFn('create', { username, name, role, factories: factoriesStored, bu, emp_id: detectedEmpId });
+      showToast('使用者已新增 · 初始密碼 ' + (r.default_password || 'oms12345') + '（首次登入須改）', 'ok');
+    } else {
+      // 編輯 → EF update（以原 username 為鍵；不改密碼）
+      const orig = profileUsers[editingUserIndex];
+      await sbCallAdminFn('update', { username: orig.username, name, role, factories: factoriesStored, bu });
+      showToast('使用者已更新', 'ok');
+    }
+  } catch (e) {
+    showToast('儲存失敗：' + e.message, 'error');
+    return;
   }
-  saveUsers(users);
   closeAddUserModal();
-  renderUsersTable();
+  await loadProfileUsers();   // 重新從 EF 載入 + 重繪
 }
 
 // BU checkbox 輔助函數
@@ -8650,6 +8731,8 @@ function viewEmpLog(code, empId, empName) {
 
 // --- 初始化（v230: 先連 Supabase，再呼叫 initAuth）---
 window.addEventListener('load', () => {
+  loadAuthSession();                              // v264：還原本分頁的 Auth JWT
+  if (_omsJWT) startTokenAutoRefresh();
   appInit();
 });
 
