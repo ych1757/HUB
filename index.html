@@ -5430,8 +5430,7 @@ async function appInit() {
       await sbUpsert('oms_users', [def], 'username');
       cachedUsers = [sbRowToUser({ ...def, id:'', created_at: new Date().toISOString() })];
     }
-    setMsg('載入異動紀錄…');
-    cachedLogs = await loadLogsFromSB();
+    // v267：異動紀錄(change_log)改到進 OMS(已過 Auth)後才載入(見 ensureFullEmployees)，以便對它上 RLS
     setMsg('完成');
   } catch(e) {
     setMsg('❌ 連線失敗：' + e.message);
@@ -7664,6 +7663,7 @@ function showSyncHubToast(msg) {
 
 // v266：完整 employees（含敏感欄）只在進 OMS（已過 Auth、有 JWT）後載入；
 // 這樣登入前記憶體只有精簡名單，之後 employees 全表上 RLS 也不會弄壞登入前畫面。
+// v267：異動紀錄(change_log)也一併在這裡（登入後）載入，以便對它上 RLS。
 let _fullEmpLoaded = false;
 async function ensureFullEmployees() {
   if (_fullEmpLoaded || !_omsJWT) return;
@@ -7673,9 +7673,10 @@ async function ensureFullEmployees() {
     if (overlay) overlay.style.display = 'flex';
     if (msg) msg.textContent = '載入員工資料…';
     employees = await loadEmployeesFromSB();
+    cachedLogs = await loadLogsFromSB();   // v267：異動紀錄改到登入後才載入
     _fullEmpLoaded = true;
   } catch (e) {
-    console.error('載入完整員工資料失敗', e);
+    console.error('載入完整資料失敗', e);
   } finally {
     if (overlay) overlay.style.display = 'none';
   }
