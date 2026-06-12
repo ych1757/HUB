@@ -6262,7 +6262,10 @@ function refreshEmpTable(code) {
       '</th>';
   }).join('') + '<th class="col-actions" style="width:88px;">操作</th>';
   // 明確設定表格總寬＝各欄相加，欄寬固定不受內容影響（避免內容撐欄、透出凍結欄）
-  document.getElementById('empTable').style.width = _tblW + 'px';
+  // v271：同時強制 inline table-layout:fixed，確保欄寬由 th 寬度決定、拖曳不連動
+  const _empTbl = document.getElementById('empTable');
+  _empTbl.style.tableLayout = 'fixed';
+  _empTbl.style.width = _tblW + 'px';
 
   const tbody = document.getElementById('empTableBody');
   if (!list.length) {
@@ -6614,24 +6617,22 @@ function startColResize(e, idx) {
   e.stopPropagation();
   const ths = document.querySelectorAll('#empTableHead th');
   const _tbl = document.getElementById('empTable');
-  // v271：拖曳開始先把每一欄「釘死」在目前實際寬度、表格總寬＝各欄相加，
-  // 消除欄寬與表格總寬不一致 → 避免 table-layout:fixed 重新分配（別欄跟著動）
-  let _sumW = 0;
-  ths.forEach(th => { const w = th.offsetWidth; th.style.width = w + 'px'; _sumW += w; });
-  if (_tbl) _tbl.style.width = _sumW + 'px';
+  // v271(保險版)：強制 inline table-layout:fixed（行內優先，避免被當成 auto 導致連動）；
+  // 記下所有欄起始寬度，拖曳時每幀「重設全部欄寬」（別欄維持起始、被拉的設新值），表格寬＝相加。
+  const startWidths = Array.from(ths).map(th => th.offsetWidth);
+  if (_tbl) { _tbl.style.tableLayout = 'fixed'; _tbl.style.width = startWidths.reduce((a, b) => a + b, 0) + 'px'; }
+  ths.forEach((th, i) => { th.style.width = startWidths[i] + 'px'; });
 
   _resizeTh = ths[idx];
   _resizeStartX = e.clientX;
-  _resizeStartW = _resizeTh.offsetWidth;
+  const _startW = startWidths[idx];
   e.target.classList.add('resizing');
 
-  const _tblStartW = _tbl ? _tbl.offsetWidth : 0;
   const onMove = mv => {
-    const diff = mv.clientX - _resizeStartX;
-    const newW = Math.max(40, _resizeStartW + diff);
-    const applied = newW - _resizeStartW;  // 實際寬度變化
-    _resizeTh.style.width = newW + 'px';
-    if (_tbl) _tbl.style.width = (_tblStartW + applied) + 'px';  // 表格同步加寬，不擠壓別欄
+    const newW = Math.max(40, _startW + (mv.clientX - _resizeStartX));
+    let sum = 0;
+    ths.forEach((th, i) => { const w = (i === idx) ? newW : startWidths[i]; th.style.width = w + 'px'; sum += w; });
+    if (_tbl) _tbl.style.width = sum + 'px';
   };
   const onUp = () => {
     e.target.classList.remove('resizing');
