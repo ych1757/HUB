@@ -9784,7 +9784,7 @@ function openLogPage() {
   // v270：操作人下拉只列「能編輯員工資料」的角色（admin/集團HR/廠區HR），其餘不會是操作人
   users.filter(u => ['admin','group_hr','hr'].includes(u.role)).forEach(u => {
     const opt = document.createElement('option');
-    opt.value = u.username;
+    opt.value = u.name;   // v270：紀錄裡存的是操作人姓名(e.operator)，故下拉值用姓名才比得中
     opt.textContent = u.name;
     opSel.appendChild(opt);
   });
@@ -9826,7 +9826,7 @@ function renderLogPage() {
 
   if (filterFactory)  entries = entries.filter(e => e.factoryCode === filterFactory);
   if (filterAction)   entries = entries.filter(e => (e.action||'').includes(filterAction));
-  if (filterOperator) entries = entries.filter(e => e.operatorId === filterOperator);
+  if (filterOperator) entries = entries.filter(e => e.operator === filterOperator);   // v270：紀錄存的是姓名(operator)，非 operatorId
   if (filterKeyword) {
     const kw = filterKeyword.toLowerCase();
     entries = entries.filter(e => {
@@ -9903,7 +9903,7 @@ function exportLogCSV() {
 
   if (filterFactory)  entries = entries.filter(e => e.factoryCode === filterFactory);
   if (filterAction)   entries = entries.filter(e => (e.action||'').includes(filterAction));
-  if (filterOperator) entries = entries.filter(e => e.operatorId === filterOperator);
+  if (filterOperator) entries = entries.filter(e => e.operator === filterOperator);   // v270：紀錄存的是姓名(operator)，非 operatorId
   if (filterKeyword) {
     const kw = filterKeyword.toLowerCase();
     entries = entries.filter(e => {
