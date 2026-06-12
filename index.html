@@ -5330,7 +5330,7 @@ async function submitOmsVerify() {
   try {
     await sbAuthSignIn(email, pwd);
   } catch (e) {
-    errEl.textContent = (e.status === 400 || e.status === 401) ? '密碼錯誤' : ('登入失敗：' + e.message);
+    errEl.textContent = (e.status === 400 || e.status === 401) ? '密碼錯誤，或此帳號已停用，請洽 DTO' : ('登入失敗：' + e.message);
     errEl.style.display = 'block';
     document.getElementById('omsVerifyPwd').value = '';
     return;
