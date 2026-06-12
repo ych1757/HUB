@@ -6829,6 +6829,20 @@ function batchLogMsg(msg, cls) {
   box.scrollTop = box.scrollHeight;
 }
 
+// v272：匯入合併——匯入列中「空的欄位」用現有員工的值補回，避免把沒帶到的欄位覆蓋成空（防誤清資料）
+function mergeImportRow(imp, existing) {
+  if (!existing) return imp;
+  const out = Object.assign({}, imp);
+  Object.keys(out).forEach(k => {
+    if (k === '_ts') return;
+    const v = out[k];
+    const isEmpty = (v === undefined || v === null || (typeof v === 'string' && v.trim() === ''));
+    if (isEmpty && existing[k] !== undefined && existing[k] !== null && String(existing[k]).trim() !== '') {
+      out[k] = existing[k];
+    }
+  });
+  return out;
+}
 async function doBatchImport() {
   if (!currentFactory || !activeBatchData) return;
   const code = currentFactory.code;
@@ -6844,6 +6858,9 @@ async function doBatchImport() {
     }
   }
   const data = activeBatchData;
+  // v272：先記下現有員工(by 工號)，供追加模式合併時用現有值補空欄（須在替換模式清表前擷取）
+  const _existingById = {};
+  (employees[code] || []).forEach(e => { if (e.empId) _existingById[e.empId] = e; });
 
   document.getElementById('batchImportBtn').disabled = true;
   document.getElementById('batchLog').textContent = '';
@@ -6884,7 +6901,11 @@ async function doBatchImport() {
   // v241: 追加模式 — 只送這次 Excel 的資料，用 UPSERT（工號衝突就更新）
   batchLogMsg('正在寫入 Supabase（追加模式）...');
   try {
-    const newRows = data.map(emp => employeeToSbRow(emp, code));
+    // v272：追加模式合併——空欄用現有值補回、不覆蓋成空；替換模式維持全覆蓋
+    const newRows = data.map(emp => {
+      const ex = (importMode !== 'replace') ? _existingById[emp.empId] : null;
+      return employeeToSbRow(ex ? mergeImportRow(emp, ex) : emp, code);
+    });
     const BATCH = 50;
     for (let j = 0; j < newRows.length; j += BATCH) {
       const chunk = newRows.slice(j, j + BATCH);
