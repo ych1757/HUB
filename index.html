@@ -4214,6 +4214,37 @@
     <button onclick="resetEmployeesToFactory()" title="清空 localStorage 並重灌程式碼預載的員工資料（SY+SH+FQ）" style="font-size:11px;margin-left:auto;background:rgba(212,43,58,0.08);border:1px solid rgba(212,43,58,0.4);color:#D42B3A;padding:6px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;">⟲ 重設原廠員工資料</button>
     <button class="btn btn-primary" onclick="openAddUserModal()" style="font-size:11px;">＋ 新增使用者</button>
   </div>
+  <!-- v270：角色權限說明（可收合，給管理者隨時對照） -->
+  <details style="margin:0 16px 12px;border:1px solid var(--line-soft);border-radius:8px;background:#fff;overflow:hidden;">
+    <summary style="cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600;color:var(--navy);background:rgba(30,94,184,0.06);">ℹ️ 角色權限說明（點開查看）</summary>
+    <div style="padding:12px 14px;overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px;">
+        <thead>
+          <tr style="background:rgba(30,94,184,0.08);color:var(--navy);">
+            <th style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;">角色（代碼）</th>
+            <th style="padding:6px 8px;border:1px solid var(--line-soft);">範圍</th>
+            <th style="padding:6px 8px;border:1px solid var(--line-soft);">員工資料</th>
+            <th style="padding:6px 8px;border:1px solid var(--line-soft);">異動紀錄</th>
+            <th style="padding:6px 8px;border:1px solid var(--line-soft);">使用者管理</th>
+            <th style="padding:6px 8px;border:1px solid var(--line-soft);">戰情看板</th>
+          </tr>
+        </thead>
+        <tbody style="text-align:center;color:var(--text-main);">
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>集團主管</b> <span style="color:var(--text-soft);">admin</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">全集團</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">增刪改</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">可看</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">可管理</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">全集團</td></tr>
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>集團 HR</b> <span style="color:var(--text-soft);">group_hr</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">全集團</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">增改（不可刪）</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">全集團</td></tr>
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>集團主管</b> <span style="color:var(--text-soft);">hq_manager</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">全集團</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">唯讀</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">全集團</td></tr>
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>BU 主管</b> <span style="color:var(--text-soft);">bu_manager</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">多 BU</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">唯讀</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">自己 BU</td></tr>
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>廠區 HR</b> <span style="color:var(--text-soft);">hr</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">多廠區</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">增改（本廠）</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">本廠</td></tr>
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>廠區主管</b> <span style="color:var(--text-soft);">viewer</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">多廠區</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">唯讀</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);">本廠</td></tr>
+          <tr><td style="text-align:left;padding:6px 8px;border:1px solid var(--line-soft);white-space:nowrap;"><b>信錦員工</b> <span style="color:var(--text-soft);">no_oms</span></td><td style="padding:6px 8px;border:1px solid var(--line-soft);">—</td><td style="padding:6px 8px;border:1px solid var(--line-soft);" colspan="4">可進 SyncHub，無法進入 OMS</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:8px;font-size:11px;color:var(--text-soft);line-height:1.7;">
+        · 員工資料的「新增／修改／匯入」只有 <b>集團主管、集團 HR、廠區 HR</b> 能執行，其他角色唯讀。<br>
+        · 「刪除員工」與「查看異動紀錄／管理使用者」僅 <b>集團主管（admin）</b>。
+      </div>
+    </div>
+  </details>
   <div class="users-body">
     <div class="users-table-wrapper">
     <table class="users-table" id="usersTable">
@@ -5255,7 +5286,8 @@ async function deleteEmpFromSB(empId) {
   await sbDelete('employees', 'emp_id=eq.' + encodeURIComponent(empId));
 }
 async function loadUsersFromSB() {
-  const rows = await sbSelect('oms_users', '');
+  // v269：帳號名單改讀正本 synchub_profiles 的精簡視圖 oms_roster（舊表 oms_users 已淘汰）
+  const rows = await sbSelect('oms_roster', '');
   return rows.map(sbRowToUser);
 }
 async function saveUserToSB(user) {
@@ -5424,12 +5456,7 @@ async function appInit() {
       await persistAllToSB();
     }
     setMsg('載入使用者資料…');
-    cachedUsers = await loadUsersFromSB();
-    if (!cachedUsers.length) {
-      const def = { username:'admin', password:'DTO2026', name:'DTO', role:'admin', factories:'ALL', systems:['OMS','QMS','PMP','CFS'], active:true };
-      await sbUpsert('oms_users', [def], 'username');
-      cachedUsers = [sbRowToUser({ ...def, id:'', created_at: new Date().toISOString() })];
-    }
+    cachedUsers = await loadUsersFromSB();   // v269：來源＝oms_roster(synchub_profiles 正本)；移除舊的寫 oms_users 種子
     // v267：異動紀錄(change_log)改到進 OMS(已過 Auth)後才載入(見 ensureFullEmployees)，以便對它上 RLS
     setMsg('完成');
   } catch(e) {
@@ -7342,9 +7369,9 @@ const BATCH_DATA = {
 
 // --- 資料層 ---
 // === 系統運行模式 ===
-// false = 開發模式：未授權員工也可登入（自動給予 HR 角色，方便 demo）
-// true  = 正式模式：僅 oms_users_v1 內的授權員工可登入
-const PRODUCTION_MODE = false;
+// v269 起登入已走 Supabase Auth，此旗標目前只控制使用者管理頁的模式標籤文字
+// true = 正式模式（僅授權帳號可進 OMS，符合 Auth 現況）
+const PRODUCTION_MODE = true;
 
 const OMS_USERS_KEY   = 'oms_users_v1';
 const OMS_SESSION_KEY = 'oms_session_v1';
@@ -9754,9 +9781,10 @@ function openLogPage() {
   const opSel = document.getElementById('logFilterOperator');
   const users = loadUsers();
   opSel.innerHTML = '<option value="">全部操作人</option>';
-  users.forEach(u => {
+  // v270：操作人下拉只列「能編輯員工資料」的角色（admin/集團HR/廠區HR），其餘不會是操作人
+  users.filter(u => ['admin','group_hr','hr'].includes(u.role)).forEach(u => {
     const opt = document.createElement('option');
-    opt.value = u.username;
+    opt.value = u.name;   // v270：紀錄裡存的是操作人姓名(e.operator)，故下拉值用姓名才比得中
     opt.textContent = u.name;
     opSel.appendChild(opt);
   });
@@ -9798,7 +9826,7 @@ function renderLogPage() {
 
   if (filterFactory)  entries = entries.filter(e => e.factoryCode === filterFactory);
   if (filterAction)   entries = entries.filter(e => (e.action||'').includes(filterAction));
-  if (filterOperator) entries = entries.filter(e => e.operatorId === filterOperator);
+  if (filterOperator) entries = entries.filter(e => e.operator === filterOperator);   // v270：紀錄存的是姓名(operator)，非 operatorId
   if (filterKeyword) {
     const kw = filterKeyword.toLowerCase();
     entries = entries.filter(e => {
@@ -9875,7 +9903,7 @@ function exportLogCSV() {
 
   if (filterFactory)  entries = entries.filter(e => e.factoryCode === filterFactory);
   if (filterAction)   entries = entries.filter(e => (e.action||'').includes(filterAction));
-  if (filterOperator) entries = entries.filter(e => e.operatorId === filterOperator);
+  if (filterOperator) entries = entries.filter(e => e.operator === filterOperator);   // v270：紀錄存的是姓名(operator)，非 operatorId
   if (filterKeyword) {
     const kw = filterKeyword.toLowerCase();
     entries = entries.filter(e => {
