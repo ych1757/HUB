@@ -4299,7 +4299,7 @@
       <span style="font-size:11px;color:var(--text-soft);letter-spacing:1px;">篩選</span>
       <select id="saFltFactory" onchange="saFilter.factory=this.value;saFilter.dept='';saPopulateFilterDropdowns();renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
       <select id="saFltDept" onchange="saFilter.dept=this.value;renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
-      <select id="saFltSystem" onchange="saFilter.system=this.value;renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <span id="saFltSystem" style="display:inline-flex;gap:10px;align-items:center;padding:5px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></span>
       <input id="saFltKeyword" type="text" placeholder="姓名 / 工號 / Email" oninput="saFilter.keyword=this.value;renderSystemAccessTable();"
         style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;width:180px;">
       <button onclick="saClearFilter()" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">清除</button>
@@ -6690,8 +6690,8 @@ function filterTable() {
     let kwOk = true;
     if (keyword) {
       kwOk = field === 'all'
-        ? Object.values(e).some(v => String(v||'').toLowerCase().includes(keyword))
-        : String(e[field]||'').toLowerCase().includes(keyword);
+        ? Object.values(e).some(v => String(v||'').toLowerCase().includes(keyword) || noDiacritic(String(v||'')).includes(noDiacritic(keyword)))
+        : (String(e[field]||'').toLowerCase().includes(keyword) || noDiacritic(String(e[field]||'')).includes(noDiacritic(keyword)));
     }
     const show = statusOk && kwOk;
     tr.style.display = show ? '' : 'none';
@@ -7679,6 +7679,10 @@ function toSimplified(str) {
 function toTraditional(str) {
   return str.split('').map(c => SIMP_TO_TRAD[c] || c).join('');
 }
+// 去越南文聲調符號(含 đ/Đ) → 純英文小寫，讓越南名可用「免聲調」搜尋
+function noDiacritic(str) {
+  return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+}
 
 function showSyncHub() {
   document.getElementById('authPage').style.display = 'none';
@@ -7923,7 +7927,8 @@ function onAuthEmpSearch() {
       return name.includes(kw) || name.includes(kwSimp) || name.includes(kwTrad) ||
              nameSimp.includes(kw) || nameTrad.includes(kw) ||
              (e.empId||'').toLowerCase().includes(kw) ||
-             (e.engName||'').toLowerCase().includes(kw);
+             (e.engName||'').toLowerCase().includes(kw) ||
+             noDiacritic(name).includes(noDiacritic(kw));
     });
     if (!matched.length) {
       listEl.innerHTML = '<div class="auth-emp-empty">查無符合的員工</div>';
@@ -8690,6 +8695,7 @@ let editingIndex = -1;
 const EDIT_FIELDS = [
   { key: 'empId',     label: '工號',     type: 'text',   readonly: true },
   { key: 'name',      label: '姓名',     type: 'text' },
+  { key: 'engName',   label: '英文名',   type: 'text',   ph: 'John Wang' },
   { key: 'department', label: '部門',    type: 'text' },
   { key: 'joinDate',  label: '到職日',   type: 'date' },
   { key: 'mail',      label: 'Email',    type: 'email' },
@@ -8883,7 +8889,8 @@ function searchEmpForUser(keyword) {
       const empId = e.empId || '';
       if (name.includes(keyword) || empId.toLowerCase().includes(keyword.toLowerCase()) ||
           toSimplified(name).includes(toSimplified(keyword)) ||
-          toTraditional(name).includes(toTraditional(keyword))) {
+          toTraditional(name).includes(toTraditional(keyword)) ||
+          noDiacritic(name).includes(noDiacritic(keyword))) {
         results.push({ code, name, empId, dept: e.dept || '' });
       }
     });
@@ -8951,7 +8958,7 @@ const SYNCHUB_SYSTEMS = [
 
 let systemAccessRows = [];  // 記憶體快取：[{factory_code, emp_id, name, eng_name, dept, title, email, systems:[]}]
 let saSearchResults = {};   // 搜尋結果暫存（key=工號），加入時用工號回查完整資料
-const saFilter = { factory: '', dept: '', keyword: '', system: '' };  // 名單篩選狀態
+const saFilter = { factory: '', dept: '', keyword: '', systems: [] };  // 名單篩選狀態
 let saBatchSelected = new Set();  // 批量加入：選中的工號
 let saSort = { key: 'factory_code', dir: 1 };  // 名單排序（dir：1 升冪、-1 降冪）
 
@@ -9069,17 +9076,24 @@ function saApplyFilter(rows) {
   return rows.filter(r => {
     if (saFilter.factory && r.factory_code !== saFilter.factory) return false;
     if (saFilter.dept && r.dept !== saFilter.dept) return false;
-    if (saFilter.system && !(r.systems || []).includes(saFilter.system)) return false;
+    if (saFilter.systems.length && !(r.systems || []).some(s => saFilter.systems.includes(s))) return false;
     if (kw) {
       const hay = [r.name, r.eng_name, r.emp_id, r.email].map(x => (x || '').toLowerCase()).join(' ');
-      if (!hay.includes(kw)) return false;
+      if (!hay.includes(kw) && !noDiacritic(hay).includes(noDiacritic(kw))) return false;
     }
     return true;
   });
 }
 
+function saToggleSysFilter(cb) {
+  const c = cb.value;
+  if (cb.checked) { if (!saFilter.systems.includes(c)) saFilter.systems.push(c); }
+  else { saFilter.systems = saFilter.systems.filter(x => x !== c); }
+  renderSystemAccessTable();
+}
+
 function saClearFilter() {
-  saFilter.factory = ''; saFilter.dept = ''; saFilter.keyword = ''; saFilter.system = '';
+  saFilter.factory = ''; saFilter.dept = ''; saFilter.keyword = ''; saFilter.systems = [];
   const kwEl = document.getElementById('saFltKeyword'); if (kwEl) kwEl.value = '';
   saPopulateFilterDropdowns();
   renderSystemAccessTable();
@@ -9102,8 +9116,7 @@ function saPopulateFilterDropdowns() {
   }
   const sysSel = document.getElementById('saFltSystem');
   if (sysSel) {
-    sysSel.innerHTML = '<option value="">全部系統</option>' + SYNCHUB_SYSTEMS.map(s => `<option value="${s.code}">可用 ${s.code}</option>`).join('');
-    sysSel.value = saFilter.system;
+    sysSel.innerHTML = '<span style="color:var(--text-soft);">系統</span>' + SYNCHUB_SYSTEMS.map(s => `<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;"><input type="checkbox" value="${s.code}" ${saFilter.systems.includes(s.code) ? 'checked' : ''} onchange="saToggleSysFilter(this)" style="cursor:pointer;margin:0;">${s.code}</label>`).join('');
   }
 }
 
@@ -9148,7 +9161,8 @@ function saBatchRenderEmps() {
       const hay = [e.name, e.engName, e.empId, e.mail, e.title].map(x => (x || '').toLowerCase()).join(' ');
       return hay.includes(kw) ||
         toSimplified(e.name || '').includes(toSimplified(kw)) ||
-        toTraditional(e.name || '').includes(toTraditional(kw));
+        toTraditional(e.name || '').includes(toTraditional(kw)) ||
+        noDiacritic(hay).includes(noDiacritic(kw));
     });
   }
   const cont = document.getElementById('saBatchEmpList');
@@ -9268,7 +9282,8 @@ function saSearchEmp(keyword) {
       const matchKw = !keyword ||
         name.includes(keyword) || empId.toLowerCase().includes(keyword.toLowerCase()) ||
         toSimplified(name).includes(toSimplified(keyword)) ||
-        toTraditional(name).includes(toTraditional(keyword));
+        toTraditional(name).includes(toTraditional(keyword)) ||
+        noDiacritic(name).includes(noDiacritic(keyword));
       if (matchKw) {
         const item = { code, empId, name, eng_name: e.engName || '', dept: e.department || '', title: e.title || '', email: e.mail || '' };
         results.push(item);
