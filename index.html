@@ -4440,9 +4440,9 @@
         <div class="edit-field" id="uPasswordField">
           <label>密碼</label>
           <div style="padding:8px 12px;background:var(--bg-tint);border-radius:6px;font-size:12px;color:var(--text-soft);border:1px solid var(--line-soft);">
-            初始密碼：<strong style="color:var(--navy);letter-spacing:2px;">abcd1234</strong>（使用者首次登入須強制重設）
+            初始密碼：<strong style="color:var(--navy);letter-spacing:2px;">oms12345</strong>（使用者首次登入須強制重設）
           </div>
-          <input id="uPassword" type="hidden" value="abcd1234">
+          <input id="uPassword" type="hidden" value="">
         </div>
         <div class="edit-field">
           <label>角色</label>
@@ -5444,7 +5444,7 @@ async function submitForcePwd() {
   if (p1.length < 8) { errEl.textContent = '密碼至少 8 碼'; errEl.style.display = 'block'; return; }
   if (!/[A-Za-z]/.test(p1) || !/[0-9]/.test(p1)) { errEl.textContent = '密碼需含英文字母與數字'; errEl.style.display = 'block'; return; }
   if (p1 !== p2) { errEl.textContent = '兩次輸入不一致'; errEl.style.display = 'block'; return; }
-  if (p1 === 'abcd1234' || p1 === 'Oms12345') { errEl.textContent = '不能使用預設密碼，請另設'; errEl.style.display = 'block'; return; }
+  if (p1.toLowerCase() === 'oms12345') { errEl.textContent = '不能使用預設密碼，請另設'; errEl.style.display = 'block'; return; }
   // v264：走 Supabase Auth 改密 + 清 must_change
   try {
     await sbAuthUpdatePassword(p1);
