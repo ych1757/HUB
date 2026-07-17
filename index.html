@@ -5096,6 +5096,24 @@ async function sbSelect(table, qs) {
   if (!res.ok) throw new Error('sbSelect ' + table + ': ' + await res.text());
   return res.json();
 }
+
+// v280：Supabase(PostgREST) 單次最多回 1000 筆，超過會被靜默截斷。
+// 大表一律用這支分頁撈到完（qs 請帶穩定排序，否則分頁會漏/重覆）。
+// maxRows 可選：只要前 N 筆（如異動紀錄只取最近 2000）。
+async function sbSelectAll(table, qs, maxRows) {
+  const PAGE = 1000;
+  let all = [], off = 0;
+  for (;;) {
+    const want = maxRows ? Math.min(PAGE, maxRows - all.length) : PAGE;
+    if (want <= 0) break;
+    const q = (qs ? qs + '&' : '') + 'limit=' + want + '&offset=' + off;
+    const chunk = await sbSelect(table, q);
+    all = all.concat(chunk);
+    if (chunk.length < want) break;   // 沒有更多了
+    off += chunk.length;
+  }
+  return all;
+}
 async function sbUpsert(table, data, conflict) {
   const url = SB_URL + '/rest/v1/' + table + (conflict ? '?on_conflict=' + conflict : '');
   const res = await fetch(url, {
@@ -5237,7 +5255,7 @@ let cachedUsers = [];
 let cachedLogs = { _global: [] };
 
 async function loadEmployeesFromSB() {
-  const rows = await sbSelect('employees', 'order=factory_code,emp_id');
+  const rows = await sbSelectAll('employees', 'order=factory_code,emp_id');
   const result = {};
   for (const row of rows) {
     const code = row.factory_code;
@@ -5249,7 +5267,7 @@ async function loadEmployeesFromSB() {
 // v266：登入前只讀公開精簡 view（僅在職、4 欄：工號/姓名/英文名/廠區），不含任何敏感 PII。
 // 完整 employees 待進 OMS（已過 Auth、有 JWT）後由 ensureFullEmployees() 補齊。
 async function loadEmployeesPickerFromSB() {
-  const rows = await sbSelect('employees_picker', 'order=factory_code,emp_id');
+  const rows = await sbSelectAll('employees_picker', 'order=factory_code,emp_id');
   const fList = (typeof FACTORIES !== 'undefined') ? FACTORIES : [];
   const result = {};
   for (const row of rows) {
@@ -5305,7 +5323,7 @@ async function deleteUserFromSB(username) {
   await sbDelete('oms_users', 'username=eq.' + encodeURIComponent(username));
 }
 async function loadLogsFromSB() {
-  const rows = await sbSelect('change_log', 'order=time.desc&limit=2000');
+  const rows = await sbSelectAll('change_log', 'order=time.desc', 2000);
   const result = { _global: [] };
   for (const row of rows) {
     const entry = sbRowToLog(row);
@@ -8979,7 +8997,7 @@ async function openSystemAccessPage() {
   document.getElementById('systemAccessBody').innerHTML =
     '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:20px;text-align:center;color:var(--text-soft);">載入中…</td></tr>';
   try {
-    const rows = await sbSelect('system_access', 'order=factory_code.asc');
+    const rows = await sbSelectAll('system_access', 'order=factory_code.asc,emp_id.asc');
     systemAccessRows = rows.map(r => ({
       factory_code: r.factory_code || '',
       emp_id: r.emp_id,
