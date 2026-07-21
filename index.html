@@ -4219,7 +4219,7 @@
     <button class="btn btn-ghost" onclick="closeUsersPage()" style="font-size:12px;">← 返回</button>
     <span class="users-title">使用者管理</span>
     <span id="prodModeIndicator" style="margin-left:12px;font-size:10px;letter-spacing:1px;padding:3px 9px;border-radius:10px;"></span>
-    <button onclick="resetEmployeesToFactory()" title="清空 localStorage 並重灌程式碼預載的員工資料（SY+SH+FQ）" style="font-size:11px;margin-left:auto;background:rgba(212,43,58,0.08);border:1px solid rgba(212,43,58,0.4);color:#D42B3A;padding:6px 12px;border-radius:4px;cursor:pointer;letter-spacing:1px;">⟲ 重設原廠員工資料</button>
+    <!-- v282：移除「重設原廠員工資料」按鈕（會清空全部真實員工+異動紀錄重灌舊種子，上線後為災難級危險操作） -->
     <button class="btn btn-primary" onclick="openAddUserModal()" style="font-size:11px;">＋ 新增使用者</button>
   </div>
   <!-- v270：角色權限說明（可收合，給管理者隨時對照） -->
@@ -4254,6 +4254,14 @@
     </div>
   </details>
   <div class="users-body">
+    <div class="users-filter" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line-soft);">
+      <span style="font-size:11px;color:var(--text-soft);letter-spacing:1px;">篩選</span>
+      <select id="uFltFactory" onchange="userFilter.factory=this.value;renderUsersTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <select id="uFltRole" onchange="userFilter.role=this.value;renderUsersTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
+      <input id="uFltKeyword" type="text" placeholder="姓名 / 帳號" oninput="userFilter.keyword=this.value;renderUsersTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;width:160px;">
+      <button onclick="clearUserFilter()" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">清除</button>
+      <span id="uFltCount" style="margin-left:auto;font-size:11px;color:var(--text-soft);"></span>
+    </div>
     <div class="users-table-wrapper">
     <table class="users-table" id="usersTable">
       <thead>
@@ -4934,7 +4942,7 @@
           <div class="import-stat"><div class="import-stat-num" id="batchExist">—</div><div class="import-stat-label">現有資料</div></div>
         </div>
         <div class="import-progress-wrap"><div class="import-progress-bar" id="batchProgressBar"></div></div>
-        <div class="import-progress-label" id="batchProgressLabel">請上傳 Excel 或使用預載資料</div>
+        <div class="import-progress-label" id="batchProgressLabel">請上傳員工清冊 Excel</div>
         <div class="import-actions">
           <button class="btn btn-primary" id="batchImportBtn" onclick="doBatchImport()" disabled>&#9654; 開始匯入</button>
           <button class="btn-danger" onclick="clearFactoryData()">清除此廠區資料</button>
@@ -6825,16 +6833,10 @@ function refreshBatchPanel(code) {
   document.getElementById('batchProgressBar').style.width = '0%';
   document.getElementById('batchDoneBanner').classList.remove('show');
 
-  const preload = BATCH_DATA[code];
+  // v282：移除自動預載種子資料——防止誤按一鍵重複匯入；匯入一律須上傳 Excel
   if (activeBatchData) {
     document.getElementById('batchTotal').textContent = activeBatchData.length;
     document.getElementById('batchProgressLabel').textContent = '已解析 Excel · ' + activeBatchData.length + ' 筆 · 點擊「開始匯入」';
-    document.getElementById('batchImportBtn').disabled = false;
-    document.getElementById('batchLog').textContent = '等待匯入指令...';
-  } else if (preload) {
-    activeBatchData = preload;
-    document.getElementById('batchTotal').textContent = preload.length;
-    document.getElementById('batchProgressLabel').textContent = '使用預載資料 · ' + preload.length + ' 筆 · 點擊「開始匯入」';
     document.getElementById('batchImportBtn').disabled = false;
     document.getElementById('batchLog').textContent = '等待匯入指令...';
   } else {
@@ -6842,7 +6844,7 @@ function refreshBatchPanel(code) {
     document.getElementById('batchTotal').textContent = '—';
     document.getElementById('batchProgressLabel').textContent = '請上傳 Excel 檔案';
     document.getElementById('batchImportBtn').disabled = true;
-    document.getElementById('batchLog').textContent = '此廠區無預載資料，請上傳 Excel。';
+    document.getElementById('batchLog').textContent = '請上傳員工清冊 Excel 進行匯入。';
   }
 }
 
@@ -6909,8 +6911,23 @@ async function doBatchImport() {
   }
   let imported = 0;
 
+  // v282：追加模式的「疑似重複」偵測——姓名與現有員工相同但工號不同(可能同名不同人)，事後提示、不擋
+  const suspectDup = [];
+  if (importMode !== 'replace') {
+    const nameIndex = {};
+    (employees[code] || []).forEach(e => { if (e.name) (nameIndex[e.name] = nameIndex[e.name] || []).push(e.empId); });
+    data.forEach(imp => {
+      const ids = nameIndex[imp.name];
+      if (ids && ids.length && !ids.includes(imp.empId)) suspectDup.push({ name: imp.name, impId: imp.empId, exist: ids.join('、') });
+    });
+  }
+
   for (let i = 0; i < data.length; i++) {
-    employees[code].push(Object.assign({ _ts: Date.now() }, data[i]));
+    // v282：以工號去重——已存在就取代(更新)、不再重複 push；沒有才新增
+    const row = Object.assign({ _ts: Date.now() }, data[i]);
+    const pos = (employees[code] || []).findIndex(e => e.empId && e.empId === row.empId);
+    if (pos >= 0) employees[code][pos] = Object.assign(employees[code][pos], row);
+    else employees[code].push(row);
     imported++;
     const pct = Math.round((imported / data.length) * 100);
     document.getElementById('batchProgressBar').style.width = pct + '%';
@@ -6919,7 +6936,7 @@ async function doBatchImport() {
     document.getElementById('batchExist').textContent = (employees[code] || []).length;
 
     if (imported % 10 === 0 || i === data.length - 1) {
-      batchLogMsg('✓ 已匯入第 ' + imported + ' 筆：' + data[i].name + '（' + data[i].empId + '）', 'log-ok');
+      batchLogMsg('✓ 已處理第 ' + imported + ' 筆：' + data[i].name + '（' + data[i].empId + '）', 'log-ok');
     }
     await new Promise(r => setTimeout(r, 10));
   }
@@ -6944,6 +6961,15 @@ async function doBatchImport() {
   }
   batchLogMsg('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   batchLogMsg('✓ 匯入完成！共 ' + imported + ' 筆', 'log-done');
+  // v282：疑似重複提示（姓名相同、工號不同 → 可能同名不同人；已照工號各自建立、未合併）
+  if (suspectDup.length) {
+    batchLogMsg('⚠️ 疑似重複 ' + suspectDup.length + ' 筆（姓名相同但工號不同，請人工確認是否同一人）', 'log-warn');
+    suspectDup.forEach(d => batchLogMsg('   • ' + d.name + '（匯入工號 ' + d.impId + ' ↔ 既有 ' + d.exist + '）', 'log-warn'));
+    alert('⚠️ 偵測到 ' + suspectDup.length + ' 筆「疑似重複」（姓名相同、工號不同）：\n\n' +
+      suspectDup.slice(0, 20).map(d => '• ' + d.name + '（匯入 ' + d.impId + ' ↔ 既有 ' + d.exist + '）').join('\n') +
+      (suspectDup.length > 20 ? '\n…共 ' + suspectDup.length + ' 筆（其餘見下方匯入紀錄）' : '') +
+      '\n\n這些人姓名與現有員工相同、但工號不同，已依工號各自建立（未合併）。若其實是同一人，請自行處理。');
+  }
   document.getElementById('batchProgressLabel').textContent = '匯入完成 ✓ ' + imported + ' / ' + data.length + '（100%）';
   document.getElementById('batchDone').textContent = imported;
   document.getElementById('batchExist').textContent = (employees[code] || []).length;
@@ -8294,6 +8320,13 @@ function openUsersPage() {
 
 // ====== v264 (2b)：使用者管理走 Edge Function（synchub_profiles + Auth）======
 let profileUsers = [];
+// v282：使用者管理篩選狀態（廠區/角色/關鍵字）
+const userFilter = { factory: '', role: '', keyword: '' };
+function clearUserFilter() {
+  userFilter.factory = ''; userFilter.role = ''; userFilter.keyword = '';
+  const kwEl = document.getElementById('uFltKeyword'); if (kwEl) kwEl.value = '';
+  renderUsersTable();
+}
 async function sbCallAdminFn(action, payload) {
   const res = await fetch(SB_URL + '/functions/v1/synchub-admin-users', {
     method: 'POST',
@@ -8350,11 +8383,12 @@ function renderUsersTable() {
 
   // 建立工號→廠區對照表（從已載入的 employees 記憶體資料）
   const empFactoryMap = {};
+  const empNameMap = {};  // v282-D：工號→員工主檔姓名，讓使用者管理姓名跟著主檔（單一來源）
   const empData = (typeof employees !== 'undefined') ? employees : {};
   Object.entries(empData).forEach(([code, list]) => {
     if (Array.isArray(list)) {
       list.forEach(emp => {
-        if (emp && emp.empId) empFactoryMap[emp.empId] = code;
+        if (emp && emp.empId) { empFactoryMap[emp.empId] = code; if (emp.name) empNameMap[emp.empId] = emp.name; }
       });
     }
   });
@@ -8394,8 +8428,33 @@ function renderUsersTable() {
     }
   }
   factoryCode = factoryCode || '—';
-    return { ...u, _idx: i, _scopeText: scopeText, _warning: warning, _factory: factoryCode };
+    return { ...u, name: empNameMap[u.username] || u.name, _idx: i, _scopeText: scopeText, _warning: warning, _factory: factoryCode };
   });
+
+  // v282：填充篩選下拉（用全量 users，避免被篩選後縮小）
+  const _facs = [...new Set(users.map(u => u._factory).filter(x => x && x !== '—'))].sort();
+  const _ffEl = document.getElementById('uFltFactory');
+  if (_ffEl) { _ffEl.innerHTML = '<option value="">全部廠區</option>' + _facs.map(c => `<option value="${c}">${c}</option>`).join(''); _ffEl.value = userFilter.factory; }
+  const _roles = [...new Set(users.map(u => u.role))];
+  const _rEl = document.getElementById('uFltRole');
+  if (_rEl) { _rEl.innerHTML = '<option value="">全部角色</option>' + _roles.map(r => `<option value="${r}">${ROLE_LABELS[r]||r}</option>`).join(''); _rEl.value = userFilter.role; }
+  const _total = users.length;
+
+  // v282：套用篩選（廠區 / 角色 / 關鍵字·免聲調）
+  const _kw = (userFilter.keyword || '').trim();
+  if (userFilter.factory || userFilter.role || _kw) {
+    users = users.filter(u => {
+      if (userFilter.factory && u._factory !== userFilter.factory) return false;
+      if (userFilter.role && u.role !== userFilter.role) return false;
+      if (_kw) {
+        const hay = (u.name || '') + ' ' + (u.username || '');
+        if (!hay.toLowerCase().includes(_kw.toLowerCase()) && !noDiacritic(hay).includes(noDiacritic(_kw))) return false;
+      }
+      return true;
+    });
+  }
+  const _cEl = document.getElementById('uFltCount');
+  if (_cEl) _cEl.textContent = '符合 ' + users.length + ' / 共 ' + _total + ' 人';
 
   // 排序
   const sortFn = (a, b) => {
@@ -9024,6 +9083,16 @@ function closeSystemAccessPage() {
   const inp = document.getElementById('saEmpSearch'); if (inp) inp.value = '';
 }
 
+// v282-E：從員工主檔取即時姓名（工號對應），讓系統資料授權頁姓名跟主檔連動（不用加入當下的快照）
+function masterEmpName(empId) {
+  if (!empId || typeof employees === 'undefined') return '';
+  for (const code in employees) {
+    const list = employees[code];
+    if (Array.isArray(list)) { const e = list.find(x => x && x.empId === empId); if (e) return e.name || ''; }
+  }
+  return '';
+}
+
 function renderSystemAccessTable() {
   // 基本欄位設窄，最右加彈性空白欄吸收多餘寬度→欄位往左集中、系統變多也不掉出畫面
   const cellPad = 'padding:10px 14px;';
@@ -9076,7 +9145,7 @@ function renderSystemAccessTable() {
     return `<tr>
       <td style="${cellPad}font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);font-size:12px;">${r.factory_code || '—'}</td>
       <td style="${cellPad}font-family:'Inter',monospace;font-weight:600;font-size:13px;">${r.emp_id}</td>
-      <td style="${cellPad}font-size:13px;">${saEscapeCell(r.name)}</td>
+      <td style="${cellPad}font-size:13px;">${saEscapeCell(masterEmpName(r.emp_id) || r.name)}</td>
       <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.eng_name)}</td>
       <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.dept)}</td>
       <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.title)}</td>
@@ -9096,7 +9165,7 @@ function saApplyFilter(rows) {
     if (saFilter.dept && r.dept !== saFilter.dept) return false;
     if (saFilter.systems.length && !(r.systems || []).some(s => saFilter.systems.includes(s))) return false;
     if (kw) {
-      const hay = [r.name, r.eng_name, r.emp_id, r.email].map(x => (x || '').toLowerCase()).join(' ');
+      const hay = [r.name, masterEmpName(r.emp_id), r.eng_name, r.emp_id, r.email].map(x => (x || '').toLowerCase()).join(' ');
       if (!hay.includes(kw) && !noDiacritic(hay).includes(noDiacritic(kw))) return false;
     }
     return true;
