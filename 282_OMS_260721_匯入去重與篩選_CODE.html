@@ -9083,6 +9083,16 @@ function closeSystemAccessPage() {
   const inp = document.getElementById('saEmpSearch'); if (inp) inp.value = '';
 }
 
+// v282-E：從員工主檔取即時姓名（工號對應），讓系統資料授權頁姓名跟主檔連動（不用加入當下的快照）
+function masterEmpName(empId) {
+  if (!empId || typeof employees === 'undefined') return '';
+  for (const code in employees) {
+    const list = employees[code];
+    if (Array.isArray(list)) { const e = list.find(x => x && x.empId === empId); if (e) return e.name || ''; }
+  }
+  return '';
+}
+
 function renderSystemAccessTable() {
   // 基本欄位設窄，最右加彈性空白欄吸收多餘寬度→欄位往左集中、系統變多也不掉出畫面
   const cellPad = 'padding:10px 14px;';
@@ -9135,7 +9145,7 @@ function renderSystemAccessTable() {
     return `<tr>
       <td style="${cellPad}font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);font-size:12px;">${r.factory_code || '—'}</td>
       <td style="${cellPad}font-family:'Inter',monospace;font-weight:600;font-size:13px;">${r.emp_id}</td>
-      <td style="${cellPad}font-size:13px;">${saEscapeCell(r.name)}</td>
+      <td style="${cellPad}font-size:13px;">${saEscapeCell(masterEmpName(r.emp_id) || r.name)}</td>
       <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.eng_name)}</td>
       <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.dept)}</td>
       <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.title)}</td>
@@ -9155,7 +9165,7 @@ function saApplyFilter(rows) {
     if (saFilter.dept && r.dept !== saFilter.dept) return false;
     if (saFilter.systems.length && !(r.systems || []).some(s => saFilter.systems.includes(s))) return false;
     if (kw) {
-      const hay = [r.name, r.eng_name, r.emp_id, r.email].map(x => (x || '').toLowerCase()).join(' ');
+      const hay = [r.name, masterEmpName(r.emp_id), r.eng_name, r.emp_id, r.email].map(x => (x || '').toLowerCase()).join(' ');
       if (!hay.includes(kw) && !noDiacritic(hay).includes(noDiacritic(kw))) return false;
     }
     return true;
