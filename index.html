@@ -8378,6 +8378,11 @@ async function loadProfileUsers() {
     showToast('讀取帳號失敗：' + e.message, 'error');
     profileUsers = [];
   }
+  // v284：使用者異動後順手刷新登入判角色用的 cachedUsers(讀 oms_roster)，
+  // 讓 admin 在同一分頁建/改帳號後，該員工免重整就能登入(不再落 no_oms)。
+  // 失敗不影響帳號管理頁(沿用舊快取)，只是同分頁即時性打折。
+  try { cachedUsers = await loadUsersFromSB(); }
+  catch (e) { console.warn('v284 刷新 cachedUsers 失敗，沿用舊快取', e); }
   renderUsersTable();
 }
 
