@@ -2263,6 +2263,23 @@
     letter-spacing: 2px;
     color: #9090A0;
   }
+  /* v283：管理員登入捷徑（比照 MHR 的 .lgadmin，配色換成 OMS 深藍系）。
+     只是一鍵切到 DTO 管理員模式，密碼照樣要打——不是後門。 */
+  .auth-admin { margin-top: 12px; text-align: center; }
+  .auth-admin a {
+    display: inline-block;
+    font-size: 12px;
+    color: var(--navy);
+    background: #EEF3FB;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 14px;
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .auth-admin a:hover { background: #E1EAF8; border-color: #307FE2; }
 
   /* === 員工搜尋下拉清單（登入用） === */
   .auth-emp-list {
@@ -4209,6 +4226,8 @@
 
     <button class="auth-btn" onclick="doLogin()" id="authLoginBtn" disabled>登　入</button>
     <div class="auth-error" id="authError"></div>
+    <!-- v283：管理員登入捷徑（比照 MHR）。點了切到 DTO 管理員模式、密碼照打 -->
+    <div class="auth-admin"><a onclick="fillAdminOMS()">🔑 管理員登入</a></div>
     <div class="auth-footer">DIGITAL TRANSFORMATION OFFICE · 2026</div>
   </div>
 </div>
@@ -7896,6 +7915,17 @@ function initAuthFactorySelect() {
     });
     sel.appendChild(og);
   });
+}
+
+// v283：管理員登入捷徑（比照 MHR 的 fillAdmin）。
+// 一鍵把廠區下拉切到 DTO → 觸發 onAuthFactoryChange 顯示密碼欄並聚焦。
+// ★ 只是自動切換，密碼照樣要驗 —— 不是後門，不略過任何檢查。
+function fillAdminOMS() {
+  initAuthFactorySelect();   // 保險：確保 DTO 選項已建好（idempotent）
+  const sel = document.getElementById('authFactory');
+  if (!sel) return;
+  sel.value = 'DTO';
+  onAuthFactoryChange();     // 顯示密碼欄、隱藏員工搜尋、啟用登入鈕、聚焦密碼
 }
 
 // 廠區選變時：顯示對應第二步欄位
