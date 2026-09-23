@@ -1981,6 +1981,7 @@
      v287 的 overflow-y:auto 保留當保險（塞得下就不會出現捲軸）。 */
   .synchub-page {
     --u: clamp(7px, min(1.35vh, 2.8vw), 24px);
+    --u: clamp(7px, min(1.35svh, 2.8vw), 24px);  /* v290-2：手機網址列吃高度，改用實際可見高(svh)；舊瀏覽器自動用上一行 */
     position: fixed; inset: 0; z-index: 9000;
     background: linear-gradient(135deg, #0D1B2E 0%, #1A2940 50%, #0D1B2E 100%);
     display: none; flex-direction: column; align-items: center;
@@ -1990,7 +1991,7 @@
   /* v288：以下全部改 calc(var(--u)*N)＝等比縮放（原 px 值 ÷12 得倍數） */
   .synchub-topbar {
     position: fixed; top: 0; left: 0; right: 0;
-    height: calc(var(--u)*4.667); background: rgba(10,20,40,0.85);
+    height: calc(var(--u)*5.5); background: rgba(10,20,40,0.85);  /* v290-4：頂欄加高配合大 LOGO */
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255,255,255,0.08);
     display: flex; align-items: center;
@@ -2001,7 +2002,7 @@
     display: flex; align-items: center; gap: calc(var(--u)*1);
   }
   .synchub-brand-logo {
-    height: calc(var(--u)*2.333); background: #fff;
+    height: calc(var(--u)*4.5); background: #fff;   /* v290-4：LOGO 再放大 */
     padding: calc(var(--u)*0.333) calc(var(--u)*0.833); border-radius: calc(var(--u)*0.417);
   }
   .synchub-brand-name {
@@ -2059,9 +2060,31 @@
   }
   .synchub-grid {
     display: grid;
-    grid-template-columns: repeat(2, calc(var(--u)*15));
+    /* v290：8 張卡改橫向 4 欄 × 2 排（使用者選 B）；窄螢幕（手機直立）折回 2 欄 × 4 排 */
+    grid-template-columns: repeat(4, calc(var(--u)*15));
     gap: calc(var(--u)*2);
     justify-content: center;
+  }
+  @media (max-width: 820px) {
+    .synchub-grid { grid-template-columns: repeat(2, calc(var(--u)*15)); }
+    /* 2 欄 × 4 排比 4 欄 × 2 排高，直立手機把縮放單位再收一點（1.35vh→1.1vh）才能維持一屏免捲 */
+    .synchub-page { --u: clamp(7px, min(1.1vh, 2.8vw), 24px); --u: clamp(7px, min(1.1svh, 2.8vw), 24px); }
+  }
+  /* v290-8：智匯＝紅漸層打底＋白色光澤帶周期掃過（照使用者提供的 GIF 效果） */
+  .synchub-slogan-red {
+    background:
+      linear-gradient(115deg, rgba(255,255,255,0) 42%, rgba(255,255,255,0.95) 50%, rgba(255,255,255,0) 58%),
+      linear-gradient(180deg, #FF5A64, #C21F2C);
+    background-size: 260% 100%, 100% 100%;
+    background-position: 240% 0, 0 0;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: none;
+    animation: synchubShine 3.3s linear infinite;  /* v290-9：掃完停 0.5 秒（使用者選） */
+  }
+  @keyframes synchubShine {
+    0%   { background-position: 240% 0, 0 0; }
+    85%  { background-position: -140% 0, 0 0; }   /* 掃光 2.8 秒(放慢)，停 0.5 秒 */
+    100% { background-position: -140% 0, 0 0; }   /* 78%~100% = 停約 0.5 秒 */
   }
   /* v288：歡迎區三行字改等比（原本寫死在 HTML inline，已改成這三個 class） */
   .synchub-hello   { font-size: calc(var(--u)*1.167); font-weight: 400; color: rgba(255,255,255,0.55); letter-spacing: calc(var(--u)*0.5); margin-bottom: calc(var(--u)*0.5); }
@@ -2145,6 +2168,7 @@
   /* v288：登入頁同樣改等比縮放（--u 公式同入口頁，比例不隨螢幕變、一屏塞得下） */
   .auth-page {
     --u: clamp(7px, min(1.35vh, 2.8vw), 24px);
+    --u: clamp(7px, min(1.35svh, 2.8vw), 24px);  /* v290-2：手機網址列吃高度，改用實際可見高(svh)；舊瀏覽器自動用上一行 */
     position: fixed;
     inset: 0;
     background: linear-gradient(135deg, #0F3D7E 0%, #1E5EB8 50%, #307FE2 100%);
@@ -4138,21 +4162,22 @@
   <!-- 頂部導航 -->
   <div class="synchub-topbar">
     <div class="synchub-brand">
-      <div style="background:#fff;padding:3px 10px;border-radius:5px;margin-right:10px;">
-        <span style="color:#D42B3A;font-weight:900;font-size:13px;letter-spacing:0.5px;">syncmold</span>
-      </div>
-      <span class="synchub-brand-name" style="font-size:15px;letter-spacing:2px;">SyncHub</span>
+      <!-- v290-1：原本是文字拼的假 LOGO，改用官方向量檔轉出的正式 LOGO（05_syncmold_B.pdf） -->
+      <!-- v290-3：左上角只放公司 LOGO（SyncHub 字樣移到中央，不重覆） -->
+      <img class="synchub-brand-logo" src="https://ych1757.github.io/HUB/logo_syncmold.png" alt="syncmold">
     </div>
     <div class="synchub-topbar-right">
       <div class="synchub-clock" id="syncHubClock">--:--:--</div>
-      <div class="synchub-user">
+      <!-- v289：訪客模式（未登入看大廳）隱藏使用者區塊、改顯示「登入」鈕 -->
+      <div class="synchub-user" id="syncHubUserBlock">
         <div class="synchub-user-info">
           <span class="synchub-user-name" id="syncHubUserName">—</span>
           <span class="synchub-user-role" id="syncHubUserRole">—</span>
         </div>
         <div class="synchub-user-avatar" id="syncHubUserAvatar">D</div>
       </div>
-      <button class="synchub-logout" onclick="syncHubLogout()">登出</button>
+      <button class="synchub-logout" id="syncHubLogoutBtn" onclick="syncHubLogout()">登出</button>
+      <button class="synchub-logout" id="syncHubLoginBtn" onclick="showAuthPage()" style="display:none;">登入</button>
     </div>
   </div>
 
@@ -4162,7 +4187,7 @@
       <!-- v255: 三行設計，信錦智匯為品牌主標 -->
       <div class="synchub-hello">歡迎使用</div>
       <div class="synchub-hubname">SyncHub</div>
-      <div class="synchub-slogan">信錦智匯</div>
+      <div class="synchub-slogan">信錦<span class="synchub-slogan-red">智匯</span></div><!-- v290-8：智匯紅漸層＋白色光澤掃過動畫（照使用者 GIF 效果） -->
     </div>
 
     <!-- 系統圖標 2x2 -->
@@ -4190,6 +4215,13 @@
       <!-- GHG：v286 已上線(V56-5)，比照 QMS/MHR 開網址。先指 github.io，ghg.syncmold.com.tw DNS 綁好後會 301 轉址、免改 -->
       <div class="synchub-app" onclick="window.open('https://ych1757.github.io/GHG/','_blank')" title="溫室氣體盤查系統">
         <img src="https://ych1757.github.io/HUB/icon_ghg.png" class="synchub-app-icon">
+      </div>
+      <!-- v290：SOP／CAPA 新卡片（系統未上線，先跳提示；做好後比照 QMS/MHR 改 window.open）-->
+      <div class="synchub-app" onclick="showSyncHubToast('SOP 標準作業程序系統即將上線，敬請期待')" title="標準作業程序系統">
+        <img src="https://ych1757.github.io/HUB/icon_sop.webp" class="synchub-app-icon">
+      </div>
+      <div class="synchub-app" onclick="showSyncHubToast('CAPA 矯正預防措施系統即將上線，敬請期待')" title="矯正預防措施系統">
+        <img src="https://ych1757.github.io/HUB/icon_capa.webp" class="synchub-app-icon">
       </div>
     </div>
   </div>
@@ -4250,6 +4282,8 @@
     <div class="auth-error" id="authError"></div>
     <!-- v283：管理員登入捷徑（比照 MHR）。點了切到 DTO 管理員模式、密碼照打 -->
     <div class="auth-admin"><a onclick="fillAdminOMS()">🔑 管理員登入</a></div>
+    <!-- v289：免登入大廳後，登入頁不再是第一站；提供回大廳的路（比照各系統「回 SyncHub」）-->
+    <div class="auth-admin" style="margin-top:calc(var(--u)*0.667);"><a onclick="backToHubVisitor()" style="background:transparent;border-color:transparent;color:#7090B8;">← 回 SyncHub 入口</a></div>
     <div class="auth-footer">DIGITAL TRANSFORMATION OFFICE · 2026</div>
   </div>
 </div>
@@ -7693,9 +7727,10 @@ function initAuth() {
           if (fresh) {
             currentUser = { ...fresh, name: stillActive.name || fresh.name, empId: stillActive.empId, isEmployee: true };
           } else {
-            // 帳號被停用 → 退出
+            // 帳號被停用 → 退出（v289：回訪客大廳，不再直落登入頁）
             sessionStorage.removeItem(OMS_SESSION_KEY);
-            showAuthPage();
+            currentUser = null;
+            showSyncHub();
             return;
           }
         } else {
@@ -7715,7 +7750,10 @@ function initAuth() {
       }
     }
   }
-  showAuthPage();
+  // v289：免登入大廳——沒有有效 session 不再直接跳登入頁，先讓人看到圖標大廳（訪客模式）。
+  // 點 OMS 卡片才進登入；QMS/MHR/GHG 卡片本來就是開各自網址、不需要大廳身分。
+  currentUser = null;
+  showSyncHub();
 }
 
 function showAuthPage() {
@@ -7772,12 +7810,29 @@ function noDiacritic(str) {
 function showSyncHub() {
   document.getElementById('authPage').style.display = 'none';
   document.getElementById('syncHubPage').classList.add('show');
-  // 更新使用者資訊
-  document.getElementById('syncHubUserName').textContent = currentUser.name || currentUser.username;
-  document.getElementById('syncHubUserRole').textContent = ROLE_LABELS[currentUser.role] || currentUser.role;
-  document.getElementById('syncHubUserAvatar').textContent = (currentUser.name || currentUser.username).charAt(0);
+  // v289：大廳分兩種狀態——已登入（照舊顯示使用者＋登出）／訪客（隱藏使用者、顯示「登入」鈕）
+  const userBlock = document.getElementById('syncHubUserBlock');
+  const logoutBtn = document.getElementById('syncHubLogoutBtn');
+  const loginBtn  = document.getElementById('syncHubLoginBtn');
+  if (currentUser) {
+    userBlock.style.display = '';
+    logoutBtn.style.display = '';
+    loginBtn.style.display = 'none';
+    document.getElementById('syncHubUserName').textContent = currentUser.name || currentUser.username;
+    document.getElementById('syncHubUserRole').textContent = ROLE_LABELS[currentUser.role] || currentUser.role;
+    document.getElementById('syncHubUserAvatar').textContent = (currentUser.name || currentUser.username).charAt(0);
+  } else {
+    userBlock.style.display = 'none';
+    logoutBtn.style.display = 'none';
+    loginBtn.style.display = '';
+  }
   // 啟動時鐘
   syncHubTickClock();
+}
+
+// v289：從登入頁退回訪客大廳（登入頁「← 回 SyncHub 入口」用）
+function backToHubVisitor() {
+  showSyncHub();
 }
 
 function syncHubTickClock() {
@@ -7789,6 +7844,8 @@ function syncHubTickClock() {
 }
 
 async function enterOMS() {
+  // v289：訪客（未登入）點 OMS → 先登入
+  if (!currentUser) { showAuthPage(); return; }
   if (currentUser && currentUser.role === 'no_oms') {
     showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
     return;
@@ -7803,11 +7860,11 @@ async function enterOMS() {
 }
 
 function syncHubLogout() {
-  document.getElementById('syncHubPage').classList.remove('show');
   currentUser = null;
   clearAuthSession();
   try { sessionStorage.removeItem(OMS_SESSION_KEY); } catch(e) {}
-  showAuthPage();
+  // v289：登出後留在大廳（訪客模式），不再跳登入頁
+  showSyncHub();
 }
 
 function showSyncHubToast(msg) {
@@ -8186,9 +8243,10 @@ function doLogout() {
   clearAuthSession();
   currentUser = null;
   closeUserMenu();
-  // 登出回到登入頁
-  document.getElementById('syncHubPage').classList.remove('show');
-  showAuthPage();
+  // v289：OMS 內登出 → 收起主畫面、回訪客大廳（不再跳登入頁）
+  const mainApp = document.getElementById('mainApp');
+  if (mainApp) mainApp.style.display = 'none';
+  showSyncHub();
 }
 
 function goBackToSyncHub() {
@@ -9088,6 +9146,8 @@ const SYNCHUB_SYSTEMS = [
   { code: 'GHG', name: '溫室氣體盤查系統' },
   { code: 'PMP', name: '專案管理平台' },
   { code: 'CFS', name: '客戶回饋系統' },
+  { code: 'SOP', name: '標準作業程序系統' },   // v290：比照 PMP/CFS 先列授權欄，系統上線前可先開通人員
+  { code: 'CAPA', name: '矯正預防措施系統' },  // v290：同上
 ];
 
 let systemAccessRows = [];  // 記憶體快取：[{factory_code, emp_id, name, eng_name, dept, title, email, systems:[]}]
