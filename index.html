@@ -4261,35 +4261,20 @@
       </div>
     </div>
 
-    <!-- 第一步：選廠區 -->
+    <!-- v294：登入改「工號/Email＋密碼」單步（照 MHR）。大廳免登入後，登入＝進 OMS；廠區與角色由帳號設定檔帶出，不再選廠區選名字 -->
     <div class="auth-field">
-      <label class="auth-label">廠區 / 單位</label>
-      <select class="auth-input" id="authFactory" onchange="onAuthFactoryChange()">
-        <option value="">請選擇廠區或單位</option>
-      </select>
+      <label class="auth-label">工號 / Email</label>
+      <input class="auth-input" id="authUser" type="text" placeholder="工號 或 Email" autocomplete="username" oninput="onAuthUserInput()" onkeydown="if(event.key==='Enter')document.getElementById('authPassword').focus()">
+      <!-- v294-1：工號即時回饋（比照 QMS/MHR，打對工號馬上顯示是誰） -->
+      <div id="authUserHint" style="min-height:calc(var(--u)*1.1);margin-top:calc(var(--u)*0.333);font-size:calc(var(--u)*0.79);letter-spacing:calc(var(--u)*0.04);color:#1E7A46;"></div>
     </div>
-
-    <!-- 第二步：員工搜尋（選了廠區後才顯示）-->
-    <div class="auth-field" id="authEmpField" style="display:none;">
-      <label class="auth-label">尋找員工</label>
-      <input class="auth-input" id="authEmpSearch" type="text" placeholder="輸入姓名或工號搜尋..." oninput="onAuthEmpSearch()" autocomplete="off">
-      <div class="auth-emp-list" id="authEmpList"></div>
-    </div>
-
-    <!-- DTO 密碼欄位（選了 DTO 後才顯示）-->
-    <div class="auth-field" id="authPwdField" style="display:none;">
+    <div class="auth-field">
       <label class="auth-label">密碼</label>
-      <input class="auth-input" id="authPassword" type="password" placeholder="請輸入管理員密碼" autocomplete="current-password">
+      <input class="auth-input" id="authPassword" type="password" placeholder="請輸入密碼" autocomplete="current-password">
     </div>
 
-    <!-- 已選員工資訊 -->
-    <div class="auth-selected-emp" id="authSelectedEmp" style="display:none;">
-      <span class="auth-selected-label">即將以此身分登入：</span>
-      <span class="auth-selected-name" id="authSelectedName">—</span>
-      <span class="auth-selected-id" id="authSelectedId">—</span>
-    </div>
-
-    <button class="auth-btn" onclick="doLogin()" id="authLoginBtn" disabled>登　入</button>
+    <button class="auth-btn" onclick="doLogin()" id="authLoginBtn">登　入</button>
+    <div style="margin-top:calc(var(--u)*0.667);text-align:center;font-size:calc(var(--u)*0.75);color:#8A97AB;letter-spacing:calc(var(--u)*0.05);">集團內部直接打工號；帳號未開通請洽 DTO</div>
     <div class="auth-error" id="authError"></div>
     <!-- v283：管理員登入捷徑（比照 MHR）。點了切到 DTO 管理員模式、密碼照打 -->
     <div class="auth-admin"><a onclick="fillAdminOMS()">🔑 管理員登入</a></div>
@@ -5119,7 +5104,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V293-2';
+const APP_VER = 'V294-1';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -5555,6 +5540,7 @@ async function submitForcePwd() {
   if (_omsAuthUser && _omsAuthUser.user_metadata) _omsAuthUser.user_metadata.must_change = false;
   currentUser.mustChangePwd = false;
   document.getElementById('forcePwdOverlay').style.display = 'none';
+  document.getElementById('authPage').style.display = 'none';  // v294：強制改密可能發生在登入頁上，收掉
   document.getElementById('syncHubPage').classList.remove('show');
   await showMainApp();
   showToast('密碼已更新，請妥善保管');
@@ -7776,21 +7762,33 @@ function initAuth() {
 
 function showAuthPage() {
   document.getElementById('authPage').style.display = 'flex';
-  // 初始化廠區下拉
-  initAuthFactorySelect();
-  // 重設所有狀態
-  document.getElementById('authFactory').value = '';
+  // v294：重設帳密欄（廠區下拉與員工搜尋已移除）
+  document.getElementById('authUser').value = '';
   document.getElementById('authPassword').value = '';
-  document.getElementById('authEmpSearch').value = '';
-  document.getElementById('authEmpList').innerHTML = '';
-  document.getElementById('authEmpList').classList.remove('show');
-  document.getElementById('authEmpField').style.display = 'none';
-  document.getElementById('authPwdField').style.display = 'none';
-  document.getElementById('authSelectedEmp').style.display = 'none';
   document.getElementById('authError').textContent = '';
-  document.getElementById('authLoginBtn').disabled = true;
-  authSelectedEmployee = null;
-  setTimeout(() => document.getElementById('authFactory').focus(), 100);
+  document.getElementById('authUserHint').textContent = '';
+  setTimeout(() => document.getElementById('authUser').focus(), 100);
+}
+
+// v294-1：工號即時回饋（比照 QMS/MHR：打對工號馬上顯示是誰）。
+// 本地「全轉大寫的精確比對」（不用模糊查詢，避開萬用字元/大小寫/limit 三個坑），
+// 來源＝登入前已載入的公開精簡在職名單 employees_picker（無敏感個資）
+let _authUserHintT = null;
+function onAuthUserInput() {
+  clearTimeout(_authUserHintT);
+  _authUserHintT = setTimeout(() => {
+    const el = document.getElementById('authUserHint');
+    if (!el) return;
+    const v = (document.getElementById('authUser').value || '').trim();
+    if (!v || v.includes('@')) { el.textContent = ''; return; }  // Email／管理員帳號不做本地比對
+    let hit = null;
+    for (const code in employees) {
+      hit = (employees[code] || []).find(e => (e.empId || '').toUpperCase() === v.toUpperCase());
+      if (hit) break;
+    }
+    if (hit) { el.style.color = '#1E7A46'; el.textContent = '✓ ' + (hit.name || hit.empId) + '（' + (hit.factory || '') + '）'; }
+    else { el.style.color = '#B0453C'; el.textContent = '查無此工號'; }
+  }, 250);
 }
 
 // ============ 簡繁字對應（姓名搜尋用）============
@@ -8015,14 +8013,15 @@ function initAuthFactorySelect() {
 }
 
 // v283：管理員登入捷徑（比照 MHR 的 fillAdmin）。
-// 一鍵把廠區下拉切到 DTO → 觸發 onAuthFactoryChange 顯示密碼欄並聚焦。
-// ★ 只是自動切換，密碼照樣要驗 —— 不是後門，不略過任何檢查。
+// ★ 只是自動帶入帳號，密碼照樣要驗 —— 不是後門，不略過任何檢查。
+// v294：改帶入統一帳號欄（登入頁已無廠區下拉）
 function fillAdminOMS() {
-  initAuthFactorySelect();   // 保險：確保 DTO 選項已建好（idempotent）
-  const sel = document.getElementById('authFactory');
-  if (!sel) return;
-  sel.value = 'DTO';
-  onAuthFactoryChange();     // 顯示密碼欄、隱藏員工搜尋、啟用登入鈕、聚焦密碼
+  const u = document.getElementById('authUser');
+  if (!u) return;
+  u.value = 'admin@id.syncmold.com.tw';
+  document.getElementById('authError').textContent = '';
+  document.getElementById('authUserHint').textContent = '';  // v294-1：帶入帳號不留舊回饋
+  setTimeout(() => document.getElementById('authPassword').focus(), 50);
 }
 
 // 廠區選變時：顯示對應第二步欄位
@@ -8134,111 +8133,72 @@ function selectAuthEmp(empId) {
 
 // === 主登入函式（新版） ===
 async function doLogin() {
-  const factoryCode = document.getElementById('authFactory').value;
   const errEl = document.getElementById('authError');
   errEl.textContent = '';
 
-  if (!factoryCode) {
-    errEl.textContent = '請先選擇廠區或單位';
+  // === v294：工號/Email＋密碼 單步登入（照 MHR；大廳免登入後，登入＝進 OMS）===
+  // 工號 → 合成 email（<工號小寫>@id.syncmold.com.tw）；含 @ 視為完整 Email（admin@id 走同一條）
+  const idIn = (document.getElementById('authUser').value || '').trim();
+  const pwd = document.getElementById('authPassword').value;
+  if (!idIn) { errEl.textContent = '請輸入工號或 Email'; return; }
+  if (!pwd) { errEl.textContent = '請輸入密碼'; return; }
+  const email = idIn.includes('@') ? idIn.toLowerCase() : (idIn.toLowerCase() + '@id.syncmold.com.tw');
+
+  // 1) Auth 驗證 → 拿 JWT
+  try {
+    await sbAuthSignIn(email, pwd);
+  } catch (e) {
+    errEl.textContent = (e.status === 400 || e.status === 401) ? '帳號或密碼錯誤；帳號未開通請洽 DTO' : ('登入失敗：' + e.message);
+    document.getElementById('authPassword').value = '';
     return;
   }
+  startTokenAutoRefresh();
 
-  // === DTO：v265 改走 Supabase Auth（不再比對 oms_users 明碼）===
-  if (factoryCode === 'DTO') {
-    const pwd = document.getElementById('authPassword').value;
-    if (!pwd) { errEl.textContent = '請輸入管理員密碼'; return; }
-    // 1) Auth 驗證 → 拿 JWT（admin 的合成 email）
-    try {
-      await sbAuthSignIn('admin@id.syncmold.com.tw', pwd);
-    } catch (e) {
-      errEl.textContent = (e.status === 400 || e.status === 401) ? '管理員密碼錯誤' : ('登入失敗：' + e.message);
-      document.getElementById('authPassword').value = '';
-      return;
-    }
-    startTokenAutoRefresh();
-    // 2) 用 JWT 讀 synchub_profiles 拿權威角色、檢查停用
-    let prof = null;
-    try {
-      const rows = await sbSelect('synchub_profiles', 'id=eq.' + encodeURIComponent(_omsAuthUser.id));
-      prof = rows && rows[0];
-    } catch (e) { console.warn('讀 synchub_profiles 失敗', e); }
-    if (!prof) { clearAuthSession(); errEl.textContent = '找不到管理員設定檔，請洽 DTO'; return; }
-    if (prof.active === false) { clearAuthSession(); errEl.textContent = '管理員帳號已停用'; return; }
-    currentUser = {
-      id: prof.id,
-      username: prof.username,
-      name: prof.name || 'DTO',
-      role: prof.role || 'admin',
-      factories: (prof.factories !== undefined && prof.factories !== null) ? prof.factories : 'ALL',
-      bu: (prof.bu !== undefined && prof.bu !== null) ? prof.bu : '',
-      empId: prof.emp_id || prof.username,
-      active: true
-    };
-    saveSession(currentUser);
-    // 3) 首次登入/被重設 → 強制改密（走 Auth，同進 OMS 那道）
-    if (omsMustChange()) {
-      const ov = document.getElementById('forcePwdOverlay');
-      if (ov) { ov.style.display = 'flex'; document.getElementById('newPwd1').value = ''; document.getElementById('newPwd2').value = ''; document.getElementById('forcePwdError').style.display = 'none'; }
-      return;
-    }
-    showSyncHub();
-    return;
-  }
+  // 2) 用 JWT 讀 synchub_profiles 拿權威角色/廠區、檢查停用
+  let prof = null;
+  try {
+    const rows = await sbSelect('synchub_profiles', 'id=eq.' + encodeURIComponent(_omsAuthUser.id));
+    prof = rows && rows[0];
+  } catch (e) { console.warn('讀 synchub_profiles 失敗', e); }
+  if (!prof) { clearAuthSession(); errEl.textContent = '找不到帳號設定檔，請洽 DTO'; return; }
+  if (prof.active === false) { clearAuthSession(); errEl.textContent = '此帳號已停用，請洽 DTO'; return; }
 
-  // === 一般員工：用員工身分登入 ===
-  if (!authSelectedEmployee) {
-    errEl.textContent = '請從清單中選擇員工';
-    return;
-  }
-  const emp = authSelectedEmployee;
-
-  // 查 oms_users_v1 是否有對應的授權帳號
-  // 比對方式：username === empId 或 username === 'emp_' + empId
-  const usersList = loadUsers();
-  const authorizedUser = usersList.find(u =>
-    u.active && (
-      u.empId === emp.empId ||
-      u.username === emp.empId ||
-      u.username === 'emp_' + emp.empId
-    )
-  );
-
-  if (authorizedUser) {
-    // 找到授權帳號 → 用設定的角色（集團主管/BU主管/HR/廠區主管）
-    currentUser = {
-      ...authorizedUser,
-      name: emp.name || authorizedUser.name,
-      empId: emp.empId,
-      isEmployee: true
-    };
-
-    // 安全防護：HR / 廠區主管 的 factories 不能是 ALL（避免歷史錯誤資料造成越權）
-    // 如果是 ALL 或空，自動用該員工實際所在的廠覆蓋
-    if ((currentUser.role === 'hr' || currentUser.role === 'viewer') &&
-        (!currentUser.factories || currentUser.factories === 'ALL')) {
-      console.warn('[權限自動修正] ' + emp.empId + ' 的廠區權限為 ALL，自動修正為登入廠區 ' + factoryCode);
-      currentUser.factories = [factoryCode];
-    }
-
-    saveSession(currentUser);
-    showSyncHub();
-    return;
-  }
-
-  // 沒有授權帳號 → 進入 SyncHub 但標記無 OMS 權限
   currentUser = {
-    id: 'emp_' + emp.empId,
-    username: 'emp_' + emp.empId,
-    name: emp.name || emp.empId,
-    role: 'no_oms',              // 無 OMS 權限角色
-    factories: [factoryCode],
-    bu: '',
-    empId: emp.empId,
-    active: true,
-    isEmployee: true
+    id: prof.id,
+    username: prof.username,
+    name: prof.name || prof.username,
+    role: prof.role || 'no_oms',
+    factories: (prof.factories !== undefined && prof.factories !== null) ? prof.factories : [],
+    bu: (prof.bu !== undefined && prof.bu !== null) ? prof.bu : '',
+    empId: prof.emp_id || prof.username,
+    active: true
   };
+
+  // 安全防護：HR / 廠區主管 的 factories 不能是 ALL（避免歷史錯誤資料造成越權）。
+  // v294 起登入不選廠區、無登入廠區可補值 → fail-closed 設空，請 DTO 在使用者管理補設
+  if ((currentUser.role === 'hr' || currentUser.role === 'viewer') &&
+      (!currentUser.factories || currentUser.factories === 'ALL')) {
+    console.warn('[權限自動修正] ' + currentUser.empId + ' 的廠區權限為 ALL/空，fail-closed 設為空，請在使用者管理補設');
+    currentUser.factories = [];
+  }
   saveSession(currentUser);
-  showSyncHub();
+
+  // 3) 首次登入/被重設 → 強制改密（改完由 submitForcePwd 直接進 OMS）
+  if (omsMustChange()) {
+    const ov = document.getElementById('forcePwdOverlay');
+    if (ov) { ov.style.display = 'flex'; document.getElementById('newPwd1').value = ''; document.getElementById('newPwd2').value = ''; document.getElementById('forcePwdError').style.display = 'none'; }
+    return;
+  }
+
+  // 4) 登入成功＝直接進 OMS；角色 no_oms 回大廳提示（帳號存在但無 OMS 權限的極少數情況）
+  if (currentUser.role === 'no_oms') {
+    showSyncHub();
+    showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
+    return;
+  }
+  document.getElementById('authPage').style.display = 'none';
+  document.getElementById('syncHubPage').classList.remove('show');
+  await showMainApp();
 }
 
 // Enter 鍵登入
