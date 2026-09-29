@@ -2301,6 +2301,8 @@
     letter-spacing: calc(var(--u)*0.167);
     color: #4E617D;  /* v293-1：原 #9090A0 太淡看不到；白卡上白字會消失，改深藍灰 */
   }
+  /* v293-1：版號獨立一行置中（接在原行尾會折行、行尾掛「·」不好看） */
+  #authVerTag { display: block; margin-top: calc(var(--u)*0.333); }
   /* v283：管理員登入捷徑（比照 MHR 的 .lgadmin，配色換成 OMS 深藍系）。
      只是一鍵切到 DTO 管理員模式，密碼照樣要打——不是後門。 */
   .auth-admin { margin-top: calc(var(--u)*1); text-align: center; }
@@ -5120,7 +5122,7 @@ const APP_VER = 'V293-1';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
-  const va = document.getElementById('authVerTag'); if (va) va.textContent = ' · ' + APP_VER;
+  const va = document.getElementById('authVerTag'); if (va) va.textContent = APP_VER;
 });
 const SB_URL = 'https://drfqoraijhzvvllncbei.supabase.co';
 const SB_KEY = 'sb_publishable_PG_IHNnOMAe3oTMV6yV25w_-U-FjDwq';
