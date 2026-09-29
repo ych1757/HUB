@@ -2020,6 +2020,12 @@
     font-size: calc(var(--u)*1); color: rgba(255,255,255,0.5);
     font-family: "Inter", sans-serif; letter-spacing: calc(var(--u)*0.083);
   }
+  /* v293：頂欄畫面版號（訪客與登入都看得到） */
+  .synchub-ver {
+    /* v293-1：使用者反映太暗，提亮 */
+    font-size: calc(var(--u)*0.833); color: rgba(255,255,255,0.75);
+    font-family: "Inter", sans-serif; letter-spacing: calc(var(--u)*0.083);
+  }
   .synchub-user {
     display: flex; align-items: center; gap: calc(var(--u)*0.667);
   }
@@ -2043,7 +2049,7 @@
   .synchub-body {
     display: flex; flex-direction: column;
     align-items: center;
-    padding: calc(var(--u)*6.667) calc(var(--u)*1.667) calc(var(--u)*4.667);  /* v288 等比；底部留白避開 fixed footer */
+    padding: calc(var(--u)*4.667) calc(var(--u)*1.667) calc(var(--u)*6.667);  /* v288 等比；底部留白避開 fixed footer；v293-1 上下留白對調＝整體上移一點 */
     width: 100%;
     margin: auto 0;   /* v287：空間夠→垂直置中；不夠→從頂端排、可捲（等比縮放後正常不會觸發） */
   }
@@ -2148,8 +2154,9 @@
   .badge-soon { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
 
   .synchub-footer {
+    /* v293-2：使用者要求字體加大加白（原 0.833u／白 20%） */
     position: fixed; bottom: calc(var(--u)*1.667);
-    font-size: calc(var(--u)*0.833); color: rgba(255,255,255,0.2);
+    font-size: calc(var(--u)*1.083); color: rgba(255,255,255,0.75);
     letter-spacing: calc(var(--u)*0.167);
   }
 
@@ -2293,8 +2300,10 @@
     margin-top: calc(var(--u)*1.667);
     font-size: calc(var(--u)*0.75);
     letter-spacing: calc(var(--u)*0.167);
-    color: #9090A0;
+    color: #4E617D;  /* v293-1：原 #9090A0 太淡看不到；白卡上白字會消失，改深藍灰 */
   }
+  /* v293-1：版號獨立一行置中（接在原行尾會折行、行尾掛「·」不好看） */
+  #authVerTag { display: block; margin-top: calc(var(--u)*0.333); }
   /* v283：管理員登入捷徑（比照 MHR 的 .lgadmin，配色換成 OMS 深藍系）。
      只是一鍵切到 DTO 管理員模式，密碼照樣要打——不是後門。 */
   .auth-admin { margin-top: calc(var(--u)*1); text-align: center; }
@@ -4167,6 +4176,8 @@
       <img class="synchub-brand-logo" src="https://ych1757.github.io/HUB/logo_syncmold.png" alt="syncmold">
     </div>
     <div class="synchub-topbar-right">
+      <!-- v293：畫面版號（單一出處 APP_VER 注入，出新版只改 APP_VER 一處） -->
+      <span class="synchub-ver" id="syncHubVerTag"></span>
       <div class="synchub-clock" id="syncHubClock">--:--:--</div>
       <!-- v289：訪客模式（未登入看大廳）隱藏使用者區塊、改顯示「登入」鈕 -->
       <div class="synchub-user" id="syncHubUserBlock">
@@ -4284,7 +4295,7 @@
     <div class="auth-admin"><a onclick="fillAdminOMS()">🔑 管理員登入</a></div>
     <!-- v289：免登入大廳後，登入頁不再是第一站；提供回大廳的路（比照各系統「回 SyncHub」）-->
     <div class="auth-admin" style="margin-top:calc(var(--u)*0.667);"><a onclick="backToHubVisitor()" style="background:transparent;border-color:transparent;color:#7090B8;">← 回 SyncHub 入口</a></div>
-    <div class="auth-footer">DIGITAL TRANSFORMATION OFFICE · 2026</div>
+    <div class="auth-footer">DIGITAL TRANSFORMATION OFFICE · 2026<span id="authVerTag"></span></div>
   </div>
 </div>
 
@@ -5107,6 +5118,13 @@
 // ============================================================
 // Supabase 設定（v230）
 // ============================================================
+// v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
+const APP_VER = 'V293-2';
+document.addEventListener('DOMContentLoaded', () => {
+  document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
+  const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
+  const va = document.getElementById('authVerTag'); if (va) va.textContent = APP_VER;
+});
 const SB_URL = 'https://drfqoraijhzvvllncbei.supabase.co';
 const SB_KEY = 'sb_publishable_PG_IHNnOMAe3oTMV6yV25w_-U-FjDwq';
 const SB_HDR = {
