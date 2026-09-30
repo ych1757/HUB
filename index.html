@@ -5104,7 +5104,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V294-1';
+const APP_VER = 'V296';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -5187,6 +5187,9 @@ async function sbSelect(table, qs) {
 // 大表一律用這支分頁撈到完（qs 請帶穩定排序，否則分頁會漏/重覆）。
 // maxRows 可選：只要前 N 筆（如異動紀錄只取最近 2000）。
 async function sbSelectAll(table, qs, maxRows) {
+  // v295：分頁沒帶 order 會漏筆＋重複而總數看似正確（Supabase 已知坑，各系統踩過）；
+  // 呼叫端沒給排序就強制補主鍵，杜絕未來新呼叫點忘記帶
+  if (!/(^|&)order=/.test(qs || '')) qs = (qs ? qs + '&' : '') + 'order=id';
   const PAGE = 1000;
   let all = [], off = 0;
   for (;;) {
@@ -5409,7 +5412,7 @@ async function deleteUserFromSB(username) {
   await sbDelete('oms_users', 'username=eq.' + encodeURIComponent(username));
 }
 async function loadLogsFromSB() {
-  const rows = await sbSelectAll('change_log', 'order=time.desc', 2000);
+  const rows = await sbSelectAll('change_log', 'order=time.desc,id.desc', 2000);  // v295：同秒多筆會撞翻頁邊界，加唯一鍵當第二排序
   const result = { _global: [] };
   for (const row of rows) {
     const entry = sbRowToLog(row);
@@ -7977,40 +7980,8 @@ async function showMainApp() {
   applyFactoryPermissions();
 }
 
-// === 新版登入流程：選廠區 → 找員工 → 登入 ===
-let authSelectedEmployee = null; // 暫存選中的員工
-
-// 初始化登入頁的廠區下拉
-function initAuthFactorySelect() {
-  const sel = document.getElementById('authFactory');
-  if (!sel) return;
-  // 已經初始化過就跳過（避免每次顯示登入頁都重設）
-  if (sel.options.length > 1) return;
-  // 先加 DTO 選項（特殊）
-  const dtoOpt = document.createElement('option');
-  dtoOpt.value = 'DTO';
-  dtoOpt.textContent = '🔧 DTO · 集團系統管理員';
-  sel.appendChild(dtoOpt);
-  // 分隔線改用 optgroup
-  const sepGroup = document.createElement('optgroup');
-  sepGroup.label = '── 廠區 ──';
-  sel.appendChild(sepGroup);
-  // 加 18 個廠區（依事業群分組）
-  const orderedGroups = ['信錦台北','信鋐科技','組裝產品事業群','自製零件事業群','敬得科技','陸合企業'];
-  orderedGroups.forEach(grp => {
-    const list = FACTORIES.filter(f => f.group === grp);
-    if (!list.length) return;
-    const og = document.createElement('optgroup');
-    og.label = grp;
-    list.forEach(f => {
-      const opt = document.createElement('option');
-      opt.value = f.code;
-      opt.textContent = f.code + ' · ' + f.name;
-      og.appendChild(opt);
-    });
-    sel.appendChild(og);
-  });
-}
+// v296：清除 v294 前「選廠區→選名字」登入的舊碼（initAuthFactorySelect／onAuthFactoryChange／
+// onAuthEmpSearch／selectAuthEmp／authSelectedEmployee 已無任何引用）；簡繁對照與 noDiacritic 供其他搜尋共用、保留
 
 // v283：管理員登入捷徑（比照 MHR 的 fillAdmin）。
 // ★ 只是自動帶入帳號，密碼照樣要驗 —— 不是後門，不略過任何檢查。
@@ -8022,113 +7993,6 @@ function fillAdminOMS() {
   document.getElementById('authError').textContent = '';
   document.getElementById('authUserHint').textContent = '';  // v294-1：帶入帳號不留舊回饋
   setTimeout(() => document.getElementById('authPassword').focus(), 50);
-}
-
-// 廠區選變時：顯示對應第二步欄位
-function onAuthFactoryChange() {
-  const code = document.getElementById('authFactory').value;
-  const empField = document.getElementById('authEmpField');
-  const pwdField = document.getElementById('authPwdField');
-  const selectedEmp = document.getElementById('authSelectedEmp');
-  const loginBtn = document.getElementById('authLoginBtn');
-  const errEl = document.getElementById('authError');
-
-  errEl.textContent = '';
-  authSelectedEmployee = null;
-  selectedEmp.style.display = 'none';
-  document.getElementById('authEmpSearch').value = '';
-  document.getElementById('authEmpList').innerHTML = '';
-  document.getElementById('authEmpList').classList.remove('show');
-
-  if (!code) {
-    empField.style.display = 'none';
-    pwdField.style.display = 'none';
-    loginBtn.disabled = true;
-    return;
-  }
-
-  if (code === 'DTO') {
-    // 選 DTO：顯示密碼欄位，隱藏員工搜尋
-    empField.style.display = 'none';
-    pwdField.style.display = '';
-    loginBtn.disabled = false;
-    setTimeout(() => document.getElementById('authPassword').focus(), 100);
-  } else {
-    // 選一般廠區：顯示員工搜尋，隱藏密碼
-    empField.style.display = '';
-    pwdField.style.display = 'none';
-    loginBtn.disabled = true;
-    setTimeout(() => document.getElementById('authEmpSearch').focus(), 100);
-  }
-}
-
-// 員工搜尋（即時過濾）
-function onAuthEmpSearch() {
-  const code = document.getElementById('authFactory').value;
-  const keyword = document.getElementById('authEmpSearch').value.trim().toLowerCase();
-  const listEl = document.getElementById('authEmpList');
-  if (!code || code === 'DTO') return;
-
-  const empList = (employees[code] || [])
-    .filter(e => !e.status || e.status === '在職');
-
-  if (!keyword) {
-    // 沒輸入：顯示前 30 個員工
-    const top = empList.slice(0, 30);
-    if (!top.length) {
-      listEl.innerHTML = '<div class="auth-emp-empty">此廠尚無員工資料</div>';
-    } else {
-      listEl.innerHTML = top.map(e => `
-        <div class="auth-emp-item" onclick="selectAuthEmp('${e.empId}')">
-          <div class="auth-emp-name">${e.name||'—'}</div>
-          <div class="auth-emp-id">${e.empId||'—'}</div>
-        </div>`).join('') +
-        (empList.length > 30 ? `<div class="auth-emp-empty">尚有 ${empList.length-30} 筆，請輸入關鍵字縮小範圍</div>` : '');
-    }
-  } else {
-    // 有輸入：用姓名 / 工號 / 英文名比對（支援簡繁互查）
-    const kw = keyword.toLowerCase();
-    const kwSimp = toSimplified(kw);   // 輸入繁體 → 轉簡體再比對
-    const kwTrad = toTraditional(kw);  // 輸入簡體 → 轉繁體再比對
-    const matched = empList.filter(e => {
-      const name = (e.name||'').toLowerCase();
-      const nameSimp = toSimplified(name);
-      const nameTrad = toTraditional(name);
-      return name.includes(kw) || name.includes(kwSimp) || name.includes(kwTrad) ||
-             nameSimp.includes(kw) || nameTrad.includes(kw) ||
-             (e.empId||'').toLowerCase().includes(kw) ||
-             (e.engName||'').toLowerCase().includes(kw) ||
-             noDiacritic(name).includes(noDiacritic(kw));
-    });
-    if (!matched.length) {
-      listEl.innerHTML = '<div class="auth-emp-empty">查無符合的員工</div>';
-    } else {
-      listEl.innerHTML = matched.slice(0, 50).map(e => `
-        <div class="auth-emp-item" onclick="selectAuthEmp('${e.empId}')">
-          <div class="auth-emp-name">${e.name||'—'}</div>
-          <div class="auth-emp-id">${e.empId||'—'}</div>
-        </div>`).join('');
-    }
-  }
-  listEl.classList.add('show');
-}
-
-// 選擇員工
-function selectAuthEmp(empId) {
-  const code = document.getElementById('authFactory').value;
-  const emp = (employees[code] || []).find(e => e.empId === empId);
-  if (!emp) return;
-  authSelectedEmployee = emp;
-  // 顯示已選員工
-  document.getElementById('authSelectedName').textContent = emp.name || emp.empId;
-  document.getElementById('authSelectedId').textContent = emp.empId;
-  document.getElementById('authSelectedEmp').style.display = 'flex';
-  // 高亮選中項
-  document.querySelectorAll('.auth-emp-item').forEach(el => el.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  // 啟用登入按鈕
-  document.getElementById('authLoginBtn').disabled = false;
-  document.getElementById('authError').textContent = '';
 }
 
 // === 主登入函式（新版） ===
@@ -8203,14 +8067,7 @@ async function doLogin() {
 
 // Enter 鍵登入
 document.addEventListener('DOMContentLoaded', () => {
-  const empSearch = document.getElementById('authEmpSearch');
   const pwd = document.getElementById('authPassword');
-  if (empSearch) empSearch.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      // Enter 觸發登入（如果有選員工）
-      if (authSelectedEmployee) doLogin();
-    }
-  });
   if (pwd) pwd.addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
@@ -9514,7 +9371,11 @@ async function saToggleSystem(empId, sysCode, checked) {
   if (!row) return;
   const set = new Set(row.systems);
   if (checked) set.add(sysCode); else set.delete(sysCode);
-  const newSystems = SYNCHUB_SYSTEMS.map(s => s.code).filter(c => set.has(c)); // 固定順序
+  // v295：清單內照固定順序、清單外的既有代碼一律保留（原本用過濾會把不在 SYNCHUB_SYSTEMS
+  // 的舊值默默丟掉＝260925「編 admin 存檔清空 systems」的根因；畫面沒有它的勾選框、更不該動它）
+  const listed = SYNCHUB_SYSTEMS.map(s => s.code);
+  const newSystems = listed.filter(c => set.has(c))
+    .concat([...set].filter(c => !listed.includes(c)));
   try {
     await sbUpsert('system_access', [{ factory_code: row.factory_code, emp_id: row.emp_id, name: row.name, eng_name: row.eng_name, dept: row.dept, title: row.title, email: row.email, systems: newSystems, updated_at: new Date().toISOString() }], 'emp_id');
     row.systems = newSystems;
