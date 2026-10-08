@@ -4288,11 +4288,14 @@
 <div id="usersPage" class="users-page hidden">
   <div class="users-header">
     <button class="btn btn-ghost" onclick="closeUsersPage()" style="font-size:12px;">← 返回</button>
-    <span class="users-title">使用者管理</span>
+    <span class="users-title">OMS 角色權限</span><!-- v298：頁名由「使用者管理」改名（本頁只管 OMS 本身角色） -->
     <span id="prodModeIndicator" style="margin-left:12px;font-size:10px;letter-spacing:1px;padding:3px 9px;border-radius:10px;"></span>
     <!-- v282：移除「重設原廠員工資料」按鈕（會清空全部真實員工+異動紀錄重灌舊種子，上線後為災難級危險操作） -->
-    <button class="btn btn-primary" onclick="openAddUserModal()" style="font-size:11px;">＋ 新增使用者</button>
+    <!-- v298：「＋新增使用者」退場＝帳號開通與重設密碼統一在 🔐系統資料授權頁；本頁只管 OMS 角色權限 -->
+    <span style="font-size:10px;color:var(--text-soft);letter-spacing:0.5px;">帳號開通與重設密碼請至 🔐 系統資料授權</span>
   </div>
+  <!-- v298：待設定角色提醒列（授權頁勾了 OMS、角色還是信錦員工的人） -->
+  <div id="pendingRoleStrip" style="margin:0 16px 12px;"></div>
   <!-- v270：角色權限說明（可收合，給管理者隨時對照） -->
   <details style="margin:0 16px 12px;border:1px solid var(--line-soft);border-radius:8px;background:#fff;overflow:hidden;">
     <summary style="cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600;color:var(--navy);background:rgba(30,94,184,0.06);">ℹ️ 角色權限說明（點開查看）</summary>
@@ -4304,7 +4307,7 @@
             <th style="padding:6px 8px;border:1px solid var(--line-soft);">範圍</th>
             <th style="padding:6px 8px;border:1px solid var(--line-soft);">員工資料</th>
             <th style="padding:6px 8px;border:1px solid var(--line-soft);">異動紀錄</th>
-            <th style="padding:6px 8px;border:1px solid var(--line-soft);">使用者管理</th>
+            <th style="padding:6px 8px;border:1px solid var(--line-soft);">OMS 角色權限</th>
             <th style="padding:6px 8px;border:1px solid var(--line-soft);">戰情看板</th>
           </tr>
         </thead>
@@ -4360,6 +4363,8 @@
     <span class="users-title">系統資料授權</span>
     <span style="margin-left:12px;font-size:10px;letter-spacing:1px;color:var(--text-soft);">從 OMS 名單挑人，勾選其可使用的系統</span>
     <button class="btn btn-primary" onclick="openSaBatch()" style="margin-left:auto;font-size:11px;">📥 批量加入</button>
+    <!-- v298-4：一鍵補開通（存量名單缺帳號者；密碼單軌化第一步。沒有缺的時候自動隱藏） -->
+    <button class="btn" id="saBulkProvBtn" onclick="saBulkProvision()" style="display:none;margin-left:8px;font-size:11px;padding:8px 14px;border:1px solid var(--gold);background:#fff;color:var(--gold-deep);border-radius:6px;cursor:pointer;">⚡ 補開通未開通</button>
     <div style="display:flex;align-items:center;gap:6px;">
       <span style="font-size:11px;color:var(--text-soft);">單筆加入</span>
       <select id="saAddFactory" onchange="saAddScopeChange()" style="padding:7px 8px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
@@ -4532,6 +4537,7 @@
             <option value="bu_manager">BU 主管（事業群唯讀）</option>
             <option value="viewer">廠區主管（唯讀）</option>
             <option value="hr" selected>廠區 HR</option>
+            <option value="no_oms">信錦員工（僅登入大廳，無法進 OMS）</option><!-- v298：待設角色的人原角色，編輯時要顯示得出來 -->
           </select>
         </div>
         <div class="edit-field" id="uBuField" style="display:none;">
@@ -4735,7 +4741,7 @@
       <div id="userMenuAdminBtn" style="display:none;">
         <div style="height:1px;background:var(--line-soft);margin:4px 0;"></div>
         <div style="padding:10px 16px;font-size:12px;color:var(--navy);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="openUsersPage()">
-          👥 使用者管理
+          👥 OMS 角色權限
         </div>
         <div style="padding:10px 16px;font-size:12px;color:var(--navy);cursor:pointer;display:flex;align-items:center;gap:8px;" onclick="openLogPage()">
           📋 人員異動紀錄
@@ -4799,7 +4805,7 @@
               </button>
               <div id="mgmtDropdown" style="display:none;position:absolute;top:36px;right:0;background:var(--bg-card);border:1px solid var(--line-soft);border-radius:8px;box-shadow:0 8px 24px rgba(10,30,80,0.15);min-width:150px;z-index:200;overflow:hidden;">
                 <button id="mgmtItemUsers" onclick="closeMgmtDropdown();openUsersPage();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
-                  <span>👥</span>使用者管理
+                  <span>👥</span>OMS 角色權限
                 </button>
                 <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
                 <button id="mgmtItemSysAccess" onclick="closeMgmtDropdown();openSystemAccessPage();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
@@ -5104,7 +5110,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V296';
+const APP_VER = 'V298-5';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -5544,6 +5550,12 @@ async function submitForcePwd() {
   currentUser.mustChangePwd = false;
   document.getElementById('forcePwdOverlay').style.display = 'none';
   document.getElementById('authPage').style.display = 'none';  // v294：強制改密可能發生在登入頁上，收掉
+  // v298-1：改完密碼依角色分流——信錦員工回大廳（不進 OMS、也不跳無權限提示，人家只是改密）
+  if (currentUser.role === 'no_oms') {
+    showSyncHub();
+    showToast('密碼已更新，請妥善保管');
+    return;
+  }
   document.getElementById('syncHubPage').classList.remove('show');
   await showMainApp();
   showToast('密碼已更新，請妥善保管');
@@ -7914,6 +7926,34 @@ async function ensureFullEmployees() {
   }
 }
 async function showMainApp() {
+  // v298-2（使用者定調）：任何人進 OMS 之前，先「即時」查權威角色——不是信任登入當下留在瀏覽器的舊身分。
+  // 查得到＝以現值為準（被降回信錦員工→擋、被停用→登出）；查核連不上＝沿用現有身分不鎖人；
+  // 信錦員工(no_oms)無論如何一律擋。守門放在唯一入口，所有路徑（登入直進/點卡/改密收尾/舊session）都經過這裡。
+  // （v298-1 根因：首次登入「強制改密」收尾無條件進主畫面，繞過 doLogin 的 no_oms 檢查）
+  if (currentUser && _omsJWT && _omsAuthUser && _omsAuthUser.id) {
+    try {
+      const rows = await sbSelect('synchub_profiles', 'id=eq.' + encodeURIComponent(_omsAuthUser.id));
+      if (rows && rows[0]) {
+        if (rows[0].active === false) {
+          clearAuthSession();
+          currentUser = null;
+          showSyncHub();
+          showSyncHubToast('此帳號已停用，請洽 DTO');
+          return;
+        }
+        currentUser.role = rows[0].role || 'no_oms';
+        if (rows[0].factories !== undefined && rows[0].factories !== null) currentUser.factories = rows[0].factories;
+        if (rows[0].bu !== undefined && rows[0].bu !== null) currentUser.bu = rows[0].bu;
+        saveSession(currentUser);
+      }
+    } catch (e) { console.warn('[v298-2] 進 OMS 即時角色查核失敗，沿用現有角色', e); }
+  }
+  if (currentUser && currentUser.role === 'no_oms') {
+    document.getElementById('authPage').style.display = 'none';
+    showSyncHub();
+    showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
+    return;
+  }
   await ensureFullEmployees();   // v266：確保完整員工資料就緒再渲染 OMS
   document.getElementById('authPage').style.display = 'none';
   document.getElementById('syncHubPage').classList.remove('show');
@@ -8054,10 +8094,9 @@ async function doLogin() {
     return;
   }
 
-  // 4) 登入成功＝直接進 OMS；角色 no_oms 回大廳提示（帳號存在但無 OMS 權限的極少數情況）
+  // 4) 登入成功＝直接進 OMS；角色 no_oms（信錦員工）安靜回大廳（v298：點 OMS 卡時才提示，登入本身不囉嗦）
   if (currentUser.role === 'no_oms') {
     showSyncHub();
-    showSyncHubToast('您尚未取得 OMS 使用權限，請聯繫 DTO 申請');
     return;
   }
   document.getElementById('authPage').style.display = 'none';
@@ -8265,6 +8304,7 @@ function openUsersPage() {
 
 // ====== v264 (2b)：使用者管理走 Edge Function（synchub_profiles + Auth）======
 let profileUsers = [];
+let omsCheckedRows = [];  // v298：授權頁勾了 OMS 的名單（待設定角色提醒列用）
 // v282：使用者管理篩選狀態（廠區/角色/關鍵字）
 const userFilter = { factory: '', role: '', keyword: '' };
 function clearUserFilter() {
@@ -8298,6 +8338,14 @@ async function loadProfileUsers() {
   // 失敗不影響帳號管理頁(沿用舊快取)，只是同分頁即時性打折。
   try { cachedUsers = await loadUsersFromSB(); }
   catch (e) { console.warn('v284 刷新 cachedUsers 失敗，沿用舊快取', e); }
+  // v298：載入授權名單裡勾了 OMS 的人 → 供「待設定角色」提醒列
+  try {
+    const sa = await sbSelectAll('system_access', 'order=factory_code.asc,emp_id.asc');
+    omsCheckedRows = sa.filter(r => {
+      const arr = Array.isArray(r.systems) ? r.systems : (typeof r.systems === 'string' ? saSafeParseArr(r.systems) : []);
+      return arr.includes('OMS');
+    });
+  } catch (e) { console.warn('v298 載入 OMS 勾選名單失敗', e); omsCheckedRows = []; }
   renderUsersTable();
 }
 
@@ -8381,6 +8429,9 @@ function renderUsersTable() {
     return { ...u, name: empNameMap[u.username] || u.name, _idx: i, _scopeText: scopeText, _warning: warning, _factory: factoryCode };
   });
 
+  // v298：本頁定位=OMS 本身的角色權限；信錦員工(no_oms)不列主表（帳號與密碼由授權頁管、升角色走下方提醒列）
+  users = users.filter(u => u.role !== 'no_oms');
+
   // v282：填充篩選下拉（用全量 users，避免被篩選後縮小）
   const _facs = [...new Set(users.map(u => u._factory).filter(x => x && x !== '—'))].sort();
   const _ffEl = document.getElementById('uFltFactory');
@@ -8440,7 +8491,6 @@ function renderUsersTable() {
         ${u.username !== 'admin' ? `
           <span style="font-size:11px;color:var(--gold-deep);cursor:pointer;margin-right:8px;" onclick="toggleUserActive(${i})">${u.active ? '停用' : '啟用'}</span>
           <span style="font-size:11px;color:var(--rust);cursor:pointer;margin-right:8px;" onclick="openEditUserModal(${i})">編輯</span>
-          <span style="font-size:11px;color:var(--text-soft);cursor:pointer;margin-right:8px;" onclick="resetUserPassword(${i})">重設密碼</span>
           <span style="font-size:11px;color:#999;cursor:pointer;" onclick="removeUser(${i})">移除</span>
         ` : '<span style="font-size:10px;color:var(--text-soft);">系統帳號</span>'}
       </td>
@@ -8460,6 +8510,43 @@ function renderUsersTable() {
       }
     });
   }
+  renderPendingRoleStrip();   // v298
+}
+
+// v298：待設定角色提醒列（比照 GHG 權限頁的帶入模式：授權頁勾了 OMS、角色還是信錦員工的人列在這）
+function renderPendingRoleStrip() {
+  const el = document.getElementById('pendingRoleStrip');
+  if (!el) return;
+  const profByKey = {};
+  profileUsers.forEach(p => {
+    if (p.username) profByKey[(p.username + '').toUpperCase()] = p;
+    if (p.empId) profByKey[(p.empId + '').toUpperCase()] = p;
+  });
+  const pending = (omsCheckedRows || []).filter(r => {
+    const p = profByKey[((r.emp_id || '') + '').toUpperCase()];
+    return !p || p.role === 'no_oms';
+  });
+  if (!pending.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div style="border:1px solid rgba(212,43,58,0.35);background:rgba(212,43,58,0.05);border-radius:8px;padding:10px 14px;">
+      <div style="font-size:12px;font-weight:700;color:#B0453C;margin-bottom:6px;">⚠ 有 ${pending.length} 位已在「系統資料授權」勾選 OMS、尚未設定角色</div>
+      ${pending.map(r => {
+        const p = profByKey[((r.emp_id || '') + '').toUpperCase()];
+        const nm = saEscapeCell(masterEmpName(r.emp_id) || r.name || r.emp_id);
+        return `<div style="display:flex;align-items:center;gap:12px;padding:4px 0;font-size:12px;">
+          <span style="font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);width:36px;">${r.factory_code || '—'}</span>
+          <span style="font-family:'Inter',monospace;width:90px;">${r.emp_id}</span>
+          <span style="flex:0 0 auto;">${nm}</span>
+          ${p ? `<button class="btn btn-primary" style="font-size:10px;padding:3px 10px;margin-left:auto;" onclick="assignRoleByUsername('${p.username}')">設定角色</button>`
+              : `<span style="margin-left:auto;font-size:10px;color:var(--text-soft);">尚未開通帳號 — 請先到 🔐 系統資料授權開通</span>`}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+function assignRoleByUsername(username) {
+  const idx = profileUsers.findIndex(p => p.username === username);
+  if (idx === -1) { showToast('找不到帳號，請重新整理', 'error'); return; }
+  openEditUserModal(idx);
 }
 
 async function toggleUserActive(index) {
@@ -8976,6 +9063,7 @@ document.addEventListener('click', e => {
 // ============================================================
 // 可用系統清單：未來新增系統 → 加一行即可，勾選欄會自動長出來
 const SYNCHUB_SYSTEMS = [
+  { code: 'OMS', name: '組織主檔系統' },   // v298：OMS 進授權矩陣（勾了＝要進 OMS→使用者管理頁出現「待設定角色」）
   { code: 'QMS', name: '品質管理系統' },
   { code: 'MHR', name: '製造履歷系統' },
   { code: 'GHG', name: '溫室氣體盤查系統' },
@@ -8986,6 +9074,7 @@ const SYNCHUB_SYSTEMS = [
 ];
 
 let systemAccessRows = [];  // 記憶體快取：[{factory_code, emp_id, name, eng_name, dept, title, email, systems:[]}]
+let saProfiles = [];        // v298：帳號清單（synchub_profiles，經管理 EF；開通狀態／重設密碼用）
 let saSearchResults = {};   // 搜尋結果暫存（key=工號），加入時用工號回查完整資料
 const saFilter = { factory: '', dept: '', keyword: '', systems: [] };  // 名單篩選狀態
 let saBatchSelected = new Set();  // 批量加入：選中的工號
@@ -9006,7 +9095,7 @@ async function openSystemAccessPage() {
   document.getElementById('systemAccessPage').classList.remove('hidden');
   document.getElementById('systemAccessHead').innerHTML = '';
   document.getElementById('systemAccessBody').innerHTML =
-    '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:20px;text-align:center;color:var(--text-soft);">載入中…</td></tr>';
+    '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 10) + '" style="padding:20px;text-align:center;color:var(--text-soft);">載入中…</td></tr>';
   try {
     const rows = await sbSelectAll('system_access', 'order=factory_code.asc,emp_id.asc');
     systemAccessRows = rows.map(r => ({
@@ -9023,6 +9112,15 @@ async function openSystemAccessPage() {
     console.error('[system_access] load failed:', e);
     showToast('載入授權名單失敗：' + e.message, 'error');
     systemAccessRows = [];
+  }
+  // v298：載入帳號清單（開通狀態／重設密碼用；失敗不擋授權勾選，但按鈕會重試不了→顯性提示）
+  try {
+    const j = await sbCallAdminFn('list');
+    saProfiles = j.users || [];
+  } catch (e) {
+    console.warn('v298 載入帳號清單失敗', e);
+    saProfiles = [];
+    showToast('帳號狀態載入失敗（不影響授權勾選）：' + e.message, 'error');
   }
   saPopulateFilterDropdowns();
   saPopulateAddScope();
@@ -9045,9 +9143,82 @@ function masterEmpName(empId) {
   return '';
 }
 
+// ====== v298：帳號整合（開通狀態／開通／重設密碼都在授權頁；使用者管理只管 OMS 角色）======
+function saAccountOf(empId) {
+  const key = ((empId || '') + '').toUpperCase();
+  return (saProfiles || []).find(p =>
+    ((p.username || '') + '').toUpperCase() === key || ((p.emp_id || '') + '').toUpperCase() === key) || null;
+}
+function saAcctCell(empId) {
+  const p = saAccountOf(empId);
+  if (!p) return `<button style="font-size:10px;padding:2px 10px;border:1px solid var(--gold);background:#fff;color:var(--gold-deep);border-radius:4px;cursor:pointer;" onclick="saProvision('${empId}')">開通</button>`;
+  if (p.active === false) return '<span style="font-size:10px;color:#B0453C;">已停用</span>';
+  // v298-3：初始密碼未改＝橘色醒目（這段期間帳號可被冒用，要催本人改密）；已改密＝綠勾
+  if (p.must_change_pwd) return '<span style="font-size:10px;font-weight:700;color:#8A5A00;background:rgba(222,151,0,0.14);border:1px solid rgba(222,151,0,0.45);border-radius:8px;padding:1px 7px;white-space:nowrap;">初始未改密</span>';
+  return '<span style="color:#1E7A46;font-weight:700;">✓</span>';
+}
+async function saProvision(empId, silent) {
+  const row = systemAccessRows.find(x => x.emp_id === empId);
+  if (!row) return false;
+  if (saAccountOf(empId)) { if (!silent) showToast('帳號已存在', 'error'); return true; }
+  // v298-3：手動開通加確認（261007 曾誤按一鍵就建號）；加入名單的自動開通(silent)不問
+  if (!silent) {
+    const nm0 = masterEmpName(empId) || row.name || empId;
+    if (!confirm('確定要開通「' + nm0 + '」的帳號？\n帳號＝工號 ' + empId + '、初始密碼 oms12345、首次登入須改密。\n開通後請盡快通知本人登入改密。')) return false;
+  }
+  try {
+    await sbCallAdminFn('create', {
+      username: empId, name: masterEmpName(empId) || row.name || empId,
+      role: 'no_oms', factories: row.factory_code ? [row.factory_code] : [], bu: [], emp_id: empId,
+    });
+    saProfiles.push({ username: empId, emp_id: empId, role: 'no_oms', active: true, must_change_pwd: true });
+    if (!silent) { renderSystemAccessTable(); showToast('已開通 ' + (masterEmpName(empId) || row.name || empId) + ' · 初始密碼 oms12345（首次登入須改）', 'ok'); }
+    return true;
+  } catch (e) {
+    console.error('[v298] 開通失敗', empId, e);
+    if (!silent) showToast('開通失敗：' + e.message, 'error');
+    return false;
+  }
+}
+// v298-4：一鍵補開通（名單上還沒有帳號的人全部建好：工號／oms12345／強制改密／信錦員工）
+async function saBulkProvision() {
+  const btn = document.getElementById('saBulkProvBtn');
+  const targets = systemAccessRows.filter(r => !saAccountOf(r.emp_id));
+  if (!targets.length) { showToast('目前沒有未開通的人', 'ok'); return; }
+  if (!confirm('確定要一次開通 ' + targets.length + ' 位的帳號？\n帳號＝工號、初始密碼 oms12345、首次登入須改密。\n開通後請通知各廠盡快登入改密。')) return;
+  btn.disabled = true; btn.dataset.running = '1';
+  let ok = 0, fail = 0; const failList = [];
+  for (let i = 0; i < targets.length; i++) {
+    btn.textContent = '開通中… ' + (i + 1) + '／' + targets.length;
+    const good = await saProvision(targets[i].emp_id, true);
+    if (good) ok++; else { fail++; failList.push(targets[i].emp_id); }
+  }
+  delete btn.dataset.running; btn.disabled = false;
+  renderSystemAccessTable();
+  showToast('補開通完成：成功 ' + ok + ' 筆' + (fail ? '、失敗 ' + fail + ' 筆（' + failList.slice(0, 5).join('、') + (failList.length > 5 ? '…' : '') + '），可再按一次重試' : ''), fail ? 'error' : 'ok');
+  if (fail) console.error('[v298-4] 補開通失敗清單', failList);
+}
+
+async function saResetPwd(empId) {
+  const p = saAccountOf(empId);
+  if (!p) { showToast('此人尚未開通帳號', 'error'); return; }
+  const nm = masterEmpName(empId) || p.name || empId;
+  if (!confirm('確定要將「' + nm + '」的密碼重設為 oms12345？\n本人下次登入將被要求重新設定密碼。')) return;
+  try {
+    await sbCallAdminFn('resetPassword', { username: p.username });
+    p.must_change_pwd = true;
+    renderSystemAccessTable();
+    showToast('已重設為 oms12345，請通知本人下次登入修改', 'ok');
+  } catch (e) { showToast('重設失敗：' + e.message, 'error'); }
+}
+
 function renderSystemAccessTable() {
   // 基本欄位設窄，最右加彈性空白欄吸收多餘寬度→欄位往左集中、系統變多也不掉出畫面
-  const cellPad = 'padding:10px 14px;';
+  // v298-5：欄距全面緊縮（使用者 261007：以後還會加系統）＝內距縮小＋固定欄寬＋長字省略號；1280 不得出橫向捲軸
+  const _tbl = document.getElementById('systemAccessHead').closest('table');
+  if (_tbl) { _tbl.style.tableLayout = 'fixed'; _tbl.style.width = '100%'; }
+  const cellPad = 'padding:9px 6px;';
+  const ell = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
   // 表頭凍結：sticky + 不透明底色 + 陰影分隔線（border-collapse 下用 box-shadow 才不會在捲動時消失）
   const thSticky = 'position:sticky;top:0;z-index:5;background:#E8EDF3;box-shadow:inset 0 -2px 0 var(--line);';
   const thStyle = cellPad + thSticky;
@@ -9056,15 +9227,16 @@ function renderSystemAccessTable() {
   const _sth = (label, key, w, center) =>
     `<th style="${thStyle}${center ? 'text-align:center;' : ''}width:${w}px;cursor:pointer;user-select:none;" onclick="saSortBy('${key}')" title="點擊排序">${label}<span style="font-size:9px;color:rgba(0,0,0,.35);">${_arrow(key)}</span></th>`;
   head.innerHTML = '<tr>' +
-    _sth('廠區', 'factory_code', 50) +
-    _sth('工號', 'emp_id', 84) +
-    _sth('姓名', 'name', 84) +
-    _sth('英文名', 'eng_name', 78) +
-    _sth('部門', 'dept', 130) +
-    _sth('職稱', 'title', 90) +
-    _sth('Email', 'email', 200) +
-    SYNCHUB_SYSTEMS.map(s => _sth(s.code, 'sys:' + s.code, 56, true)).join('') +
-    `<th style="${thStyle}width:56px;">操作</th>` +
+    _sth('廠區', 'factory_code', 40) +
+    _sth('工號', 'emp_id', 68) +
+    _sth('姓名', 'name', 64) +
+    _sth('英文名', 'eng_name', 56) +
+    _sth('部門', 'dept', 84) +
+    _sth('職稱', 'title', 58) +
+    _sth('Email', 'email', 140) +
+    _sth('帳號', 'acct', 70, true) +
+    SYNCHUB_SYSTEMS.map(s => _sth(s.code, 'sys:' + s.code, 42, true)).join('') +
+    `<th style="${thStyle}width:92px;">操作</th>` +
     `<th style="${thSticky}width:auto;padding:0;"></th></tr>`;
 
   const rows = saApplyFilter(systemAccessRows);
@@ -9075,35 +9247,47 @@ function renderSystemAccessTable() {
       const c = _sk.slice(4);
       return (((a.systems || []).includes(c) ? 1 : 0) - ((b.systems || []).includes(c) ? 1 : 0)) * _dir;
     }
+    if (_sk === 'acct') {   // v298：帳號欄依「有無開通」排
+      return ((saAccountOf(a.emp_id) ? 1 : 0) - (saAccountOf(b.emp_id) ? 1 : 0)) * _dir;
+    }
     return ((a[_sk] || '').toString()).localeCompare((b[_sk] || '').toString(), 'zh-Hant') * _dir;
   });
+  // v298-4：補開通鈕＝有缺才顯示、顯示缺額
+  const bulkBtn = document.getElementById('saBulkProvBtn');
+  if (bulkBtn && !bulkBtn.dataset.running) {
+    const missing = systemAccessRows.filter(r => !saAccountOf(r.emp_id)).length;
+    bulkBtn.style.display = missing ? '' : 'none';
+    bulkBtn.textContent = '⚡ 補開通未開通（' + missing + '）';
+  }
   const countEl = document.getElementById('saFltCount');
   if (countEl) countEl.textContent = rows.length === systemAccessRows.length
     ? '共 ' + systemAccessRows.length + ' 人'
     : '符合 ' + rows.length + ' / 共 ' + systemAccessRows.length + ' 人';
   const body = document.getElementById('systemAccessBody');
   if (!systemAccessRows.length) {
-    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:24px;text-align:center;color:var(--text-soft);">尚無授權名單，請用右上「📥 批量加入」或「＋ 單筆加入」挑選人員</td></tr>';
+    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 10) + '" style="padding:24px;text-align:center;color:var(--text-soft);">尚無授權名單，請用右上「📥 批量加入」或「＋ 單筆加入」挑選人員</td></tr>';
     return;
   }
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 9) + '" style="padding:24px;text-align:center;color:var(--text-soft);">無符合篩選條件的人員</td></tr>';
+    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 10) + '" style="padding:24px;text-align:center;color:var(--text-soft);">無符合篩選條件的人員</td></tr>';
     return;
   }
   body.innerHTML = rows.map(r => {
     const checks = SYNCHUB_SYSTEMS.map(s =>
       `<td style="${cellPad}text-align:center;"><input type="checkbox" ${r.systems.includes(s.code) ? 'checked' : ''}
         onchange="saToggleSystem('${r.emp_id}','${s.code}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>`).join('');
+    const nm = saEscapeCell(masterEmpName(r.emp_id) || r.name);
     return `<tr>
       <td style="${cellPad}font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);font-size:12px;">${r.factory_code || '—'}</td>
-      <td style="${cellPad}font-family:'Inter',monospace;font-weight:600;font-size:13px;">${r.emp_id}</td>
-      <td style="${cellPad}font-size:13px;">${saEscapeCell(masterEmpName(r.emp_id) || r.name)}</td>
-      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.eng_name)}</td>
-      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.dept)}</td>
-      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.title)}</td>
-      <td style="${cellPad}font-size:12px;color:var(--text-soft);">${saEscapeCell(r.email)}</td>
+      <td style="${cellPad}${ell}font-family:'Inter',monospace;font-weight:600;font-size:12px;" title="${r.emp_id}">${r.emp_id}</td>
+      <td style="${cellPad}${ell}font-size:13px;" title="${nm}">${nm}</td>
+      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.eng_name)}">${saEscapeCell(r.eng_name)}</td>
+      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.dept)}">${saEscapeCell(r.dept)}</td>
+      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.title)}">${saEscapeCell(r.title)}</td>
+      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.email)}">${saEscapeCell(r.email)}</td>
+      <td style="${cellPad}text-align:center;white-space:nowrap;">${saAcctCell(r.emp_id)}</td>
       ${checks}
-      <td style="${cellPad}"><span style="font-size:11px;color:var(--rust);cursor:pointer;" onclick="saRemovePerson('${r.emp_id}')">移除</span></td>
+      <td style="${cellPad}white-space:nowrap;">${saAccountOf(r.emp_id) ? `<span style="font-size:11px;color:var(--text-soft);cursor:pointer;margin-right:8px;" onclick="saResetPwd('${r.emp_id}')">重設密碼</span>` : ''}<span style="font-size:11px;color:var(--rust);cursor:pointer;" onclick="saRemovePerson('${r.emp_id}')">移除</span></td>
       <td style="padding:0;"></td>
     </tr>`;
   }).join('');
@@ -9267,9 +9451,13 @@ async function saBatchConfirm() {
     await sbUpsert('system_access', newRows.map(r => ({ ...r, updated_at: new Date().toISOString() })), 'emp_id');
     newRows.forEach(r => systemAccessRows.push(r));
     systemAccessRows.sort((a, b) => (a.factory_code || '').localeCompare(b.factory_code || ''));
+    // v298：批量加入＝逐一順手開通帳號
+    let acctOk = 0, acctFail = 0;
+    for (const r of newRows) { (await saProvision(r.emp_id, true)) ? acctOk++ : acctFail++; }
     saPopulateFilterDropdowns();
     renderSystemAccessTable();
-    showToast('已加入 ' + newRows.length + ' 人' + (systems.length ? '（開通 ' + systems.join('、') + '）' : '（未勾系統）'), 'ok');
+    showToast('已加入 ' + newRows.length + ' 人' + (systems.length ? '（授權 ' + systems.join('、') + '）' : '（未勾系統）')
+      + ' · 帳號開通 ' + acctOk + ' 筆' + (acctFail ? '、失敗 ' + acctFail + ' 筆（可用名單上的「開通」重試）' : ''), acctFail ? 'error' : 'ok');
     closeSaBatch();
   } catch (e) {
     console.error('[system_access] batch failed:', e);
@@ -9358,8 +9546,10 @@ async function saAddPerson(empId) {
     await sbUpsert('system_access', [{ ...row, updated_at: new Date().toISOString() }], 'emp_id');
     systemAccessRows.push(row);
     systemAccessRows.sort((a,b) => (a.factory_code||'').localeCompare(b.factory_code||''));
+    // v298：加入名單＝順手開通帳號（初始密碼 oms12345、角色=信錦員工）
+    const acctOk = await saProvision(empId, true);
     renderSystemAccessTable();
-    showToast('已加入 ' + src.name, 'ok');
+    showToast('已加入 ' + src.name + (acctOk ? ' · 帳號已開通（初始密碼 oms12345，首次登入須改）' : ' · ⚠帳號開通失敗，請用名單上的「開通」重試'), acctOk ? 'ok' : 'error');
   } catch (e) {
     console.error('[system_access] add failed:', e);
     showToast('加入失敗：' + e.message, 'error');
@@ -10195,7 +10385,7 @@ async function savePwd() {
   // v265：改密一律走 Supabase Auth，不再寫 oms_users 明碼
   // 重設他人密碼請改用「使用者管理」(走 Edge Function)
   if (pwdTargetUserId) {
-    errEl.textContent = '請改用「使用者管理」重設他人密碼';
+    errEl.textContent = '請改用「🔐 系統資料授權」重設他人密碼';  // v298：重設密碼已搬到授權頁
     return;
   }
   if (!_omsJWT) { errEl.textContent = '請先登入後再修改密碼'; return; }
