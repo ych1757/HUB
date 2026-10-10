@@ -1547,6 +1547,8 @@
     box-shadow: 0 0 4px rgba(184,153,104,0.5);
   }
   .emp-table th { overflow: hidden; white-space: nowrap; }
+  /* v299-4：最右空白吸收欄（表格比容器窄時吃掉多餘寬度，各欄不被撐開） */
+  .emp-table .col-filler { padding: 0 !important; min-width: 0; border: 0 !important; }
 
   /* ===== 查詢列 ===== */
   .search-bar {
@@ -2045,6 +2047,29 @@
     transition: all 0.2s;
   }
   .synchub-logout:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  /* v299-2：訪客「登入 / 改密碼」鈕＝金框醒目；提示條＝八格上方一行（未登入才顯示） */
+  .synchub-login-cta {
+    padding: calc(var(--u)*0.5) calc(var(--u)*1.25); border: 1.5px solid #D9A441;
+    color: #FFD98A; font-size: calc(var(--u)*1); font-weight: 700;
+    background: rgba(217,164,65,0.14);
+  }
+  .synchub-login-cta:hover { background: rgba(217,164,65,0.32); color: #fff; }
+  .synchub-pwd-strip {
+    display: flex; align-items: center; justify-content: center; gap: calc(var(--u)*1); flex-wrap: wrap;
+    margin: calc(var(--u)*-2.4) 0 calc(var(--u)*1.8);
+    padding: calc(var(--u)*0.55) calc(var(--u)*1.2); max-width: calc(var(--u)*66);
+    border: 1px solid rgba(217,164,65,0.6); border-radius: calc(var(--u)*0.6);
+    background: rgba(217,164,65,0.10); color: rgba(255,255,255,0.88);
+    font-size: calc(var(--u)*0.9); letter-spacing: calc(var(--u)*0.05); line-height: 1.5;
+  }
+  .synchub-pwd-strip b { color: #FFD98A; }
+  .synchub-pwd-strip-btn {
+    padding: calc(var(--u)*0.35) calc(var(--u)*1); border: 1px solid #D9A441; border-radius: calc(var(--u)*0.4);
+    background: #D9A441; color: #1B2A44; font-weight: 700; font-size: calc(var(--u)*0.9); cursor: pointer; white-space: nowrap;
+  }
+  .synchub-pwd-strip-btn:hover { background: #FFD98A; }
+  @keyframes synchubStripPop { from { opacity: 0; transform: translateY(calc(var(--u)*-0.5)); } to { opacity: 1; transform: none; } }
+  .synchub-pwd-strip-pop { animation: synchubStripPop 0.25s ease-out; }
 
   .synchub-body {
     display: flex; flex-direction: column;
@@ -4188,7 +4213,8 @@
         <div class="synchub-user-avatar" id="syncHubUserAvatar">D</div>
       </div>
       <button class="synchub-logout" id="syncHubLogoutBtn" onclick="syncHubLogout()">登出</button>
-      <button class="synchub-logout" id="syncHubLoginBtn" onclick="showAuthPage()" style="display:none;">登入</button>
+      <!-- v299-2：訪客的「登入」改金框醒目＋寫明「改密碼」（使用者 261010：被 QMS 擋回大廳的人找不到改密入口） -->
+      <button class="synchub-logout synchub-login-cta" id="syncHubLoginBtn" onclick="toggleHubPwdStrip()" style="display:none;">🔑 登入 / 改密碼</button><!-- v299-3：按了才展開中間提示條，由提示條「立即登入」進登入頁 -->
     </div>
   </div>
 
@@ -4199,6 +4225,12 @@
       <div class="synchub-hello">歡迎使用</div>
       <div class="synchub-hubname">SyncHub</div>
       <div class="synchub-slogan">信錦<span class="synchub-slogan-red">智匯</span></div><!-- v290-8：智匯紅漸層＋白色光澤掃過動畫（照使用者 GIF 效果） -->
+    </div>
+
+    <!-- v299-2：未登入提示條——新進人員／被 QMS、MHR「初始密碼」擋回來的人，一眼看到密碼在這裡改；登入後隱藏 -->
+    <div class="synchub-pwd-strip" id="syncHubPwdStrip" style="display:none;">
+      <span>首次使用？帳號＝工號、初始密碼 <b>oms12345</b>。請先登入改成自己的密碼，之後 QMS／MHR 都用這一組。</span>
+      <button class="synchub-pwd-strip-btn" onclick="showAuthPage(true)">立即登入</button>
     </div>
 
     <!-- 系統圖標 2x2 -->
@@ -4261,6 +4293,8 @@
       </div>
     </div>
 
+    <!-- v299-2：從 QMS/MHR「初始密碼被擋」回來（?pwd=1）或按大廳提示條「立即登入」時顯示 -->
+    <div id="authPwdHint" style="display:none;margin:0 0 calc(var(--u)*0.9);padding:calc(var(--u)*0.5) calc(var(--u)*0.8);border:1px solid #E7C56A;border-radius:calc(var(--u)*0.4);background:#FFF6DC;color:#7A5200;font-size:calc(var(--u)*0.8);line-height:1.5;letter-spacing:calc(var(--u)*0.03);text-align:left;">請用工號＋初始密碼 <b>oms12345</b> 登入，系統會要求您設定新密碼；設好後回 QMS／MHR 改用新密碼登入。</div>
     <!-- v294：登入改「工號/Email＋密碼」單步（照 MHR）。大廳免登入後，登入＝進 OMS；廠區與角色由帳號設定檔帶出，不再選廠區選名字 -->
     <div class="auth-field">
       <label class="auth-label">工號 / Email</label>
@@ -4387,6 +4421,11 @@
       <input id="saFltKeyword" type="text" placeholder="姓名 / 工號 / Email" oninput="saFilter.keyword=this.value;renderSystemAccessTable();"
         style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;width:180px;">
       <button onclick="saClearFilter()" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">清除</button>
+      <!-- v299：欄位顯示選擇（英文名／部門／職稱／Email 可關；存這台瀏覽器） -->
+      <div style="position:relative;">
+        <button id="saColsBtn" onclick="saToggleColsMenu(event)" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">欄位 ▾</button>
+        <div id="saColsMenu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid var(--line-soft);border-radius:6px;box-shadow:0 8px 24px rgba(10,30,80,0.12);padding:8px 12px;z-index:60;white-space:nowrap;"></div>
+      </div>
       <span id="saFltCount" style="margin-left:auto;font-size:11px;color:var(--text-soft);"></span>
     </div>
     <div class="users-table-wrapper" style="flex:1;min-height:0;overflow:auto;">
@@ -5110,7 +5149,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V298-5';
+const APP_VER = 'V299-4';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6388,16 +6427,20 @@ function refreshEmpTable(code) {
       '</span>' +
       '<span class="col-resizer" data-idx="' + i + '" onmousedown="startColResize(event,' + i + ')"></span>' +
       '</th>';
-  }).join('') + '<th class="col-actions" style="width:88px;">操作</th>';
+  }).join('') + '<th class="col-actions" style="width:88px;">操作</th>' +
+    '<th class="col-filler" style="width:auto;padding:0;"></th>';   // v299-4：吸收多餘寬度的空白欄
   // 明確設定表格總寬＝各欄相加，欄寬固定不受內容影響（避免內容撐欄、透出凍結欄）
   // v271：同時強制 inline table-layout:fixed，確保欄寬由 th 寬度決定、拖曳不連動
+  // v299-4：使用者 261010：只留 4 欄時各欄相加比容器窄，瀏覽器會把多出來的寬度平分給每一欄（min-width／容器撐開），
+  //   一按拖拉把手程式就把「撐開後」的寬度寫回每一欄並存起來＝全部欄位一起變。改法＝表格寬取 max(各欄相加, 容器寬)，
+  //   多出來的寬度全部進最右空白欄，每一欄永遠就是自己設定的寬度。
   const _empTbl = document.getElementById('empTable');
   _empTbl.style.tableLayout = 'fixed';
-  _empTbl.style.width = _tblW + 'px';
+  _empTbl.style.width = empTableWidth(_tblW) + 'px';
 
   const tbody = document.getElementById('empTableBody');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="' + (cols.length+1) + '" class="empty">尚未建檔任何員工</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="' + (cols.length+2) + '" class="empty">尚未建檔任何員工</td></tr>';
     return;
   }
 
@@ -6477,11 +6520,18 @@ function refreshEmpTable(code) {
       '<td class="col-actions"><div style="display:flex;gap:8px;align-items:center;">' +
         editBtn +
         delBtn +
-      '</div></td></tr>';
+      '</div></td><td class="col-filler" style="padding:0;"></td></tr>';
   }).join('');
 
   filterTable();
   setTimeout(applyColWidths, 0);
+}
+
+// v299-4：表格寬＝各欄相加與容器寬取大者（多的進空白吸收欄），任何情況各欄都不被撐開
+function empTableWidth(sumPx) {
+  const wrap = document.querySelector('.emp-table-wrapper');
+  const avail = wrap ? wrap.clientWidth : 0;
+  return Math.max(sumPx, avail);
 }
 
 function sortEmpTable(key) {
@@ -6743,12 +6793,13 @@ let _resizeTh = null, _resizeStartX = 0, _resizeStartW = 0;
 function startColResize(e, idx) {
   e.preventDefault();
   e.stopPropagation();
-  const ths = document.querySelectorAll('#empTableHead th');
+  const ths = document.querySelectorAll('#empTableHead th:not(.col-filler)');   // v299-4：空白吸收欄不參與
   const _tbl = document.getElementById('empTable');
   // v271(保險版)：強制 inline table-layout:fixed（行內優先，避免被當成 auto 導致連動）；
   // 記下所有欄起始寬度，拖曳時每幀「重設全部欄寬」（別欄維持起始、被拉的設新值），表格寬＝相加。
+  // v299-4：有空白吸收欄後各欄 offsetWidth＝自己設定的寬度，這裡寫回去不會再把「撐開的寬度」烙進每一欄
   const startWidths = Array.from(ths).map(th => th.offsetWidth);
-  if (_tbl) { _tbl.style.tableLayout = 'fixed'; _tbl.style.width = startWidths.reduce((a, b) => a + b, 0) + 'px'; }
+  if (_tbl) { _tbl.style.tableLayout = 'fixed'; _tbl.style.width = empTableWidth(startWidths.reduce((a, b) => a + b, 0)) + 'px'; }
   ths.forEach((th, i) => { th.style.width = startWidths[i] + 'px'; });
 
   _resizeTh = ths[idx];
@@ -6760,7 +6811,7 @@ function startColResize(e, idx) {
     const newW = Math.max(40, _startW + (mv.clientX - _resizeStartX));
     let sum = 0;
     ths.forEach((th, i) => { const w = (i === idx) ? newW : startWidths[i]; th.style.width = w + 'px'; sum += w; });
-    if (_tbl) _tbl.style.width = sum + 'px';
+    if (_tbl) _tbl.style.width = empTableWidth(sum) + 'px';   // v299-4：窄於容器時多的進空白欄，別欄不變
   };
   const onUp = () => {
     e.target.classList.remove('resizing');
@@ -7773,10 +7824,17 @@ function initAuth() {
   // 點 OMS 卡片才進登入；QMS/MHR/GHG 卡片本來就是開各自網址、不需要大廳身分。
   currentUser = null;
   showSyncHub();
+  // v299-2：網址帶 ?pwd=1（或 #pwd）＝從 QMS/MHR「初始密碼被擋」頁回來的人 → 直接開登入頁＋提示，不用在八格裡找入口
+  if (/[?&]pwd=1(&|$)/.test(location.search) || location.hash === '#pwd') {
+    showAuthPage(true);
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  }
 }
 
-function showAuthPage() {
+function showAuthPage(withPwdHint) {
   document.getElementById('authPage').style.display = 'flex';
+  // v299-2：改密提示句——?pwd=1 進來或按大廳「立即登入」才顯示；右上「登入 / 改密碼」與其他路進來不顯示
+  const ph = document.getElementById('authPwdHint'); if (ph) ph.style.display = withPwdHint ? '' : 'none';
   // v294：重設帳密欄（廠區下拉與員工搜尋已移除）
   document.getElementById('authUser').value = '';
   document.getElementById('authPassword').value = '';
@@ -7838,6 +7896,14 @@ function noDiacritic(str) {
   return String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
 }
 
+// v299-3：右上「登入 / 改密碼」＝展開／收起中間提示條（帳號＝工號、初始密碼…），提示條的「立即登入」才進登入頁
+function toggleHubPwdStrip() {
+  const s = document.getElementById('syncHubPwdStrip'); if (!s) return;
+  const open = s.style.display !== 'none';
+  s.style.display = open ? 'none' : '';
+  if (!open) { s.classList.remove('synchub-pwd-strip-pop'); void s.offsetWidth; s.classList.add('synchub-pwd-strip-pop'); }
+}
+
 function showSyncHub() {
   document.getElementById('authPage').style.display = 'none';
   document.getElementById('syncHubPage').classList.add('show');
@@ -7857,6 +7923,9 @@ function showSyncHub() {
     logoutBtn.style.display = 'none';
     loginBtn.style.display = '';
   }
+  // v299-2：提示條只給訪客看；v299-3：平常收起，按右上「登入 / 改密碼」才展開（使用者 261010）
+  const pwdStrip = document.getElementById('syncHubPwdStrip');
+  if (pwdStrip) pwdStrip.style.display = 'none';
   // 啟動時鐘
   syncHubTickClock();
 }
@@ -9095,7 +9164,7 @@ async function openSystemAccessPage() {
   document.getElementById('systemAccessPage').classList.remove('hidden');
   document.getElementById('systemAccessHead').innerHTML = '';
   document.getElementById('systemAccessBody').innerHTML =
-    '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 10) + '" style="padding:20px;text-align:center;color:var(--text-soft);">載入中…</td></tr>';
+    '<tr><td colspan="' + saColCount() + '" style="padding:20px;text-align:center;color:var(--text-soft);">載入中…</td></tr>';
   try {
     const rows = await sbSelectAll('system_access', 'order=factory_code.asc,emp_id.asc');
     systemAccessRows = rows.map(r => ({
@@ -9212,9 +9281,72 @@ async function saResetPwd(empId) {
   } catch (e) { showToast('重設失敗：' + e.message, 'error'); }
 }
 
+// === v299：文字欄平分剩餘寬度＋放不下換兩行＋欄位顯示選擇（使用者 261010：越南文全名被 64px 姓名欄切掉、右邊卻一片空白） ===
+// 窄欄（廠區／工號／帳號／系統勾／操作）維持固定；姓名／英文名／部門／職稱／Email 依權重平分「表格可用寬度－固定欄」，
+// 任何寬度都不會超出表格→不出橫向捲軸；畫面太窄（剩餘 < 各欄最小寬總和）才退回最小寬、由外層橫捲（與 298-5 相同）。
+const SA_FIXED_W = { factory: 40, emp: 68, acct: 70, sys: 42, ops: 92 };
+const SA_TEXT_COLS = [
+  { key: 'name',     label: '姓名',   w: 3, min: 72,  fixed: true },
+  { key: 'eng_name', label: '英文名', w: 2, min: 56 },
+  { key: 'dept',     label: '部門',   w: 3, min: 72 },
+  { key: 'title',    label: '職稱',   w: 2, min: 56 },
+  { key: 'email',    label: 'Email',  w: 4, min: 120 },
+];
+const SA_COLS_LS_KEY = 'sa_hidden_cols_v299';
+let saHiddenCols = (() => {
+  try { const v = JSON.parse(localStorage.getItem(SA_COLS_LS_KEY) || '[]'); return Array.isArray(v) ? v.filter(k => SA_TEXT_COLS.some(c => c.key === k && !c.fixed)) : []; }
+  catch (e) { return []; }
+})();
+function saColVisible(key) { return !saHiddenCols.includes(key); }
+function saColCount() { return 4 + SYNCHUB_SYSTEMS.length + SA_TEXT_COLS.filter(c => saColVisible(c.key)).length; }  // 廠區／工號／帳號／操作＋系統欄＋顯示中的文字欄
+function saTextColWidths() {
+  const wrap = document.querySelector('#systemAccessPage .users-table-wrapper');
+  const avail = wrap ? wrap.clientWidth : 0;   // clientWidth 已扣掉直向捲軸
+  const fixed = SA_FIXED_W.factory + SA_FIXED_W.emp + SA_FIXED_W.acct + SA_FIXED_W.sys * SYNCHUB_SYSTEMS.length + SA_FIXED_W.ops;
+  const cols = SA_TEXT_COLS.filter(c => saColVisible(c.key));
+  const out = {};
+  const remain = avail - fixed - 4;
+  const sumMin = cols.reduce((a, c) => a + c.min, 0);
+  const sumW = cols.reduce((a, c) => a + c.w, 0);
+  if (!avail || remain <= sumMin) { cols.forEach(c => out[c.key] = c.min); return out; }
+  cols.forEach(c => out[c.key] = Math.max(c.min, Math.floor(remain * c.w / sumW)));
+  return out;
+}
+function saBuildColsMenu() {
+  const btn = document.getElementById('saColsBtn');
+  if (btn) btn.textContent = '欄位' + (saHiddenCols.length ? '（隱藏 ' + saHiddenCols.length + '）' : '') + ' ▾';
+  const m = document.getElementById('saColsMenu'); if (!m) return;
+  m.innerHTML = '<div style="font-size:10px;color:var(--text-soft);letter-spacing:1px;margin-bottom:6px;">顯示欄位（記在這台瀏覽器）</div>' +
+    SA_TEXT_COLS.filter(c => !c.fixed).map(c =>
+      `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0;cursor:pointer;"><input type="checkbox" value="${c.key}" ${saColVisible(c.key) ? 'checked' : ''} onchange="saToggleCol(this.value,this.checked)" style="width:14px;height:14px;cursor:pointer;">${c.label}</label>`).join('') +
+    '<div style="font-size:10px;color:var(--text-soft);margin-top:6px;">廠區／工號／姓名／帳號／系統／操作固定顯示</div>';
+}
+function saToggleColsMenu(ev) {
+  if (ev) ev.stopPropagation();
+  const m = document.getElementById('saColsMenu'); if (!m) return;
+  if (m.style.display !== 'none') { m.style.display = 'none'; return; }
+  saBuildColsMenu(); m.style.display = '';
+}
+function saToggleCol(key, show) {
+  if (show) saHiddenCols = saHiddenCols.filter(k => k !== key);
+  else if (!saHiddenCols.includes(key)) saHiddenCols.push(key);
+  try { localStorage.setItem(SA_COLS_LS_KEY, JSON.stringify(saHiddenCols)); } catch (e) {}
+  saBuildColsMenu();
+  renderSystemAccessTable();
+}
+document.addEventListener('click', ev => {
+  const m = document.getElementById('saColsMenu');
+  if (m && m.style.display !== 'none' && !m.contains(ev.target)) m.style.display = 'none';
+});
+let _saResizeT = null;
+window.addEventListener('resize', () => {   // 視窗改寬→文字欄重算（只在授權頁開著時）
+  const pg = document.getElementById('systemAccessPage');
+  if (!pg || pg.classList.contains('hidden')) return;
+  clearTimeout(_saResizeT); _saResizeT = setTimeout(renderSystemAccessTable, 150);
+});
+
 function renderSystemAccessTable() {
-  // 基本欄位設窄，最右加彈性空白欄吸收多餘寬度→欄位往左集中、系統變多也不掉出畫面
-  // v298-5：欄距全面緊縮（使用者 261007：以後還會加系統）＝內距縮小＋固定欄寬＋長字省略號；1280 不得出橫向捲軸
+  // v298-5：窄欄內距縮小＋固定欄寬；v299：文字欄平分剩餘寬度＋兩行換行（不再靠最右空白欄吸收多餘寬度）
   const _tbl = document.getElementById('systemAccessHead').closest('table');
   if (_tbl) { _tbl.style.tableLayout = 'fixed'; _tbl.style.width = '100%'; }
   const cellPad = 'padding:9px 6px;';
@@ -9225,19 +9357,20 @@ function renderSystemAccessTable() {
   const head = document.getElementById('systemAccessHead');
   const _arrow = k => saSort.key === k ? (saSort.dir === 1 ? ' ▲' : ' ▼') : ' ⇅';
   const _sth = (label, key, w, center) =>
-    `<th style="${thStyle}${center ? 'text-align:center;' : ''}width:${w}px;cursor:pointer;user-select:none;" onclick="saSortBy('${key}')" title="點擊排序">${label}<span style="font-size:9px;color:rgba(0,0,0,.35);">${_arrow(key)}</span></th>`;
+    `<th data-col="${key}" style="${thStyle}${center ? 'text-align:center;' : ''}width:${w}px;cursor:pointer;user-select:none;" onclick="saSortBy('${key}')" title="點擊排序">${label}<span style="font-size:9px;color:rgba(0,0,0,.35);">${_arrow(key)}</span></th>`;
+  saBuildColsMenu();
+  const tw = saTextColWidths();   // v299：文字欄寬度（平分剩餘）
   head.innerHTML = '<tr>' +
-    _sth('廠區', 'factory_code', 40) +
-    _sth('工號', 'emp_id', 68) +
-    _sth('姓名', 'name', 64) +
-    _sth('英文名', 'eng_name', 56) +
-    _sth('部門', 'dept', 84) +
-    _sth('職稱', 'title', 58) +
-    _sth('Email', 'email', 140) +
-    _sth('帳號', 'acct', 70, true) +
-    SYNCHUB_SYSTEMS.map(s => _sth(s.code, 'sys:' + s.code, 42, true)).join('') +
-    `<th style="${thStyle}width:92px;">操作</th>` +
-    `<th style="${thSticky}width:auto;padding:0;"></th></tr>`;
+    _sth('廠區', 'factory_code', SA_FIXED_W.factory) +
+    _sth('工號', 'emp_id', SA_FIXED_W.emp) +
+    _sth('姓名', 'name', tw.name) +
+    (saColVisible('eng_name') ? _sth('英文名', 'eng_name', tw.eng_name) : '') +
+    (saColVisible('dept') ? _sth('部門', 'dept', tw.dept) : '') +
+    (saColVisible('title') ? _sth('職稱', 'title', tw.title) : '') +
+    (saColVisible('email') ? _sth('Email', 'email', tw.email) : '') +
+    _sth('帳號', 'acct', SA_FIXED_W.acct, true) +
+    SYNCHUB_SYSTEMS.map(s => _sth(s.code, 'sys:' + s.code, SA_FIXED_W.sys, true)).join('') +
+    `<th style="${thStyle}width:${SA_FIXED_W.ops}px;">操作</th></tr>`;
 
   const rows = saApplyFilter(systemAccessRows);
   // 排序：文字欄用 localeCompare（簡繁/中英皆可）；系統欄依「是否勾選」
@@ -9265,11 +9398,11 @@ function renderSystemAccessTable() {
     : '符合 ' + rows.length + ' / 共 ' + systemAccessRows.length + ' 人';
   const body = document.getElementById('systemAccessBody');
   if (!systemAccessRows.length) {
-    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 10) + '" style="padding:24px;text-align:center;color:var(--text-soft);">尚無授權名單，請用右上「📥 批量加入」或「＋ 單筆加入」挑選人員</td></tr>';
+    body.innerHTML = '<tr><td colspan="' + saColCount() + '" style="padding:24px;text-align:center;color:var(--text-soft);">尚無授權名單，請用右上「📥 批量加入」或「＋ 單筆加入」挑選人員</td></tr>';
     return;
   }
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="' + (SYNCHUB_SYSTEMS.length + 10) + '" style="padding:24px;text-align:center;color:var(--text-soft);">無符合篩選條件的人員</td></tr>';
+    body.innerHTML = '<tr><td colspan="' + saColCount() + '" style="padding:24px;text-align:center;color:var(--text-soft);">無符合篩選條件的人員</td></tr>';
     return;
   }
   body.innerHTML = rows.map(r => {
@@ -9277,20 +9410,46 @@ function renderSystemAccessTable() {
       `<td style="${cellPad}text-align:center;"><input type="checkbox" ${r.systems.includes(s.code) ? 'checked' : ''}
         onchange="saToggleSystem('${r.emp_id}','${s.code}',this.checked)" style="width:16px;height:16px;cursor:pointer;"></td>`).join('');
     const nm = saEscapeCell(masterEmpName(r.emp_id) || r.name);
+    // v299：文字欄＝放得下一行就一行、放不下換第二行、第三行起省略；滑鼠停留看全文
+    const clamp2 = 'white-space:normal;overflow-wrap:anywhere;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.35;';
+    const txt = (v, extra) => `<td style="${cellPad}${extra || ''}" title="${v}"><div style="${clamp2}">${v}</div></td>`;
     return `<tr>
       <td style="${cellPad}font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);font-size:12px;">${r.factory_code || '—'}</td>
       <td style="${cellPad}${ell}font-family:'Inter',monospace;font-weight:600;font-size:12px;" title="${r.emp_id}">${r.emp_id}</td>
-      <td style="${cellPad}${ell}font-size:13px;" title="${nm}">${nm}</td>
-      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.eng_name)}">${saEscapeCell(r.eng_name)}</td>
-      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.dept)}">${saEscapeCell(r.dept)}</td>
-      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.title)}">${saEscapeCell(r.title)}</td>
-      <td style="${cellPad}${ell}font-size:12px;color:var(--text-soft);" title="${saEscapeCell(r.email)}">${saEscapeCell(r.email)}</td>
+      ${txt(nm, 'font-size:13px;')}
+      ${saColVisible('eng_name') ? txt(saEscapeCell(r.eng_name), 'font-size:12px;color:var(--text-soft);') : ''}
+      ${saColVisible('dept') ? txt(saEscapeCell(r.dept), 'font-size:12px;color:var(--text-soft);') : ''}
+      ${saColVisible('title') ? txt(saEscapeCell(r.title), 'font-size:12px;color:var(--text-soft);') : ''}
+      ${saColVisible('email') ? txt(saEscapeCell(r.email), 'font-size:12px;color:var(--text-soft);') : ''}
       <td style="${cellPad}text-align:center;white-space:nowrap;">${saAcctCell(r.emp_id)}</td>
       ${checks}
       <td style="${cellPad}white-space:nowrap;">${saAccountOf(r.emp_id) ? `<span style="font-size:11px;color:var(--text-soft);cursor:pointer;margin-right:8px;" onclick="saResetPwd('${r.emp_id}')">重設密碼</span>` : ''}<span style="font-size:11px;color:var(--rust);cursor:pointer;" onclick="saRemovePerson('${r.emp_id}')">移除</span></td>
-      <td style="padding:0;"></td>
     </tr>`;
   }).join('');
+  saFitColumns();
+}
+
+// v299-1：寬度是在直向捲軸還沒出現時算的，列多了捲軸佔掉 ~15px 會讓整張多出幾 px 橫向溢出
+// → 畫完量一次 scrollWidth－clientWidth，從顯示中的文字欄按權重扣回（最多兩輪；扣到最小寬就放棄＝外層橫捲）
+function saFitColumns() {
+  const wrap = document.querySelector('#systemAccessPage .users-table-wrapper'); if (!wrap) return;
+  const cols = SA_TEXT_COLS.filter(c => saColVisible(c.key));
+  const thOf = {}; document.querySelectorAll('#systemAccessHead th[data-col]').forEach(th => { thOf[th.getAttribute('data-col')] = th; });
+  const sumW = cols.reduce((a, c) => a + c.w, 0);
+  for (let pass = 0; pass < 2; pass++) {
+    const over = wrap.scrollWidth - wrap.clientWidth;
+    if (over <= 0) return;
+    let left = over;
+    cols.forEach((c, i) => {
+      const th = thOf[c.key]; if (!th) return;
+      const cur = parseFloat(th.style.width) || c.min;
+      const cut = i === cols.length - 1 ? left : Math.ceil(over * c.w / sumW);
+      const nw = Math.max(c.min, cur - cut);
+      left -= (cur - nw);
+      th.style.width = nw + 'px';
+    });
+    if (left > 0) return;
+  }
 }
 
 // === 名單篩選 ===
