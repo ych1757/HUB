@@ -5396,7 +5396,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V309-1';
+const APP_VER = 'V310';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -7913,6 +7913,13 @@ function toggleHubPwdStrip() {
 // 之後做「宣導影片管理」時改成讀資料表，畫面程式不用動（都走 hubVideos()）。
 // ⚠ HUB repo 是公開的＝這裡列的影片任何人拿到網址都看得到，影片畫面不能有真實姓名、客戶、料號、良率。
 const HUB_VIDEOS = [
+  // v310：第 2 支（短影音 11 號，261014）。排第一個＝首頁預設顯示這支（每位同仁第一次使用都適用）。
+  //   畫面只有示範帳號（DEMO001、DEMO999、王小明）；大廳提示條與登入頁上的初始密碼那一行是系統原樣（大廳本來就公開顯示）。
+  //   檔案已把索引搬到檔頭（按播放可以馬上開始）；沒有做預告片＝封面不播預覽。
+  { id: 'v002', system: 'SyncHub', title: 'SyncHub 第一次使用：先改密碼，再點系統登入',
+    desc: '第一次使用的同仁：先到 SyncHub 大廳用工號＋初始密碼登入、設定新密碼，再點有權限的系統用新密碼登入（畫面為示範資料）',
+    date: '2026-10-14', len: '1:25', src: 'videos/002_SyncHub_261014_first_use.mp4', poster: 'videos/002_SyncHub_261014_first_use.jpg',
+    chapters: ['到大廳登入', '設定新密碼', '點系統登入'], active: true },
   { id: 'v001', system: 'QMS', title: 'QMS 內部宣導',
     desc: '料號管理、填表、製程能力、儀表板、查詢，90 秒看完（畫面為示範資料）',
     date: '2026-10-13', len: '1:29', src: 'videos/001_QMS_261013_internal.mp4', poster: 'videos/001_QMS_261013_internal.jpg',
