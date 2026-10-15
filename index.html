@@ -4388,6 +4388,259 @@
   .treemap-num { font-size: 12px; font-weight: 800; color: rgba(255,255,255,0.7); font-family: "Inter", sans-serif; font-style: normal; }
 
 </style>
+<style id="dv3css">
+  /* ============================================================
+     v312 戰情看板改版（提案三外觀）：左邊細選單＋上方膠囊切換＋大圓角方塊卡。
+     集團／事業群／單廠同一套版面，內容隨權限範圍變；另有「廠區對比」。
+     顏色：深色底驗過的色組（同一張卡內相鄰不同色相、未填一律灰）；淺色版只換底色與字色。
+     所有 class 都加 dv- 前綴，避免跟 OMS 其他頁的樣式撞名。
+     ============================================================ */
+  .dash-custom-page.dv3 {
+    --dv-bg: #0A0F1D; --dv-card: #141C2F; --dv-line: rgba(255,255,255,.07); --dv-track: rgba(255,255,255,.07);
+    --dv-t1: #F2F5FA; --dv-t2: #A9B4C8; --dv-t3: #7C88A0; --dv-on-bg: #F2F5FA; --dv-on-tx: #101727; --dv-shadow: none;
+    --dv-none: #4A5568; --dv-ink: #131A2B; --dv-avg: rgba(242,245,250,.6); --dv-bd: rgba(255,255,255,.16); --dv-avgrow: rgba(255,255,255,.03);
+    display: grid; grid-template-columns: 84px minmax(0, 1fr); background: var(--dv-bg); color: var(--dv-t1);
+    font-family: 'Inter', 'Segoe UI', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif; -webkit-font-smoothing: antialiased;
+  }
+  .dash-custom-page.dv3.hidden { display: none; }
+  .dash-custom-page.dv3.light-mode {
+    --dv-bg: #E9EDF4; --dv-card: #FFFFFF; --dv-line: rgba(16,23,39,.08); --dv-track: rgba(16,23,39,.07);
+    --dv-t1: #131A2B; --dv-t2: #4D586E; --dv-t3: #6E7890; --dv-on-bg: #131A2B; --dv-on-tx: #FFFFFF; --dv-shadow: 0 6px 22px rgba(30,45,80,.07);
+    --dv-none: #B4BCCB; --dv-avg: rgba(19,26,43,.55); --dv-bd: rgba(16,23,39,.15); --dv-avgrow: rgba(16,23,39,.03);
+    background: var(--dv-bg);
+  }
+  .dv3 *, .dv3 *::before, .dv3 *::after { box-sizing: border-box; }
+  .dv3 button, .dv3 select { font-family: inherit; }
+  .dv3 .dv-num { font-family: 'Inter', 'Segoe UI', sans-serif; font-variant-numeric: tabular-nums; }
+
+  /* 左邊細選單 */
+  .dv3-rail { margin: 14px 0 14px 14px; border-radius: 24px; background: var(--dv-card); box-shadow: var(--dv-shadow); display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 6px; min-height: 0; }
+  .dv3-brand { width: 44px; height: 44px; border-radius: 14px; background: #fff; color: #D42B3A; display: grid; place-items: center; font-weight: 800; font-size: 12px; letter-spacing: .5px; margin-bottom: 12px; box-shadow: 0 0 0 1px var(--dv-line); flex-shrink: 0; }
+  .dv3-it { width: 58px; padding: 8px 0 6px; border: none; background: none; border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--dv-t3); letter-spacing: 1px; cursor: pointer; flex-shrink: 0; }
+  .dv3-it svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .dv3-it:hover { color: var(--dv-t1); background: var(--dv-track); }
+  .dv3-it.on, .dv3-it.on:hover { background: var(--dv-on-bg); color: var(--dv-on-tx); font-weight: 600; }
+  .dv3-it.off { opacity: .35; cursor: not-allowed; }
+  .dv3-rail .dv3-sp { flex: 1; }
+  .dv3-ava { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #2F6FD6, #1B4C9C); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 600; margin-top: 6px; flex-shrink: 0; }
+
+  /* 右邊主畫面 */
+  .dv3-main { padding: 14px 18px 0 16px; display: flex; flex-direction: column; min-width: 0; height: 100%; overflow-y: auto; overflow-x: hidden; }
+  .dv3-bar { min-height: 52px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; row-gap: 8px; flex-shrink: 0; }
+  .dv3-ttl b { display: block; font-size: 21px; font-weight: 700; letter-spacing: 2px; line-height: 1.2; white-space: nowrap; }
+  .dv3-ttl > span { font-size: 11px; color: var(--dv-t3); letter-spacing: 1px; white-space: nowrap; }
+  .dv3-pills { display: flex; background: var(--dv-card); border-radius: 999px; padding: 4px; margin-left: 10px; box-shadow: var(--dv-shadow); flex-shrink: 0; }
+  .dv3-pills button { border: none; background: none; padding: 7px 18px; border-radius: 999px; font-size: 13px; color: var(--dv-t2); cursor: pointer; white-space: nowrap; }
+  .dv3-pills button.on { background: var(--dv-on-bg); color: var(--dv-on-tx); font-weight: 600; }
+  .dv3-pills button.off { opacity: .35; cursor: not-allowed; }
+  .dv3-scope { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .dv3-bar .dv3-sp { flex: 1; }
+  .dv3-sel { appearance: auto; background: var(--dv-card); color: var(--dv-t1); border: none; border-radius: 999px; padding: 8px 14px; font-size: 13px; box-shadow: var(--dv-shadow); cursor: pointer; max-width: 260px; outline: none; }
+  .dv3-sel option { background: var(--dv-card); color: var(--dv-t1); }
+  .dv3-sel.lock { display: inline-flex; align-items: center; cursor: default; background: rgba(57,135,229,.18); white-space: nowrap; }
+  .dv3-sel.lock small { color: var(--dv-t3); margin-left: 6px; font-size: 11px; }
+  .dv3-btn { border: none; background: var(--dv-card); color: var(--dv-t2); border-radius: 999px; padding: 9px 18px; font-size: 13px; cursor: pointer; box-shadow: var(--dv-shadow); white-space: nowrap; }
+  .dv3-btn:hover { color: var(--dv-t1); }
+  .dv3-btn.pri { background: #2F6FD6; color: #fff; font-weight: 600; }
+  .dv3-btn.ghost { background: none; border: 1px solid var(--dv-bd); box-shadow: none; }
+  .dv3-btn.sm { padding: 6px 12px; font-size: 12px; }
+  .dv3-role { align-items: center; gap: 6px; font-size: 11px; color: var(--dv-t2); border: 1px solid var(--dv-bd); border-radius: 999px; padding: 5px 12px; white-space: nowrap; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+  .dv3-role b { color: var(--dv-t1); font-weight: 600; }
+
+  /* 卡片：每列自己一個格線，欄寬比例由程式依「這列有哪些卡」決定（藏掉的卡空間給同列其他卡） */
+  .dv3-body { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; flex-shrink: 0; }
+  .dv3-row { display: grid; grid-template-columns: var(--cols); gap: 14px; }
+  .dv-card { position: relative; background: var(--dv-card); border-radius: 24px; padding: 18px 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--dv-shadow); min-width: 0; }
+  .dv-hd { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .dv-hd .dv-tt { font-size: 15px; font-weight: 600; letter-spacing: 1px; white-space: nowrap; }
+  .dv-hd .dv-sp { flex: 1; }
+  .dv-say { font-size: 12px; color: var(--dv-t2); margin-top: 4px; line-height: 1.5; }
+  .dv-say b { color: var(--dv-t1); font-weight: 600; }
+  .dv-say .dv-warn { color: var(--dv-t3); }
+  .dv-lgd { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; font-size: 11px; color: var(--dv-t2); }
+  .dv-lgd span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dv-lgd i { width: 8px; height: 8px; border-radius: 3px; display: inline-block; }
+
+  /* 第一列：主角（品牌藍）＋三張彩色重點卡 */
+  .dv-hero { height: 196px; background: linear-gradient(135deg, #3B7DE0 0%, #2459B8 60%, #1B4C9C 100%); color: #fff; justify-content: space-between; }
+  .dv-hero::after { content: ''; position: absolute; right: -50px; top: -70px; width: 230px; height: 230px; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.22), transparent 66%); pointer-events: none; }
+  .dv-hero .dv-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .dv-hero .dv-lab { font-size: 13px; letter-spacing: 2px; opacity: .92; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dv-hero .dv-chip { margin-left: auto; font-size: 11px; background: rgba(255,255,255,.18); padding: 4px 11px; border-radius: 999px; position: relative; z-index: 1; white-space: nowrap; }
+  .dv-hero .dv-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .dv-hero .dv-big b { font-size: 66px; font-weight: 600; letter-spacing: -2px; line-height: 1; }
+  .dv-hero .dv-big > span { font-size: 15px; opacity: .85; }
+  .dv-hero .dv-big .dv-rate { font-size: 12px; opacity: .9; background: rgba(255,255,255,.14); padding: 3px 10px; border-radius: 999px; margin-left: 6px; cursor: help; }
+  .dv-stack { display: flex; height: 10px; gap: 3px; border-radius: 5px; }
+  .dv-stack i { display: block; height: 100%; border-radius: 5px; min-width: 3px; }
+  .dv-hero .dv-lgd { justify-content: flex-start; margin-top: 8px; color: rgba(255,255,255,.88); }
+  .dv-hero .dv-lgd b { color: #fff; font-weight: 600; margin-left: 3px; }
+  .dv-tile { height: 196px; color: var(--dv-ink); justify-content: space-between; box-shadow: none; }
+  .dv-tile .dv-top { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; letter-spacing: 1px; white-space: nowrap; }
+  .dv-tile .dv-top em { margin-left: auto; font-style: normal; font-weight: 500; font-size: 11px; background: rgba(19,26,43,.1); padding: 4px 10px; border-radius: 999px; }
+  .dv-tile .dv-big { display: flex; align-items: baseline; gap: 10px; }
+  .dv-tile .dv-big b { font-size: 54px; font-weight: 600; letter-spacing: -1.5px; line-height: 1; }
+  .dv-tile .dv-big b small { font-size: 22px; font-weight: 600; margin-left: 1px; }
+  .dv-tile .dv-big > span { font-size: 13px; font-weight: 500; opacity: .75; white-space: nowrap; }
+  .dv-split { display: flex; height: 10px; gap: 3px; background: rgba(19,26,43,.06); border-radius: 5px; }
+  .dv-split i { display: block; height: 100%; border-radius: 5px; min-width: 3px; }
+  .dv-split i.a { background: var(--dv-ink); } .dv-split i.b { background: rgba(255,255,255,.72); } .dv-split i.u { background: rgba(19,26,43,.22); }
+  .dv-tile .dv-ft { font-size: 12px; opacity: .8; margin-top: 7px; display: flex; justify-content: space-between; gap: 8px; white-space: nowrap; }
+  .dv-tile .dv-ft span:first-child { overflow: hidden; text-overflow: ellipsis; }
+  .dv-ring .dv-mid { display: flex; align-items: center; gap: 16px; }
+  .dv-ring svg { width: 92px; height: 92px; flex-shrink: 0; }
+  .dv-ring .dv-mid b { display: block; font-size: 40px; font-weight: 600; letter-spacing: -1px; line-height: 1.05; white-space: nowrap; }
+  .dv-ring .dv-mid b small { font-size: 15px; font-weight: 500; margin-left: 4px; }
+  .dv-ring .dv-mid span { font-size: 12px; opacity: .8; white-space: nowrap; }
+
+  /* 第二列：廠區排行＋地區方塊 */
+  .dv-rank { height: 304px; }
+  .dv-rk { margin-top: 10px; display: flex; flex-direction: column; justify-content: space-between; flex: 1; min-height: 0; }
+  .dv-rk.dv-few { justify-content: flex-start; gap: 18px; }
+  .dv-rk .dv-r { display: grid; grid-template-columns: 18px 34px minmax(60px, 150px) 1fr 48px 40px; align-items: center; column-gap: 10px; font-size: 12px; }
+  .dv-withrg .dv-rk .dv-r { grid-template-columns: 18px 34px minmax(60px, 150px) 30px 1fr 48px 40px; }
+  .dv-rk .dv-rg { font-size: 11px; color: var(--dv-t3); white-space: nowrap; }
+  .dv-rank.dv-short { height: auto; }
+  .dv-rank.dv-short .dv-rk { flex: none; }
+  .dv-rk .dv-no { color: var(--dv-t3); font-size: 11px; text-align: right; }
+  .dv-rk .dv-cd { font-weight: 700; letter-spacing: .5px; }
+  .dv-rk .dv-nm { color: var(--dv-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dv-rk .dv-tr { height: 10px; border-radius: 6px; background: var(--dv-track); }
+  .dv-rk .dv-tr i { display: block; height: 100%; border-radius: 6px; min-width: 3px; }
+  .dv-rk .dv-v { text-align: right; font-weight: 600; font-size: 13px; }
+  .dv-rk .dv-p { text-align: right; color: var(--dv-t3); font-size: 11px; }
+  .dv-rest { font-size: 11px; color: var(--dv-t3); margin-top: 8px; padding-left: 28px; }
+  .dv-area { height: 304px; padding: 0; background: none; box-shadow: none; overflow: visible; }
+  .dv-tm { flex: 1; display: grid; gap: 14px; min-height: 0; }
+  .dv-tm.dv-n2 { grid-template-columns: 1fr 1fr; }
+  .dv-tm.dv-n3 { grid-template-columns: 55fr 45fr; grid-template-rows: 55fr 45fr; }
+  .dv-tm.dv-n3 > div:first-child { grid-row: span 2; }
+  .dv-tm.dv-n4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  .dv-tm > div { border-radius: 24px; padding: 16px 20px; display: flex; flex-direction: column; justify-content: space-between; color: var(--dv-ink); min-width: 0; overflow: hidden; }
+  .dv-tm .dv-top { display: flex; align-items: center; font-size: 13px; font-weight: 600; letter-spacing: 1px; white-space: nowrap; }
+  .dv-tm .dv-top em { margin-left: auto; font-style: normal; font-weight: 500; font-size: 11px; background: rgba(19,26,43,.1); padding: 4px 10px; border-radius: 999px; }
+  .dv-tm b { font-size: 34px; font-weight: 600; letter-spacing: -1px; line-height: 1; white-space: nowrap; }
+  .dv-tm b small { font-size: 15px; font-weight: 600; margin-left: 2px; }
+  .dv-tm span.dv-sub { display: block; font-size: 12px; opacity: .8; margin-top: 6px; white-space: nowrap; }
+  .dv-tm > div.dv-lead b { font-size: 52px; letter-spacing: -2px; }
+  .dv-tm > div.dv-lead b small { font-size: 20px; }
+
+  /* 第三列 */
+  .dv-pyr, .dv-sen, .dv-abcd { height: 250px; }
+  .dv-py { flex: 1; margin-top: 8px; display: flex; flex-direction: column; justify-content: space-between; min-height: 0; }
+  .dv-py .dv-r { display: grid; grid-template-columns: 34px 1fr 52px 1fr 34px; align-items: center; column-gap: 8px; font-size: 12px; }
+  .dv-py .dv-hdr { font-size: 11px; color: var(--dv-t2); }
+  .dv-py .dv-l { display: flex; justify-content: flex-end; }
+  .dv-py .dv-l i, .dv-py .dv-rr i { display: block; height: 16px; min-width: 2px; }
+  .dv-py .dv-l i { border-radius: 8px 3px 3px 8px; } .dv-py .dv-rr i { border-radius: 3px 8px 8px 3px; }
+  .dv-py .dv-l i.z, .dv-py .dv-rr i.z { min-width: 0; }
+  .dv-py .dv-band { text-align: center; color: var(--dv-t2); font-size: 11px; white-space: nowrap; }
+  .dv-py .dv-n { font-weight: 600; } .dv-py .dv-n.dv-r2 { text-align: right; }
+  .dv-bars { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: space-around; gap: 6px; margin: 8px 0 20px; border-bottom: 1px solid var(--dv-line); min-height: 0; }
+  .dv-bar2 { position: relative; flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; min-width: 0; }
+  .dv-bar2 .dv-v { font-size: 13px; font-weight: 600; line-height: 1.15; } .dv-bar2 .dv-p { font-size: 10px; color: var(--dv-t3); margin-bottom: 4px; }
+  .dv-bar2 i { display: block; width: 34px; max-width: 100%; border-radius: 10px 10px 3px 3px; min-height: 2px; }
+  .dv-bar2 .dv-l { position: absolute; top: 100%; margin-top: 6px; font-size: 11px; color: var(--dv-t2); white-space: nowrap; }
+  .dv-bar2.dv-hi .dv-v { font-size: 17px; }
+  .dv-dn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: space-between; margin-top: 2px; min-height: 0; }
+  .dv-dn svg { width: 112px; height: 112px; flex-shrink: 0; }
+  .dv-dn .dv-lg { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 3px 14px; font-size: 11px; color: var(--dv-t2); }
+  .dv-dn .dv-lg span { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .dv-dn .dv-lg i { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
+  .dv-dn .dv-lg b { margin-left: auto; color: var(--dv-t1); font-weight: 600; }
+  /* 單一廠（沒有第二列）時第三列加高 */
+  .dv3-row.dv-tall .dv-pyr, .dv3-row.dv-tall .dv-sen, .dv3-row.dv-tall .dv-abcd { height: max(400px, calc(100vh - 360px)); }
+  .dv3-row.dv-tall .dv-py .dv-l i, .dv3-row.dv-tall .dv-py .dv-rr i { height: 26px; }
+  .dv3-row.dv-tall .dv-bar2 i { width: 46px; }
+  .dv3-row.dv-tall .dv-dn svg { width: 170px; height: 170px; }
+  .dv3-row.dv-tall .dv-dn { justify-content: center; gap: 36px; }
+  .dv-three .dv-lgd { gap: 3px 8px; }
+  .dv3-foot { text-align: center; font-size: 11px; color: var(--dv-t3); letter-spacing: 1px; padding: 12px 0 14px; flex-shrink: 0; }
+  .dv3-empty { padding: 60px 20px; text-align: center; color: var(--dv-t2); font-size: 14px; line-height: 1.8; }
+
+  /* 廠區對比 */
+  .dv-picks { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--dv-t2); }
+  .dv-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--dv-card); border-radius: 999px; padding: 6px 8px 6px 12px; color: var(--dv-t1); font-weight: 600; letter-spacing: .5px; font-size: 12px; box-shadow: var(--dv-shadow); }
+  .dv-chip small { color: var(--dv-t3); font-weight: 400; }
+  .dv-chip button { border: none; background: var(--dv-track); color: var(--dv-t2); width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; padding: 0; }
+  .dv-chip button:hover { color: var(--dv-t1); }
+  .dv-picks select.dv-add { background: none; border: 1px dashed var(--dv-bd); color: var(--dv-t2); border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; outline: none; }
+  .dv-picks select.dv-add option { background: var(--dv-card); color: var(--dv-t1); }
+  .dv-picks .dv-hint { margin-left: auto; color: var(--dv-t3); font-size: 11px; }
+  .dv-cmp-hd { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .dv-cmp-hd .dv-tt { font-size: 15px; font-weight: 600; letter-spacing: 1px; }
+  .dv-cmp-hd .dv-say { margin-top: 0; }
+  .dv-tblwrap { overflow-x: auto; }
+  .dv3 table.dv-tbl { width: 100%; border-collapse: collapse; margin-top: 8px; table-layout: fixed; background: none; }
+  .dv3 table.dv-tbl th { position: static; background: none; font-size: 11px; color: var(--dv-t3); font-weight: 500; text-align: right; padding: 6px 10px; letter-spacing: 1px; border: none; border-bottom: 1px solid var(--dv-line); white-space: nowrap; }
+  .dv3 table.dv-tbl th:first-child { text-align: left; }
+  .dv3 table.dv-tbl td { background: none; color: var(--dv-t1); font-size: 13px; padding: 7px 10px; text-align: right; border: none; border-bottom: 1px solid var(--dv-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dv3 table.dv-tbl td:first-child { text-align: left; }
+  .dv3 table.dv-tbl td .dv-nm { color: var(--dv-t2); font-size: 11px; margin-left: 6px; }
+  .dv-cell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .dv-arrow { color: var(--dv-t3); font-size: 9px; margin-left: 3px; display: inline-block; width: 8px; }
+  .dv-mini { position: relative; width: 70px; height: 6px; border-radius: 4px; background: var(--dv-track); flex-shrink: 0; }
+  .dv-mini i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #3987e5; }
+  .dv-mini b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--dv-avg); }
+  .dv3 table.dv-tbl tr.dv-avg td { color: var(--dv-t2); font-weight: 600; border-bottom: none; background: var(--dv-avgrow); }
+  .dv3 table.dv-tbl tr.dv-small td { color: var(--dv-t3); }
+  .dv3 table.dv-tbl td.dv-muted { color: var(--dv-t3); font-size: 11px; text-align: center; }
+  .dv-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .dv-sb { margin-top: 10px; display: flex; flex-direction: column; gap: 9px; }
+  .dv-sb .dv-r { display: grid; grid-template-columns: 40px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; }
+  .dv-sb .dv-r .dv-cd { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dv-sb .dv-r .dv-n { text-align: right; color: var(--dv-t3); font-size: 11px; }
+  .dv-sb .dv-r.dv-avg .dv-cd { color: var(--dv-t2); font-size: 11px; }
+  .dv-sb .dv-stack { height: 12px; gap: 2px; }
+  .dv-sb .dv-stack i { border-radius: 0; min-width: 2px; }
+  .dv-sb .dv-stack i:first-child { border-radius: 5px 0 0 5px; } .dv-sb .dv-stack i:last-child { border-radius: 0 5px 5px 0; } .dv-sb .dv-stack i:only-child { border-radius: 5px; }
+  .dv-sb .dv-smallnote { font-size: 11px; color: var(--dv-t3); background: var(--dv-track); border-radius: 5px; padding: 0 8px; height: 16px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* 看板裡自己的提示訊息（OMS 的 toast 被看板蓋住，看不到） */
+  .dv3-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px); background: var(--dv-on-bg); color: var(--dv-on-tx); padding: 10px 22px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 8650; box-shadow: 0 6px 22px rgba(0,0,0,.25); }
+  .dv3-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* 響應式：窄螢幕縮字、平板改自動排、手機改一欄＋選單移到上方 */
+  @media (max-width: 1500px) {
+    .dv-hero .dv-big b { font-size: 56px; } .dv-tile .dv-big b { font-size: 46px; }
+    .dv-ring svg { width: 78px; height: 78px; } .dv-ring .dv-mid { gap: 12px; } .dv-ring .dv-mid b { font-size: 32px; }
+    .dv-rk .dv-r { grid-template-columns: 18px 30px minmax(50px, 120px) 1fr 44px 36px; column-gap: 8px; }
+    .dv-withrg .dv-rk .dv-r { grid-template-columns: 18px 30px minmax(50px, 120px) 28px 1fr 44px 36px; }
+  }
+  @media (max-width: 1380px) {
+    .dv-mini { width: 48px; }
+    .dv-tile .dv-ft { font-size: 11px; }
+  }
+  @media (max-width: 1180px) {
+    .dv3-row { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .dv-mini { display: none; }
+    .dv-three { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 760px) {
+    .dash-custom-page.dv3 { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .dv3-rail { flex-direction: row; margin: 10px 12px 0; padding: 6px 8px; border-radius: 18px; overflow-x: auto; gap: 1px; }
+    .dv3-brand { width: 30px; height: 30px; margin: 0 4px 0 0; font-size: 9px; border-radius: 9px; }
+    .dv3-it { width: 42px; padding: 5px 0 4px; font-size: 9.5px; letter-spacing: 0; }
+    .dv3-it svg { width: 18px; height: 18px; }
+    .dv3-rail .dv3-sp { flex: 0 0 0; }
+    .dv3-ava { width: 28px; height: 28px; margin: 0 0 0 2px; font-size: 11px; }
+    .dv3-main { padding: 10px 16px 0; }
+    .dv3-ttl b { font-size: 18px; }
+    .dv3-pills { margin-left: 0; }
+    .dv3-role { display: none !important; }
+    .dv3-row { grid-template-columns: minmax(0, 1fr); }
+    .dv-hero, .dv-tile { height: auto; min-height: 168px; gap: 12px; }
+    .dv-rank, .dv-area { height: auto; } .dv-area .dv-tm { min-height: 260px; }
+    .dv-rank .dv-rk { gap: 12px; justify-content: flex-start; }
+    .dv-rk .dv-r, .dv-withrg .dv-rk .dv-r { grid-template-columns: 16px 28px minmax(40px, 90px) 1fr 40px 34px; column-gap: 6px; }
+    .dv-rk .dv-rg { display: none; }
+    .dv-pyr, .dv-sen, .dv-abcd, .dv3-row.dv-tall .dv-pyr, .dv3-row.dv-tall .dv-sen, .dv3-row.dv-tall .dv-abcd { height: 260px; }
+    .dv-picks .dv-hint { margin-left: 0; }
+    .dv3 table.dv-tbl td .dv-nm { display: none; }
+    .dv3 table.dv-tbl th, .dv3 table.dv-tbl td { padding: 6px 5px; font-size: 11px; }
+    .dv3 table.dv-tbl { min-width: 560px; }
+  }
+</style>
 </head>
 <body>
 <!-- ============ SyncHub Portal ============ -->
@@ -4597,6 +4850,8 @@
       <input id="uFltKeyword" type="text" placeholder="姓名 / 帳號" oninput="userFilter.keyword=this.value;renderUsersTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;width:160px;">
       <button onclick="clearUserFilter()" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">清除</button>
       <span id="uFltCount" style="margin-left:auto;font-size:11px;color:var(--text-soft);"></span>
+      <!-- v311：匯出畫面上這份名單（照目前的篩選與排序） -->
+      <button id="usersExportBtn" onclick="usersExport()" title="把畫面上這份名單（照現在的篩選與排序）下載成 Excel" style="font-size:11px;color:#fff;background:#307FE2;border:none;border-radius:5px;padding:6px 12px;cursor:pointer;font-weight:600;white-space:nowrap;">📥 匯出名單</button>
     </div>
     <div class="users-table-wrapper">
     <table class="users-table" id="usersTable">
@@ -4669,6 +4924,8 @@
         <div id="saColsMenu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid var(--line-soft);border-radius:6px;box-shadow:0 8px 24px rgba(10,30,80,0.12);padding:8px 12px;z-index:60;white-space:nowrap;"></div>
       </div>
       <span id="saFltCount" style="margin-left:auto;font-size:11px;color:var(--text-soft);"></span>
+      <!-- v311：匯出畫面上這份名單（照目前的篩選與排序） -->
+      <button id="saExportBtn" onclick="saExport()" title="把畫面上這份名單（照現在的篩選與排序）下載成 Excel" style="font-size:11px;color:#fff;background:#307FE2;border:none;border-radius:5px;padding:6px 12px;cursor:pointer;font-weight:600;white-space:nowrap;">📥 匯出名單</button>
     </div>
     <div class="users-table-wrapper" style="flex:1;min-height:0;overflow:auto;">
       <table class="users-table" id="systemAccessTable">
@@ -5396,7 +5653,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V310';
+const APP_VER = 'V312';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -8624,6 +8881,7 @@ function openUsersPage() {
 
 // ====== v264 (2b)：使用者管理走 Edge Function（synchub_profiles + Auth）======
 let profileUsers = [];
+let profileUsersErr = '';   // v311：角色權限頁帳號清單讀不到的原因（讀不到就不給匯出，免得匯出一份空的當成沒人）
 let omsCheckedRows = [];  // v298：授權頁勾了 OMS 的名單（待設定角色提醒列用）
 // v282：使用者管理篩選狀態（廠區/角色/關鍵字）
 const userFilter = { factory: '', role: '', keyword: '' };
@@ -8648,10 +8906,12 @@ async function loadProfileUsers() {
     profileUsers = (j.users || []).map(p => ({
       ...p, createdAt: p.created_at, empId: p.emp_id, mustChangePwd: p.must_change_pwd,
     }));
+    profileUsersErr = '';   // v311
   } catch (e) {
     console.error('loadProfileUsers:', e);
     showToast('讀取帳號失敗：' + e.message, 'error');
     profileUsers = [];
+    profileUsersErr = (e && e.message) || String(e);   // v311
   }
   // v284：使用者異動後順手刷新登入判角色用的 cachedUsers(讀 oms_roster)，
   // 讓 admin 在同一分頁建/改帳號後，該員工免重整就能登入(不再落 no_oms)。
@@ -8788,6 +9048,7 @@ function renderUsersTable() {
     return _userSortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
   };
   users.sort(sortFn);
+  window._usersNow = users; window._usersTotal = _total;   // v311：匯出用＝畫面上這份（篩選＋排序後）
 
   // 更新排序圖示
   ['username','factory','name','role','scope','createdAt'].forEach(k => {
@@ -9358,6 +9619,7 @@ const SYNCHUB_SYSTEMS = [
 
 let systemAccessRows = [];  // 記憶體快取：[{factory_code, emp_id, name, eng_name, dept, title, email, systems:[]}]
 let saProfiles = [];        // v298：帳號清單（synchub_profiles，經管理 EF；開通狀態／重設密碼用）
+let saProfilesErr = '';     // v311：帳號清單讀不到的原因（匯出時帳號狀態整欄寫「讀不到」）
 let saSearchResults = {};   // 搜尋結果暫存（key=工號），加入時用工號回查完整資料
 const saFilter = { factories: [], dept: '', keyword: '', systems: [] };  // 名單篩選狀態（v307：廠區改成陣列＝可複選，空的＝全部）
 let saBatchSelected = new Set();  // 批量加入：選中的工號
@@ -9401,14 +9663,131 @@ async function openSystemAccessPage() {
   try {
     const j = await sbCallAdminFn('list');
     saProfiles = j.users || [];
+    saProfilesErr = '';   // v311
   } catch (e) {
     console.warn('v298 載入帳號清單失敗', e);
     saProfiles = [];
+    saProfilesErr = (e && e.message) || String(e);   // v311
     showToast('帳號狀態載入失敗（不影響授權勾選）：' + e.message, 'error');
   }
   saPopulateFilterDropdowns();
   saPopulateAddScope();
   renderSystemAccessTable();
+}
+
+// ===== v311：權限名單匯出（系統資料授權、OMS 角色權限兩頁共用；使用者 261014「請參考GHG」）=====
+// 照 GHG 權限頁的做法：匯出「畫面上這份名單」（照現在的篩選與排序），檔案兩頁＝名單＋匯出說明；
+// 讀不到的資料整欄寫「讀不到」，不留空白假裝沒有。只有集團系統管理員能用（兩頁本來就只有 admin 進得去）。
+const SA_ACCT_LABELS = ['未開通', '已停用', '初始未改密', '已改密'];   // 跟 saAcctRank 的四級同一個順序
+// v311-1：兩張名單（系統授權、OMS 角色權限）前段基本資料欄位統一順序（使用者 261015）。各系統的權限名單匯出也照這個順序（標準記在記憶）
+const EXPORT_BASE_HEAD = ['事業群', '廠區', '工號', '姓名', '英文名', '部門', '職稱', 'Email', '帳號狀態'];
+const EXPORT_BASE_W = [16, 7, 11, 10, 18, 16, 14, 30, 11];
+function xlsxStamp() {
+  const d = new Date(), p = x => String(x).padStart(2, '0');
+  return { stamp: String(d.getFullYear()).slice(2) + p(d.getMonth() + 1) + p(d.getDate()),
+           text: d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) };
+}
+function xlsxWriteBook(fileName, sheets) {
+  if (typeof XLSX === 'undefined') { showToast('匯出元件還沒載入完成，請重新整理後再試一次', 'error'); return false; }
+  try {
+    const wb = XLSX.utils.book_new();
+    sheets.forEach(sh => {
+      const ws = XLSX.utils.aoa_to_sheet(sh.aoa);
+      ws['!cols'] = sh.w.map(x => ({ wch: x }));
+      if (sh.filter && sh.aoa.length > 1) ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: sh.aoa.length - 1, c: sh.aoa[0].length - 1 } }) };
+      XLSX.utils.book_append_sheet(wb, ws, sh.name);
+    });
+    XLSX.writeFile(wb, fileName);
+    return true;
+  } catch (e) { showToast('匯出失敗：' + ((e && e.message) || e), 'error'); return false; }
+}
+function exportWho() { return currentUser ? ((currentUser.username || '') + ' ' + (currentUser.name || '')).trim() : ''; }
+function facBuOf(code) {   // 事業群＝OMS 廠區主檔的「所屬事業群」
+  const f = (typeof FACTORIES !== 'undefined' ? FACTORIES : []).find(x => x.code === code);
+  return f ? (f.group || '') : '（廠區主檔沒有這個代碼）';
+}
+function saExportBook() {
+  const rows = window._saRowsNow; if (!rows || !rows.length) return null;
+  const T = xlsxStamp(), codes = SYNCHUB_SYSTEMS.map(s => s.code);
+  const acct = id => saProfilesErr ? '（讀不到帳號清單）' : SA_ACCT_LABELS[saAcctRank(id)];
+  const head = EXPORT_BASE_HEAD.concat(codes).concat(['授權系統數']);
+  const body = rows.map(r => {
+    const sys = r.systems || [];
+    return [facBuOf(r.factory_code || ''), r.factory_code || '', r.emp_id || '', masterEmpName(r.emp_id) || r.name || '', r.eng_name || '', r.dept || '', r.title || '', r.email || '', acct(r.emp_id)]
+      .concat(codes.map(c => sys.includes(c) ? '✓' : '')).concat([codes.filter(c => sys.includes(c)).length]);
+  });
+  const f = saFilter, kw = (f.keyword || '').trim();
+  const colName = { factory_code: '廠區', emp_id: '工號', name: '姓名', eng_name: '英文名', dept: '部門', title: '職稱', email: 'Email', acct: '帳號' };
+  const sk = (saSort && saSort.key) || 'factory_code';
+  const sortTxt = (sk.indexOf('sys:') === 0 ? sk.slice(4) + ' 欄（有沒有勾）' : (colName[sk] || sk)) + '　' + ((saSort && saSort.dir === -1) ? '由大到小' : '由小到大');
+  const sysCnt = codes.map(c => [c + '　' + (SYNCHUB_SYSTEMS.find(s => s.code === c) || {}).name, rows.filter(r => (r.systems || []).includes(c)).length]);
+  const acctCnt = saProfilesErr ? [['帳號狀態', '讀不到帳號清單（' + saProfilesErr + '），這次沒有統計']]
+    : SA_ACCT_LABELS.map((l, i) => [l, rows.filter(r => saAcctRank(r.emp_id) === i).length]);
+  const info = [['OMS 組織主檔系統　系統授權名單'], [],
+    ['匯出時間', T.text], ['匯出人', exportWho()], ['版本', APP_VER], [],
+    ['篩選條件'], ['廠區', f.factories.length ? f.factories.map(c => c + (saFacName(c) ? ' ' + saFacName(c) : '')).join('、') : '全部'],
+    ['部門', f.dept || '全部'], ['系統', f.systems.length ? f.systems.join('、') + '（有其中任何一個就列入）' : '全部'], ['關鍵字', kw || '（無）'],
+    ['排序', sortTxt], ['人數', rows.length + ' 人（授權名單共 ' + systemAccessRows.length + ' 人）'], [],
+    ['各系統授權人數（這份名單內）']].concat(sysCnt).concat([[], ['帳號狀態（這份名單內）']]).concat(acctCnt).concat([[],
+    ['名單來源', 'OMS「系統資料授權」頁＝各系統能不能進去的唯一授權主檔；每個系統一欄，打 ✓＝有授權。'],
+    ['帳號狀態', 'SyncHub 帳號清單：未開通＝還沒有帳號；已停用；初始未改密＝還在用初始密碼；已改密。'],
+    ['姓名', '以 OMS 員工主檔為準（同工號）。'],
+    ['事業群', 'OMS 廠區主檔的「所屬事業群」。'],
+    ['欄位', '英文名、部門、職稱、Email 不管畫面上有沒有關掉，都會匯出。'],
+    ['注意', '內含姓名與 Email，請勿外傳。']]);
+  const scope = (f.factories.length && f.factories.length <= 3) ? f.factories.join('-') + '_' : '';
+  return { name: 'OMS_系統授權名單_' + scope + T.stamp + '.xlsx', n: rows.length, sheets: [
+    { name: '授權名單', aoa: [head].concat(body), w: EXPORT_BASE_W.concat(codes.map(() => 6)).concat([10]), filter: true },
+    { name: '匯出說明', aoa: info, w: [26, 70] }] };
+}
+function saExport() {
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團系統管理員可使用', 'error'); return; }
+  const B = saExportBook();
+  if (!B) { showToast('目前沒有可以匯出的名單（畫面上是空的）', 'error'); return; }
+  if (xlsxWriteBook(B.name, B.sheets)) showToast('已匯出 ' + B.n + ' 人' + (saProfilesErr ? '（帳號清單讀不到，帳號狀態欄寫「讀不到」）' : ''), saProfilesErr ? 'error' : 'ok');
+}
+function usersExportBook() {
+  const users = window._usersNow; if (!users || !users.length) return null;
+  const T = xlsxStamp(), plain = s => String(s || '').replace(/<[^>]+>/g, '').trim();
+  // 英文名／部門／職稱／Email 從員工主檔（同工號）帶；主檔查不到（例如管理員虛擬帳號）就留空白
+  const empMap = {};
+  Object.values((typeof employees !== 'undefined' && employees) || {}).forEach(list => { if (Array.isArray(list)) list.forEach(e => { if (e && e.empId) empMap[e.empId] = e; }); });
+  const acctState = u => u.active === false ? '已停用' : (u.mustChangePwd ? '初始未改密' : '已改密');   // 跟系統授權名單的帳號狀態同一套字（這裡的人都已開通）
+  const head = EXPORT_BASE_HEAD.concat(['角色', '角色代碼', '廠區權限', '提醒', '建立時間']);
+  const body = users.map(u => { const e = empMap[u.username] || {}, fac = (u._factory && u._factory !== '—') ? u._factory : '';
+    return [fac ? facBuOf(fac) : '', fac, u.username || '', u.name || '', e.engName || '', e.department || '', e.title || '', e.mail || '', acctState(u),
+      ROLE_LABELS[u.role] || u.role || '', u.role || '', plain(u._scopeText), plain(u._warning), u.createdAt ? String(u.createdAt).slice(0, 10) : '']; });
+  const roleCnt = {}; users.forEach(u => { roleCnt[u.role] = (roleCnt[u.role] || 0) + 1; });
+  // 角色權限說明：直接讀頁面上那張「ℹ️ 角色權限說明」表＝跟畫面同一個出處，不另外抄一份
+  const capRows = [];
+  const capTbl = document.querySelector('#usersPage details table');
+  if (capTbl) capTbl.querySelectorAll('tr').forEach(tr => { const cells = [...tr.children].map(td => td.textContent.replace(/\s+/g, ' ').trim()); if (cells.length) capRows.push(cells); });
+  const uf = userFilter, kw = (uf.keyword || '').trim();
+  const sortName = { username: '帳號', factory: '廠區', name: '姓名', role: '角色', scope: '廠區權限', createdAt: '建立時間' };
+  const info = [['OMS 組織主檔系統　OMS 角色權限名單'], [],
+    ['匯出時間', T.text], ['匯出人', exportWho()], ['版本', APP_VER], [],
+    ['篩選條件'], ['廠區', uf.factory || '全部'], ['角色', uf.role ? (ROLE_LABELS[uf.role] || uf.role) : '全部'], ['關鍵字', kw || '（無）'],
+    ['排序', (sortName[_userSortKey] || _userSortKey) + '　' + (_userSortAsc ? '由小到大' : '由大到小')],
+    ['人數', users.length + ' 人（本頁共 ' + (window._usersTotal || users.length) + ' 人）'], [],
+    ['各角色人數（這份名單內）']].concat(Object.keys(ROLE_LABELS).filter(k => roleCnt[k]).map(k => [ROLE_LABELS[k] + '　' + k, roleCnt[k]])).concat([[],
+    ['名單來源', 'SyncHub 帳號清單裡 OMS 角色不是「信錦員工」的人（信錦員工＝可進 SyncHub、不能進 OMS，不列在本表）。'],
+    ['欄位順序', '前九欄（事業群、廠區、工號、姓名、英文名、部門、職稱、Email、帳號狀態）跟「系統授權名單」同一個順序。'],
+    ['工號', '＝登入帳號；管理員虛擬帳號顯示 admin。英文名、部門、職稱、Email 從員工主檔帶，主檔查不到就留空白。'],
+    ['廠區', '依員工主檔的廠區；主檔查不到就用帳號前綴推斷，都查不到留空白。事業群＝OMS 廠區主檔的「所屬事業群」。'],
+    ['帳號狀態', '已停用；初始未改密＝還在用初始密碼；已改密。'],
+    ['廠區權限', '集團系統管理員、集團主管、集團 HR＝全部廠區；BU 主管＝管理的事業群；廠區主管、廠區 HR＝列出的廠區。'],
+    ['帳號與密碼', '帳號開通與重設密碼在「系統資料授權」頁。'],
+    ['注意', '內含姓名與 Email，請勿外傳。'], [], ['角色權限說明（同頁面上「ℹ️ 角色權限說明」）']]).concat(capRows.length ? capRows : [['（這次讀不到頁面上的說明表）']]);
+  return { name: 'OMS_角色權限名單_' + T.stamp + '.xlsx', n: users.length, sheets: [
+    { name: '角色權限名單', aoa: [head].concat(body), w: EXPORT_BASE_W.concat([16, 12, 30, 26, 11]), filter: true },
+    { name: '匯出說明', aoa: info, w: [26, 70, 14, 14, 14, 12] }] };
+}
+function usersExport() {
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團系統管理員可使用', 'error'); return; }
+  if (profileUsersErr) { showToast('帳號清單讀不到（' + profileUsersErr + '），無法匯出；請重新整理後再試', 'error'); return; }
+  const B = usersExportBook();
+  if (!B) { showToast('目前沒有可以匯出的名單（畫面上是空的）', 'error'); return; }
+  if (xlsxWriteBook(B.name, B.sheets)) showToast('已匯出 ' + B.n + ' 人', 'ok');
 }
 
 function closeSystemAccessPage() {
@@ -9733,6 +10112,7 @@ function renderSystemAccessTable() {
     }
     return ((a[_sk] || '').toString()).localeCompare((b[_sk] || '').toString(), 'zh-Hant') * _dir;
   });
+  window._saRowsNow = rows;   // v311：匯出用＝畫面上這份（篩選＋排序後）
   // v298-4：補開通鈕＝有缺才顯示、顯示缺額
   const bulkBtn = document.getElementById('saBulkProvBtn');
   if (bulkBtn && !bulkBtn.dataset.running) {
@@ -11271,57 +11651,87 @@ const CUSTOM_LAYOUT_KEY = 'oms_custom_dashboard_v1';
 // 新增圖表時請遵守此規則！檢查方式：用一個欄位全空的測試資料看圖表是否正確顯示「未填」
 // ============================================================
 
-// 所有可用模組定義
+// ============================================================
+// v312 戰情看板改版（使用者 261015「可以，開始寫程式」）
+// 外觀＝提案三（左邊細選單、上方膠囊切換、大圓角方塊卡）；集團／事業群／單廠同一套版面，內容隨權限範圍變。
+// 另加「廠區對比」：只能選自己有權限的廠、最多 8 個、少於 10 人只顯示人數。
+// 資料規則照舊：只算在職（status 空白或「在職」）、沒填的一律顯示「未填」、比例分母＝在職總人數；
+//   直接人力＝會計科目「直接人工」、間接＝其餘有填的；年齡＝今年－出生年；年資＝到職日起算。
+// 權限照舊（v253）：admin／集團 HR／集團主管看全集團；BU 主管只看自己事業群；廠區 HR／廠區主管只看授權的廠。
+// ============================================================
+
+// 所有可用模組定義（v312：9 張卡。舊版存的版面含已拿掉的 id，進看板時會自動重設成預設）
 const DASH_MODULES = [
-  { id: 'kpi-total',    icon: '👥', name: '在職總人數',    desc: '集團在職人數與佔集團比例' },
-  { id: 'kpi-category', icon: '🏷️', name: '人員分類',      desc: '正職／聘僱／臨時工／移工比例' },
-  { id: 'ratio-direct', icon: '⚙️', name: '直接/間接人力', desc: '依會計科目分類的直間接比' },
-  { id: 'factory-dist', icon: '🏭', name: '廠區人力分布',  desc: '各廠在職人數與佔比' },
-  { id: 'region-dist',  icon: '🌏', name: '地區分布',      desc: '台灣/中國/越南/泰國' },
-  { id: 'gender-donut', icon: '⚡', name: '性別比例',      desc: '男女比例甜甜圈圖' },
-  { id: 'age-chart',    icon: '📅', name: '年齡分布',      desc: '5個年齡級距長條圖' },
-  { id: 'seniority-chart', icon: '📆', name: '年資分布',   desc: '5個年資級距長條圖' },
-  { id: 'expense-dist', icon: '💰', name: 'ABCD分類',      desc: '費用類別 A/B/C/D/未填' },
-  { id: 'kpi-4grid',    icon: '🔢', name: '核心四格',      desc: '在職/本廠在職率/正職/臨時工' },
+  { id: 'kpi-total',       icon: '👥', name: '在職人數',     desc: '在職人數、人員分類組成、在職率' },
+  { id: 'ratio-direct',    icon: '⚙️', name: '直接人力',     desc: '依會計科目分直接／間接' },
+  { id: 'gender-donut',    icon: '⚡', name: '女性占比',     desc: '男女人數與比例' },
+  { id: 'temp-ratio',      icon: '🏷️', name: '臨時工／移工', desc: '非正式人力人數與占比' },
+  { id: 'factory-dist',    icon: '🏭', name: '廠區人力排行', desc: '各廠在職人數（範圍內有兩個廠以上才顯示）' },
+  { id: 'region-dist',     icon: '🌏', name: '地區占比',     desc: '台灣／中國／越南／泰國（跨兩個地區以上才顯示）' },
+  { id: 'age-chart',       icon: '📅', name: '年齡 × 性別',  desc: '5 個年齡級距，男左女右' },
+  { id: 'seniority-chart', icon: '📆', name: '年資分布',     desc: '5 個年資級距' },
+  { id: 'expense-dist',    icon: '💰', name: 'ABCD 分類',    desc: '費用類別 A/B/C/D' },
 ];
 
 let selectedModules = [];
 let customLayout = [];
 let dragSrcIdx = null;
 
-// === 集團預設範本（使用者第一次進入時自動帶入）===
-// 順序：核心 KPI → 直接間接 → 人員分類 → 廠區 → 國家 → 性別 → 年齡 → 年資 → 部門
-const DEFAULT_GROUP_LAYOUT = [
-  { id: 'kpi-4grid' },
-  { id: 'ratio-direct' },
-  { id: 'kpi-category' },
-  { id: 'factory-dist' },
-  { id: 'region-dist' },
-  { id: 'gender-donut' },
-  { id: 'age-chart' },
-  { id: 'seniority-chart' },
-  { id: 'expense-dist' }
-];
+// === 預設範本（第一次進入、按「重設」時帶入）＝全部 9 張卡 ===
+const DEFAULT_GROUP_LAYOUT = DASH_MODULES.map(m => ({ id: m.id }));
 
-// === 戰情看板權限模式 ===
-// 'group' = 集團模式（admin 預設、單廠 HR/viewer 可切換）
-// 'factory' = 單廠模式（單廠 HR/viewer 預設）
+// === 戰情看板權限模式（v253 起實際範圍由篩選列決定，這個變數只留相容）===
 let dashViewMode = 'factory';
 
-// === 戰情看板 BU + 廠區篩選（admin 可用）===
-// dashFilterBu: '' = 全集團 / '信錦台北' / '組裝產品事業群' / 等
-// dashFilterFactory: '' = 全部廠區 / 'SY' / 'FQ' / 等
+// === 範圍篩選：事業群＋廠區 ===
+// dashFilterBu: '' = 全部（全集團／我的全部事業群）；dashFilterFactory: '' = 全部廠區（範圍內）
 let dashFilterBu = '';
 let dashFilterFactory = '';
 const DASH_FILTER_KEY = 'oms_dash_filter_v1';
 
-// 集團概覽模式不隱藏任何 widget（ABCD 分類無個資疑慮）
+// 舊版用的隱藏清單（v312 改成「範圍內只有一個廠／一個地區就不顯示」，這兩個常數只留相容）
 const GROUP_OVERVIEW_HIDE = [];
-// 單廠模式不顯示廠區/地區分布（只有自己一廠沒意義）
 const FACTORY_MODE_HIDE = ['factory-dist', 'region-dist'];
 
-// === v158 戰情看板主題切換（黑底/白底）===
+// === v312 看板狀態 ===
+let dashView = 'board';            // 'board' 總覽／'compare' 廠區對比
+let dashCmpSel = null;             // 對比選的廠 code
+const DV_CMP_KEY = 'oms_dash_cmp_v1';
+const DV_CMP_MAX = 8;
+const DV_SMALL = 10;               // 對比：少於 10 人只顯示人數（比例不穩，也可能看得出是誰）
+
+// 顏色（深色底驗過；同一張卡內相鄰不同色相；未填一律灰 var(--dv-none)）
+const DV_REGION = {
+  TW: { name: '台灣', bar: '#3987e5', tile: '#94C4F6' },
+  CN: { name: '中國', bar: '#199e70', tile: '#93DDC1' },
+  VN: { name: '越南', bar: '#d9692b', tile: '#F6B488' },
+  TH: { name: '泰國', bar: '#7f9a2a', tile: '#CFE38F' },
+};
+const DV_REGION_ORDER = ['TW', 'CN', 'VN', 'TH'];
+const DV_CAT = ['正職', '聘僱', '臨時工', '移工'];
+const DV_CAT_C = ['#3987e5', '#199e70', '#c98500', '#8a2fda'];           // 對比「人員組成」
+const DV_HERO_C = ['rgba(255,255,255,.95)', '#9FE3C8', '#F4CF73', '#D3BFFF']; // 藍色主卡上的組成條
+const DV_AGE_L = ['<30', '30-39', '40-49', '50-59', '≥60'];
+const DV_AGE_SAY = ['30 歲以下', '30–39 歲', '40–49 歲', '50–59 歲', '60 歲以上'];
+const DV_AGE_C = ['#2f9e8f', '#4f6fd0', '#b37f1f', '#a94fbf', '#d9616f'];
+const DV_SEN_L = ['<1年', '1-3年', '3-5年', '5-10年', '≥10年'];
+const DV_SEN_SAY = ['1 年以下', '1–3 年', '3–5 年', '5–10 年', '10 年以上'];
+const DV_SEN_C = ['#c96b2e', '#3f7fd8', '#5a9e3a', '#9a55c9', '#2ba3a3'];
+const DV_ABCD_C = ['#3987e5', '#199e70', '#c98500', '#8a2fda'];
+const DV_NONE = 'var(--dv-none)';
+const DV_OTHER = '#d55181';        // 有填但不在選項內（例如分類填了別的字）
+
+const dvEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const dvFmt = n => Number(n || 0).toLocaleString('en-US');
+const dvPct = (a, t) => t > 0 ? Math.round(a / t * 100) : 0;
+const dvPctTxt = (a, t) => (t > 0 && a > 0 && a / t < 0.01) ? '&lt;1' : String(dvPct(a, t));
+const dvBlank = v => v === undefined || v === null || !String(v).trim();
+const dvIsActive = e => !e.status || e.status === '在職';
+
+// === v158 戰情看板主題切換（深色／淺色）===
 const DASH_THEME_KEY = 'oms_dash_theme_v1';
+const DV_IC_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6L18 18M6 18l1.4-1.4M16.6 7.4L18 6"/></svg>';
+const DV_IC_MOON = '<svg viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z"/></svg>';
 
 function loadDashTheme() {
   try {
@@ -11334,18 +11744,15 @@ function applyDashTheme(theme) {
   const page = document.getElementById('customDashPage');
   const btn = document.getElementById('dashThemeToggleBtn');
   if (!page) return;
-  if (theme === 'light') {
-    page.classList.add('light-mode');
-    if (btn) { btn.textContent = '☾'; btn.title = '切換為黑底'; }
-  } else {
-    page.classList.remove('light-mode');
-    if (btn) { btn.textContent = '☀'; btn.title = '切換為白底'; }
+  page.classList.toggle('light-mode', theme === 'light');
+  if (btn) {
+    btn.innerHTML = theme === 'light' ? DV_IC_MOON + '深色' : DV_IC_SUN + '淺色';
+    btn.title = theme === 'light' ? '切換為深色' : '切換為淺色';
   }
 }
 
 function toggleDashTheme() {
-  const cur = loadDashTheme();
-  const next = cur === 'light' ? 'dark' : 'light';
+  const next = loadDashTheme() === 'light' ? 'dark' : 'light';
   try { localStorage.setItem(DASH_THEME_KEY, next); } catch(e) {}
   applyDashTheme(next);
 }
@@ -11359,306 +11766,247 @@ function getDashAuthFactories() {
   return [];
 }
 
+// v312: 角色判斷集中一處
+function dvRole() {
+  const role = currentUser ? currentUser.role : '';
+  const fullVision = role === 'admin' || role === 'group_hr' || role === 'hq_manager';
+  return { role, fullVision, isBu: role === 'bu_manager', isLimited: role === 'hr' || role === 'viewer' };
+}
+
+// v312: 使用者權限內的廠（不看篩選）。其他角色一律看不到（不再預設全部）
+function dvPermFactories() {
+  const R = dvRole();
+  return FACTORIES.filter(f => {
+    if (R.fullVision) return true;
+    if (R.isBu) return userHasBu(currentUser, f.group);
+    if (R.isLimited) return hasFactoryAccess(currentUser, f.code);
+    return false;
+  });
+}
+
+// v312: 目前總覽範圍內的廠（權限＋篩選）
+function dvScopeFactories() {
+  const R = dvRole();
+  return dvPermFactories().filter(f => {
+    if ((R.fullVision || R.isBu) && dashFilterBu && f.group !== dashFilterBu) return false;
+    if (dashFilterFactory && f.code !== dashFilterFactory) return false;
+    return true;
+  });
+}
+
+function dvActive(facs) {
+  const out = [];
+  facs.forEach(f => (employees[f.code] || []).forEach(e => { if (dvIsActive(e)) out.push({ ...e, _factory: f }); }));
+  return out;
+}
+function dvActiveCount(f) { return (employees[f.code] || []).filter(dvIsActive).length; }
+function dvAllCount(facs) { return facs.reduce((a, f) => a + (employees[f.code] || []).length, 0); }
+
+// v312: 一次算完看板要的所有數字（每張卡、對比表共用）
+function dvStats(list) {
+  const s = { n: list.length, cat: [0, 0, 0, 0], catOther: 0, catNone: 0, direct: 0, acctNone: 0,
+    male: 0, female: 0, genderNone: 0, age: [0, 0, 0, 0, 0], ageM: [0, 0, 0, 0, 0], ageF: [0, 0, 0, 0, 0],
+    ageNone: 0, ageNoneM: 0, ageNoneF: 0, ageSum: 0, ageCnt: 0, sen: [0, 0, 0, 0, 0], senNone: 0,
+    exp: [0, 0, 0, 0], expOther: 0, expNone: 0, byFac: {}, byRegion: {} };
+  const yr = new Date().getFullYear(), now = Date.now(), YR = 365.25 * 24 * 3600 * 1000;
+  list.forEach(e => {
+    const ci = DV_CAT.indexOf(e.category);
+    if (ci >= 0) s.cat[ci]++; else if (dvBlank(e.category)) s.catNone++; else s.catOther++;
+    if (e.account === '直接人工') s.direct++; else if (dvBlank(e.account)) s.acctNone++;
+    const g = e.gender === '男' ? 'M' : (e.gender === '女' ? 'F' : '');
+    if (g === 'M') s.male++; else if (g === 'F') s.female++; else s.genderNone++;
+    // 年齡：日期讀不出來也算未填（舊版會漏算，加總不到 100%）
+    let ai = -1;
+    if (!dvBlank(e.birth)) {
+      const by = new Date(e.birth).getFullYear();
+      if (!isNaN(by) && yr - by >= 0) { const age = yr - by; ai = age < 30 ? 0 : age < 40 ? 1 : age < 50 ? 2 : age < 60 ? 3 : 4; s.ageSum += age; s.ageCnt++; }
+    }
+    if (ai >= 0) { s.age[ai]++; if (g === 'M') s.ageM[ai]++; else if (g === 'F') s.ageF[ai]++; }
+    else { s.ageNone++; if (g === 'M') s.ageNoneM++; else if (g === 'F') s.ageNoneF++; }
+    // 年資：區間改成不留縫（舊版 0.99～1 年之間會漏算）；到職日在未來的算 1 年以下
+    let si = -1;
+    if (!dvBlank(e.joinDate)) {
+      const t = new Date(e.joinDate).getTime();
+      if (!isNaN(t)) { const y = (now - t) / YR; si = y < 1 ? 0 : y < 3 ? 1 : y < 5 ? 2 : y < 10 ? 3 : 4; }
+    }
+    if (si >= 0) s.sen[si]++; else s.senNone++;
+    const xi = ['A', 'B', 'C', 'D'].indexOf(e.expense);
+    if (xi >= 0) s.exp[xi]++; else if (dvBlank(e.expense)) s.expNone++; else s.expOther++;
+    const f = e._factory;
+    if (f) { s.byFac[f.code] = (s.byFac[f.code] || 0) + 1; const r = f.region || '?'; s.byRegion[r] = (s.byRegion[r] || 0) + 1; }
+  });
+  return s;
+}
+
+function dvScopeLabel() {
+  const R = dvRole();
+  if (dashFilterFactory) { const f = FACTORIES.find(x => x.code === dashFilterFactory); return f ? f.code + ' ' + f.name : dashFilterFactory; }
+  if (dashFilterBu) return dashFilterBu;
+  if (R.isBu) return getUserBuList(currentUser).join('、');
+  if (R.isLimited) { const a = dvPermFactories(); return a.length === 1 ? a[0].code + ' ' + a[0].name : '我的廠區'; }
+  return R.fullVision ? '集團' : '—';
+}
+
+function dvAvgLabel() {
+  const R = dvRole();
+  if (R.fullVision) return '集團平均';
+  if (R.isBu) return getUserBuList(currentUser).length > 1 ? '我的事業群平均' : '事業群平均';
+  return '我的廠區平均';
+}
+
+function dvToast(msg) {
+  const t = document.getElementById('dv3Toast');
+  if (!t) { showToast(msg, 'ok'); return; }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(dvToast._h);
+  dvToast._h = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
 function openCustomDash() {
   closeUserMenu();
-  const role = currentUser ? currentUser.role : '';
-  // v253: group_hr 視同全集團視野（同 admin）
-  const fullVision = role === 'admin' || role === 'group_hr' || role === 'hq_manager';
-  // 依角色決定預設模式
-  if (fullVision || role === 'bu_manager') {
-    dashViewMode = 'group';
+  const R = dvRole();
+  dashViewMode = (R.fullVision || R.isBu) ? 'group' : 'factory';
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}') || {}; } catch(e) { saved = {}; }
+  const facOk = code => !!code && dvPermFactories().some(f => f.code === code);
+  if (R.isBu) {
+    // BU 主管：只有一個事業群就鎖定；多個事業群可在自己的事業群之間切換（v312，舊版只看得到第一個）
+    const bus = getUserBuList(currentUser);
+    dashFilterBu = bus.length === 1 ? bus[0] : (bus.includes(saved.bu) ? saved.bu : '');
+  } else if (R.fullVision) {
+    dashFilterBu = FACTORIES.some(f => f.group === saved.bu) ? saved.bu : '';
   } else {
-    dashViewMode = 'factory'; // hr / viewer
-  }
-
-  if (role === 'bu_manager') {
-    dashFilterBu = getUserBuList(currentUser)[0] || '';
-    try {
-      const savedFilter = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}');
-      dashFilterFactory = savedFilter.factory || '';
-    } catch(e) { dashFilterFactory = ''; }
-  } else if (fullVision) {
-    try {
-      const savedFilter = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}');
-      dashFilterBu = savedFilter.bu || '';
-      dashFilterFactory = savedFilter.factory || '';
-    } catch(e) { dashFilterBu = ''; dashFilterFactory = ''; }
-  } else {
-    // v253: hr / viewer — 無 BU，廠區須在授權清單內
     dashFilterBu = '';
-    try {
-      const savedFilter = JSON.parse(localStorage.getItem(DASH_FILTER_KEY) || '{}');
-      const auth = getDashAuthFactories();
-      dashFilterFactory = (savedFilter.factory && auth.includes(savedFilter.factory)) ? savedFilter.factory : '';
-    } catch(e) { dashFilterFactory = ''; }
   }
+  // 記住的廠區要在權限內、也要跟事業群對得上，不然清掉（舊版可能留著別人的篩選而變成空白）
+  dashFilterFactory = facOk(saved.factory) ? saved.factory : '';
+  if (dashFilterFactory && dashFilterBu) { const f = FACTORIES.find(x => x.code === dashFilterFactory); if (!f || f.group !== dashFilterBu) dashFilterFactory = ''; }
   // 載入已儲存的版面
   try {
-    const saved = localStorage.getItem(CUSTOM_LAYOUT_KEY);
-    if (saved) customLayout = JSON.parse(saved);
+    const savedLayout = localStorage.getItem(CUSTOM_LAYOUT_KEY);
+    customLayout = savedLayout ? JSON.parse(savedLayout) : [];
   } catch(e) { customLayout = []; }
-  // === 偵測舊版 layout 含已移除的 widget（如 dept-top），自動重設 ===
+  if (!Array.isArray(customLayout)) customLayout = [];
+  // === 偵測舊版 layout 含已移除的 widget（例如 v311 以前的 kpi-4grid、kpi-category），自動重設 ===
   const validIds = DASH_MODULES.map(w => w.id);
-  const hasInvalid = customLayout && customLayout.some(m => !validIds.includes(m.id));
-  if (hasInvalid) {
-    console.log('[OMS] 偵測到舊版 widget，自動重設為預設版');
-    customLayout = DEFAULT_GROUP_LAYOUT.map(m => ({...m}));
-    localStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(customLayout));
+  if (customLayout.some(m => !m || !validIds.includes(m.id))) {
+    console.log('[OMS] 偵測到舊版看板版面，自動重設為預設版');
+    customLayout = DEFAULT_GROUP_LAYOUT.map(m => ({ ...m }));
+    try { localStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(customLayout)); } catch(e) {}
   }
-  // 第一次進入或版面為空 → 帶入集團預設範本
-  if (!customLayout || !customLayout.length) {
-    customLayout = DEFAULT_GROUP_LAYOUT.map(m => ({...m}));
-  }
+  if (!customLayout.length) customLayout = DEFAULT_GROUP_LAYOUT.map(m => ({ ...m }));
   selectedModules = customLayout.map(m => m.id);
+  dashView = 'board';
+  dashCmpSel = null;
   document.getElementById('customDashPage').classList.remove('hidden');
-  document.getElementById('customDashTime').textContent = new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
-  // 套用上次選的主題（黑底/白底）
+  const now = new Date(), p2 = n => String(n).padStart(2, '0');
+  const timeEl = document.getElementById('customDashTime');
+  if (timeEl) timeEl.textContent = `${now.getFullYear()}/${p2(now.getMonth() + 1)}/${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}`;
+  // 登入者（OMS 登入時也會寫；這裡再寫一次，避免看板先開）
+  if (currentUser) {
+    const u = document.getElementById('dashTopbarUser'), nm = document.getElementById('dashTopbarUserName'),
+      rl = document.getElementById('dashTopbarUserRole'), av = document.getElementById('dashTopbarUserAvatar');
+    if (u) u.style.display = 'flex';
+    if (nm) nm.textContent = currentUser.name || '';
+    if (rl) rl.textContent = ROLE_LABELS[currentUser.role] || currentUser.role || '';
+    if (av) { av.textContent = (currentUser.name || '?').charAt(0); av.title = (currentUser.name || '') + '（' + (ROLE_LABELS[currentUser.role] || '') + '）'; }
+  }
   applyDashTheme(loadDashTheme());
-  updateDashModeUI();
   renderCustomBody();
 }
 
-// 切換檢視模式（單廠 / 集團概覽）
+// 舊版「本廠／集團」切換（v253 起不用；留著相容）
 function switchDashViewMode(mode) {
-  // 只有 hr/viewer 可切換（admin/hq_manager/bu_manager 沒有這個按鈕）
   if (!currentUser) return;
   const role = currentUser.role;
   if (role === 'admin' || role === 'hq_manager' || role === 'bu_manager') return;
   dashViewMode = mode;
-  updateDashModeUI();
   renderCustomBody();
 }
 
-// === BU + 廠區篩選（admin 專用）===
+// v312: 總覽／廠區對比
+function dvSetView(v) {
+  if (v === 'compare' && dvCmpAvailable().length < 2) { dvToast('有兩個以上廠區的權限才能對比'); return; }
+  dashView = v === 'compare' ? 'compare' : 'board';
+  renderCustomBody();
+  const main = document.querySelector('#customDashPage .dv3-main');
+  if (main) main.scrollTop = 0;
+}
+
 function persistDashFilter() {
-  try {
-    localStorage.setItem(DASH_FILTER_KEY, JSON.stringify({
-      bu: dashFilterBu, factory: dashFilterFactory
-    }));
-  } catch(e) {}
+  try { localStorage.setItem(DASH_FILTER_KEY, JSON.stringify({ bu: dashFilterBu, factory: dashFilterFactory })); } catch(e) {}
 }
 
 function changeDashBu(bu) {
+  const R = dvRole();
+  // 只接受權限內的事業群
+  if (R.isBu && bu && !userHasBu(currentUser, bu)) return;
+  if (!R.fullVision && !R.isBu) return;
   dashFilterBu = bu;
-  // BU 變了，廠區下拉要重設（避免廠區跟 BU 不符）
-  dashFilterFactory = '';
+  dashFilterFactory = '';   // 事業群變了，廠區重設（避免廠區跟事業群不符）
   persistDashFilter();
   renderCustomBody();
 }
 
 function changeDashFactory(code) {
+  if (code && !dvPermFactories().some(f => f.code === code)) return;
   dashFilterFactory = code;
   persistDashFilter();
   renderCustomBody();
 }
 
 function clearDashFilter() {
-  // BU 主管：清除時保留 BU（鎖定），只清廠區
-  if (currentUser && currentUser.role === 'bu_manager') {
-    dashFilterBu = getUserBuList(currentUser)[0] || '';
-    dashFilterFactory = '';
+  const R = dvRole();
+  if (R.isBu) {
+    const bus = getUserBuList(currentUser);
+    dashFilterBu = bus.length === 1 ? bus[0] : '';
   } else {
     dashFilterBu = '';
-    dashFilterFactory = '';
   }
+  dashFilterFactory = '';
   persistDashFilter();
   renderCustomBody();
 }
 
-// 渲染 admin / hq_manager / bu_manager 的篩選列
+// v312: 上方的範圍選擇（事業群＋廠區，依權限）。對比模式另有自己的選廠列
 function renderDashFilterBar() {
   const bar = document.getElementById('dashFilterBar');
   if (!bar) return;
-  const role = currentUser ? currentUser.role : '';
-  const isAdmin = role === 'admin';
-  const isGroupHr = role === 'group_hr';
-  const isHqManager = role === 'hq_manager';
-  const isBuManager = role === 'bu_manager';
-  // v253: group_hr 視同全集團視野；hr/viewer 廠區受限
-  const fullVision = isAdmin || isGroupHr || isHqManager;
-  const isFactoryLimited = role === 'hr' || role === 'viewer';
-  const canFilter = fullVision || isBuManager || isFactoryLimited;
-  if (!canFilter) { bar.style.display = 'none'; return; }
-  bar.style.display = 'flex';
-
-  // BU 清單（從 FACTORIES 萃取）
-  let buList;
-  if (isBuManager) {
-    buList = getUserBuList(currentUser);
+  const R = dvRole();
+  if (dashView === 'compare' || !(R.fullVision || R.isBu || R.isLimited)) { bar.innerHTML = ''; return; }
+  const perm = dvPermFactories().slice().sort((a, b) => a.code.localeCompare(b.code));
+  let html = '';
+  if (R.fullVision) {
+    const bus = [...new Set(FACTORIES.map(f => f.group).filter(Boolean))];
+    html += `<select class="dv3-sel" onchange="changeDashBu(this.value)" title="事業群"><option value="">全集團</option>${bus.map(b => `<option value="${dvEsc(b)}"${b === dashFilterBu ? ' selected' : ''}>${dvEsc(b)}</option>`).join('')}</select>`;
+  } else if (R.isBu) {
+    const bus = getUserBuList(currentUser);
+    if (bus.length > 1) html += `<select class="dv3-sel" onchange="changeDashBu(this.value)" title="事業群"><option value="">我的全部事業群</option>${bus.map(b => `<option value="${dvEsc(b)}"${b === dashFilterBu ? ' selected' : ''}>${dvEsc(b)}</option>`).join('')}</select>`;
+    else html += `<span class="dv3-sel lock" title="依權限固定">${dvEsc(bus[0] || '')}<small>依權限固定</small></span>`;
+  }
+  const facList = dashFilterBu ? perm.filter(f => f.group === dashFilterBu) : perm;
+  if (R.isLimited && perm.length === 1) {
+    html += `<span class="dv3-sel lock" title="依權限固定">${dvEsc(perm[0].code + ' ' + perm[0].name)}<small>依權限固定</small></span>`;
   } else {
-    buList = [...new Set(FACTORIES.map(f => f.group))];
+    html += `<select class="dv3-sel" onchange="changeDashFactory(this.value)" title="廠區"><option value="">${R.isLimited ? '全部我的廠區' : '全部廠區'}</option>${facList.map(f => `<option value="${dvEsc(f.code)}"${f.code === dashFilterFactory ? ' selected' : ''}>${dvEsc(f.code)} · ${dvEsc(f.name)}</option>`).join('')}</select>`;
   }
-
-  // 廠區清單
-  // BU 主管：只能切自己 BU 下的廠
-  // hr/viewer：只列授權的廠
-  let factoryList;
-  if (isFactoryLimited) {
-    const auth = getDashAuthFactories();
-    factoryList = FACTORIES.filter(f => auth.includes(f.code)).slice().sort((a,b)=>a.code.localeCompare(b.code));
-  } else if (isBuManager) {
-    factoryList = FACTORIES.filter(f => userHasBu(currentUser, f.group)).slice().sort((a,b)=>a.code.localeCompare(b.code));
-  } else if (dashFilterBu) {
-    factoryList = FACTORIES.filter(f => f.group === dashFilterBu).slice().sort((a,b)=>a.code.localeCompare(b.code));
-  } else {
-    factoryList = FACTORIES.slice().sort((a,b)=>a.code.localeCompare(b.code));
-  }
-
-  // BU 下拉 options（hr/viewer 不顯示 BU 下拉）
-  let buOptions;
-  if (isBuManager) {
-    buOptions = getUserBuList(currentUser).map(b=>`<option value="${b}">${b}</option>`).join('');
-  } else {
-    buOptions = ['<option value="">全集團</option>']
-      .concat(buList.map(b =>
-        `<option value="${b}" ${b===dashFilterBu?'selected':''}>${b}</option>`
-      )).join('');
-  }
-
-  const factoryOptions = ['<option value="">全部廠區</option>']
-    .concat(factoryList.map(f =>
-      `<option value="${f.code}" ${f.code===dashFilterFactory?'selected':''}>${f.code} · ${f.name}</option>`
-    )).join('');
-
-  // v253: hr/viewer 的「全部廠區」= 其授權廠合集
-  const authForLimit = isFactoryLimited ? getDashAuthFactories() : null;
-
-  // 計算目前篩選範圍的人數摘要
-  let activeCnt = 0;
-  FACTORIES.forEach(f => {
-    if (isFactoryLimited && !authForLimit.includes(f.code)) return;
-    if (isBuManager && !userHasBu(currentUser, f.group)) return;
-    if (!isBuManager && !isFactoryLimited && dashFilterBu && f.group !== dashFilterBu) return;
-    if (dashFilterFactory && f.code !== dashFilterFactory) return;
-    (employees[f.code] || []).forEach(e => {
-      if (!e.status || e.status === '在職') activeCnt++;
-    });
-  });
-
-  // 篩選範圍標籤
-  let scopeLabel = isFactoryLimited ? '我的廠區' : '全集團';
-  if (dashFilterFactory) {
-    const f = FACTORIES.find(x => x.code === dashFilterFactory);
-    scopeLabel = f ? (f.code + ' · ' + f.name) : dashFilterFactory;
-  } else if (isBuManager) {
-    scopeLabel = getUserBuList(currentUser).join('、') || 'BU';
-  } else if (dashFilterBu) {
-    scopeLabel = dashFilterBu;
-  }
-
-  // 角色標籤
-  const roleBadge = isAdmin ? '🔧 ADMIN'
-    : isGroupHr ? '🏢 集團 HR'
-    : isHqManager ? '🏢 集團主管（唯讀）'
-    : isBuManager ? '📦 BU 主管'
-    : (role === 'hr' ? '👤 廠區 HR' : '👁 廠區檢視');
-
-  // hr/viewer：「全部廠區」標籤改為「全部我的廠區」
-  const factoryFirstOpt = isFactoryLimited
-    ? '<option value="">全部我的廠區</option>'
-    : '<option value="">全部廠區</option>';
-  const factoryOptionsFinal = [factoryFirstOpt]
-    .concat(factoryList.map(f =>
-      `<option value="${f.code}" ${f.code===dashFilterFactory?'selected':''}>${f.code} · ${f.name}</option>`
-    )).join('');
-
-  // BU 下拉：hr/viewer 不顯示；BU 主管鎖定；其餘可改
-  const buSelectAttr = isBuManager ? 'disabled' : `onchange="changeDashBu(this.value)"`;
-  const buSelectHtml = isFactoryLimited ? '' :
-    `<select class="dash-filter-select" ${buSelectAttr}>${buOptions}</select>`;
-  const showClearBtn = dashFilterFactory || (!isBuManager && !isFactoryLimited && dashFilterBu);
-
-  bar.innerHTML = `
-    <span class="dash-filter-role">${roleBadge}</span>
-    <span class="dash-filter-label">範圍：</span>
-    ${buSelectHtml}
-    <select class="dash-filter-select" onchange="changeDashFactory(this.value)">${factoryOptionsFinal}</select>
-    ${showClearBtn ?
-      '<button class="dash-filter-clear" onclick="clearDashFilter()" title="清除篩選">✕ 清除</button>' : ''}
-    <span class="dash-filter-summary">${scopeLabel} · ${activeCnt} 人</span>
-  `;
-
-  // 同步副標
-  const subtitle = document.getElementById('customDashSubtitle');
-  if (subtitle) {
-    if (isFactoryLimited) {
-      subtitle.textContent = dashFilterFactory ? scopeLabel : '我的廠區 · ' + (authForLimit.join('、'));
-    } else {
-      subtitle.textContent = scopeLabel === '全集團' ? '集團檢視 · 全廠資料' : scopeLabel;
-    }
-  }
+  const showClear = dashFilterFactory || (R.fullVision && dashFilterBu) || (R.isBu && getUserBuList(currentUser).length > 1 && dashFilterBu);
+  if (showClear) html += `<button class="dv3-btn ghost sm" onclick="clearDashFilter()" title="清除篩選">✕ 清除</button>`;
+  bar.innerHTML = html;
 }
 
-// 更新模式切換按鈕的 UI 狀態
-function updateDashModeUI() {
-  const switcher = document.getElementById('dashModeSwitcher');
-  const subtitle = document.getElementById('customDashSubtitle');
-  if (!switcher) return;
-  const role = currentUser ? currentUser.role : '';
-  // v253: 全視野(admin/group_hr/hq_manager)、BU 主管、hr/viewer 全部改用篩選列，隱藏本廠/集團按鈕
-  switcher.style.display = 'none';
-  // 副標由 renderDashFilterBar 接手設定（避免重複，這裡不再覆寫）
-}
+// 舊版的模式按鈕已拿掉（v312）；留著空函式相容
+function updateDashModeUI() {}
 
-// 重設為集團預設範本
+// 重設為預設版面
 function resetDashToDefault() {
-  if (!confirm('確定要重設為集團預設版面？您目前的自訂順序將會被覆蓋。')) return;
-  customLayout = DEFAULT_GROUP_LAYOUT.map(m => ({...m}));
+  if (!confirm('確定要重設為預設版面？目前選的指標卡會恢復成全部顯示。')) return;
+  customLayout = DEFAULT_GROUP_LAYOUT.map(m => ({ ...m }));
   selectedModules = customLayout.map(m => m.id);
-  localStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(customLayout));
+  try { localStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(customLayout)); } catch(e) {}
   renderCustomBody();
-  showToast('已重設為集團預設版面', 'ok');
-}
-
-// 渲染頂部固定 KPI 條
-function renderKpiStrip(allEmp, showAllFactories, userFactory) {
-  const strip = document.getElementById('dashKpiStrip');
-  if (!strip) return;
-
-  // 「在職率」分母：依檢視範圍而定
-  const role = currentUser ? currentUser.role : '';
-  const isAdmin = role === 'admin';
-  const isGroupHr = role === 'group_hr';
-  const isHqManager = role === 'hq_manager';
-  const isBuManager = role === 'bu_manager';
-  const fullVision = isAdmin || isGroupHr || isHqManager;
-  const isFactoryLimited = role === 'hr' || role === 'viewer';
-
-  let allTotal;
-  if (isFactoryLimited && dashFilterFactory) {
-    // v253: hr/viewer 選了單一廠 → 分母為該廠
-    allTotal = (employees[dashFilterFactory] || []).length;
-  } else if ((fullVision || isBuManager) && (dashFilterBu || dashFilterFactory || isBuManager)) {
-    allTotal = 0;
-    FACTORIES.forEach(f => {
-      if (isBuManager && !userHasBu(currentUser, f.group)) return;
-      if (!isBuManager && dashFilterBu && f.group !== dashFilterBu) return;
-      if (dashFilterFactory && f.code !== dashFilterFactory) return;
-      allTotal += (employees[f.code] || []).length;
-    });
-  } else if (showAllFactories) {
-    allTotal = Object.values(employees).flat().length;
-  } else {
-    // hr/viewer 看「全部我的廠區」：逐廠加總授權廠（v252）
-    allTotal = 0;
-    FACTORIES.forEach(f => {
-      if (hasFactoryAccess(currentUser, f.code)) allTotal += (employees[f.code] || []).length;
-    });
-  }
-
-  const total = allEmp.length;
-  const rate = allTotal > 0 ? Math.round(total / allTotal * 100) : 0;
-  const fullTime = allEmp.filter(e => e.category === '正職' || e.category === '聘僱').length;
-  const temp = allEmp.filter(e => e.category === '臨時工' || e.category === '移工').length;
-
-  document.getElementById('stripActive').textContent = total;
-  document.getElementById('stripRate').textContent = rate;
-  document.getElementById('stripFull').textContent = fullTime;
-  document.getElementById('stripTemp').textContent = temp;
-
-  // 若使用者在「選擇指標」中關閉了 kpi-4grid，就隱藏整條
-  const hasKpi = customLayout.some(m => m.id === 'kpi-4grid');
-  strip.classList.toggle('hidden', !hasKpi);
+  dvToast('已重設為預設版面');
 }
 
 function closeCustomDash() {
@@ -11666,7 +12014,6 @@ function closeCustomDash() {
 }
 
 function openModulePanel() {
-  // 渲染模組選擇卡片
   const body = document.getElementById('modulePanelBody');
   body.innerHTML = DASH_MODULES.map(m => `
     <div class="custom-module-card ${selectedModules.includes(m.id) ? 'selected' : ''}"
@@ -11686,163 +12033,368 @@ function closeModulePanel() {
 
 function toggleModule(id, el) {
   el.classList.toggle('selected');
-  if (selectedModules.includes(id)) {
-    selectedModules = selectedModules.filter(m => m !== id);
-  } else {
-    selectedModules.push(id);
-  }
+  if (selectedModules.includes(id)) selectedModules = selectedModules.filter(m => m !== id);
+  else selectedModules.push(id);
 }
 
 function applyModules() {
-  // 保留已有的順序，新增的加到最後
-  const existing = customLayout.filter(m => selectedModules.includes(m.id));
-  const newMods = selectedModules
-    .filter(id => !customLayout.find(m => m.id === id))
-    .map(id => ({ id }));
-  customLayout = [...existing, ...newMods];
+  // v312 卡片位置固定，順序照 DASH_MODULES
+  customLayout = DASH_MODULES.filter(m => selectedModules.includes(m.id)).map(m => ({ id: m.id }));
+  selectedModules = customLayout.map(m => m.id);
   closeModulePanel();
   renderCustomBody();
 }
 
 function saveCustomLayout() {
-  localStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(customLayout));
-  showToast('版面已儲存', 'ok');
+  try { localStorage.setItem(CUSTOM_LAYOUT_KEY, JSON.stringify(customLayout)); } catch(e) {}
+  dvToast('版面已儲存（存在這台電腦）');
 }
 
-// 各模組預設佔幅：強制一行 3 個（third）
-// 使用者可隨時用 ⅓ ½ 全 按鈕手動切換寬度
-const MODULE_SPAN = {
-  'kpi-4grid': 'full',         // 已改為頂部固定條，不會出現在下方
-  'kpi-total': 'third',
-  'kpi-category': 'third',
-  'ratio-direct': 'third',
-  'gender-donut': 'third',
-  'factory-dist': 'third',
-  'region-dist': 'third',
-  'age-chart': 'third',
-  'seniority-chart': 'third',
-  'expense-dist': 'third'
-};
+// 舊版欄寬設定（v312 不用；留著相容）
+const MODULE_SPAN = {};
 function getModuleSpan(modId) {
-  // 優先從 customLayout 抓使用者設定的 span（如果有）
   const mod = customLayout.find(m => m.id === modId);
-  if (mod && mod.span) return mod.span;
-  return MODULE_SPAN[modId] || 'third';
+  return (mod && mod.span) || 'third';
 }
 
+// ============================================================
+// v312 畫面
+// ============================================================
 function renderCustomBody() {
-  const body = document.getElementById('customBody');
-  const empty = document.getElementById('customEmpty');
+  const grid = document.getElementById('dv3Grid'), empty = document.getElementById('customEmpty'), foot = document.getElementById('dv3Foot');
+  if (!grid) return;
+  const canCmp = dvCmpAvailable().length >= 2;
+  if (!canCmp && dashView === 'compare') dashView = 'board';
+  dvSyncNav(canCmp);
+  renderDashFilterBar();
+  if (foot) foot.textContent = '';
+  if (dashView === 'compare') { if (empty) empty.style.display = 'none'; grid.innerHTML = dvRenderCompare(); return; }
+  if (!customLayout.length) { grid.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = dvRenderBoard();
+}
 
-  // === 權限過濾：依使用者角色與檢視模式決定資料範圍 ===
-  const role = currentUser ? currentUser.role : '';
-  const isAdmin = role === 'admin';
-  const isGroupHr = role === 'group_hr';
-  const isHqManager = role === 'hq_manager';
-  const isBuManager = role === 'bu_manager';
-  // v253: group_hr 全視野；hr/viewer 受限於授權廠
-  const fullVision = isAdmin || isGroupHr || isHqManager;
-  const isFactoryLimited = role === 'hr' || role === 'viewer';
-  const canFilter = fullVision || isBuManager || isFactoryLimited;
-  const userFactory = currentUser ? currentUser.factories : null;
+function dvSyncNav(canCmp) {
+  const set = (id, on, off, title) => { const el = document.getElementById(id); if (!el) return; el.classList.toggle('on', !!on); el.classList.toggle('off', !!off); if (title !== undefined) el.title = title; };
+  const cmpTitle = canCmp ? '廠區對比' : '有兩個以上廠區的權限才能對比';
+  set('dv3NavBoard', dashView === 'board', false);
+  set('dv3NavCmp', dashView === 'compare', !canCmp, cmpTitle);
+  set('dv3PillBoard', dashView === 'board', false);
+  set('dv3PillCmp', dashView === 'compare', !canCmp, cmpTitle);
+}
 
-  // 全集團視野：admin / group_hr / hq_manager / bu_manager
-  const showAllFactories = fullVision || isBuManager;
+// ---------- 總覽 ----------
+function dvRenderBoard() {
+  const facs = dvScopeFactories(), list = dvActive(facs), s = dvStats(list), allTotal = dvAllCount(facs);
+  const on = id => customLayout.some(m => m.id === id);
+  const facsP = facs.filter(f => s.byFac[f.code] > 0);
+  const regions = DV_REGION_ORDER.filter(r => s.byRegion[r] > 0).concat(Object.keys(s.byRegion).filter(r => !DV_REGION_ORDER.includes(r)));
+  const foot = document.getElementById('dv3Foot');
+  if (!dvPermFactories().length) {
+    if (foot) foot.textContent = '';
+    return `<div class="dv-card"><div class="dv3-empty">這個帳號沒有看板可看的廠區權限<br><span style="font-size:12px;color:var(--dv-t3)">需要的話請管理員在「系統資料授權」設定廠區</span></div></div>`;
+  }
+  if (!s.n) {
+    if (foot) foot.textContent = '';
+    return `<div class="dv-card"><div class="dv3-empty">目前範圍（${dvEsc(dvScopeLabel())}）沒有在職人員資料<br><span style="font-size:12px;color:var(--dv-t3)">如果剛登入，資料可能還在載入，請稍候再開一次看板</span></div></div>`;
+  }
+  const notes = [];
+  const showRank = on('factory-dist') && facsP.length >= 2;
+  const showArea = on('region-dist') && regions.length >= 2;
+  // 不顯示的卡：只有「換個範圍就看得到」時才說明（只有一個廠權限的人不用看這句）
+  const permP = dvPermFactories().filter(f => dvActiveCount(f) > 0);
+  if (on('factory-dist') && !showRank && permP.length >= 2) notes.push('廠區人力排行：範圍選到單一廠時不顯示');
+  if (on('region-dist') && !showArea && new Set(permP.map(f => f.region || '?')).size >= 2) notes.push('地區占比：範圍只在一個地區時不顯示');
+  const r1 = [], r2 = [], r3 = [];
+  if (on('kpi-total')) r1.push([3, dvHero(s, allTotal, facsP, regions)]);
+  if (on('ratio-direct')) r1.push([2, dvTileDirect(s)]);
+  if (on('gender-donut')) r1.push([2, dvTileGender(s)]);
+  if (on('temp-ratio')) r1.push([2, dvTileTemp(s)]);
+  if (showRank) r2.push([7, dvRank(s, facsP, showArea)]);
+  if (showArea) r2.push([5, dvArea(s, regions, facsP)]);
+  if (on('age-chart')) r3.push([5, dvPyr(s)]);
+  if (on('seniority-chart')) r3.push([4, dvSen(s)]);
+  if (on('expense-dist')) r3.push([3, dvAbcd(s)]);
+  const row = (cells, cls) => cells.length ? `<div class="dv3-row${cls || ''}" style="--cols:${cells.map(c => c[0] + 'fr').join(' ')}">${cells.map(c => c[1]).join('')}</div>` : '';
+  if (foot) foot.textContent = notes.join('　·　');
+  return row(r1) + row(r2) + row(r3, r2.length ? '' : ' dv-tall');
+}
 
-  const allEmp = [];
-  FACTORIES.forEach(f => {
-    // hr/viewer：只取授權廠資料
-    if (isFactoryLimited && !hasFactoryAccess(currentUser, f.code)) return;
-    // BU 主管：強制只看自己 BU 下的廠
-    if (isBuManager && !userHasBu(currentUser, f.group)) return; // v259: BU 可為陣列
-    // 篩選列的 BU 過濾（fullVision / bu_manager）
-    if ((fullVision || isBuManager) && dashFilterBu && f.group !== dashFilterBu) return;
-    // 篩選列的廠區過濾（所有可篩選角色）
-    if (canFilter && dashFilterFactory && f.code !== dashFilterFactory) return;
-    (employees[f.code] || []).forEach(e => {
-      if (!e.status || e.status === '在職') allEmp.push({...e, _factory: f});
+function dvHero(s, allTotal, facsP, regions) {
+  const label = dvScopeLabel();
+  const heroLabel = label === '集團' ? '集團在職人數' : label + ' 在職人數';
+  const chip = facsP.length > 1 ? `${facsP.length} 廠 · ${regions.length} 個地區` : '單一廠區';
+  const rate = dvPct(s.n, allTotal);
+  const parts = DV_CAT.map((c, i) => [c, s.cat[i], DV_HERO_C[i]]);
+  if (s.catOther) parts.push(['其他', s.catOther, '#FFB3C7']);
+  if (s.catNone) parts.push(['未填', s.catNone, 'rgba(255,255,255,.32)']);
+  return `<div class="dv-card dv-hero"><div class="dv-top"><span class="dv-lab" title="${dvEsc(heroLabel)}">${dvEsc(heroLabel)}</span><span class="dv-chip">${chip}</span></div>
+    <div class="dv-big"><b class="dv-num">${dvFmt(s.n)}</b><span>人</span><span class="dv-rate" title="在職率＝在職人數 ÷ 建檔總人數（含離職，共 ${dvFmt(allTotal)} 筆）">在職率 ${rate}%</span></div>
+    <div><div class="dv-stack">${parts.filter(p => p[1] > 0).map(p => `<i style="flex:${p[1]};background:${p[2]}" title="${p[0]} ${dvFmt(p[1])} 人"></i>`).join('')}</div>
+    <div class="dv-lgd">${parts.map(p => `<span><i style="background:${p[2]}"></i>${p[0]}<b class="dv-num">${dvFmt(p[1])}</b></span>`).join('')}</div></div></div>`;
+}
+
+// 兩邊比較的一句話（例：女性多 121 人、直接人力約七成）
+function dvSplitTile(o) {
+  const pa = dvPct(o.a, o.total), pb = dvPct(o.b, o.total);
+  const note = o.none > 0 ? `${o.noneLabel || '未填'} ${dvFmt(o.none)} 人` : o.say;
+  return `<div class="dv-card dv-tile" style="background:${o.bg}"><div class="dv-top">${o.title}<em>${o.tag}</em></div>
+    <div class="dv-big"><b class="dv-num">${pa}<small>%</small></b><span class="dv-num">${dvFmt(o.a)} 人</span></div>
+    <div><div class="dv-split">${o.a ? `<i class="a" style="flex:${o.a}" title="${o.title} ${dvFmt(o.a)} 人"></i>` : ''}${o.b ? `<i class="b" style="flex:${o.b}" title="${o.bLabel} ${dvFmt(o.b)} 人"></i>` : ''}${o.none ? `<i class="u" style="flex:${o.none}" title="未填 ${dvFmt(o.none)} 人"></i>` : ''}</div>
+    <div class="dv-ft"><span title="${dvEsc(note)}">${note}</span><span class="dv-num">${o.bLabel} ${dvFmt(o.b)} 人 · ${pb}%</span></div></div></div>`;
+}
+
+function dvTileDirect(s) {
+  const d = s.direct, i = s.n - s.direct - s.acctNone, t = d + i, p = t ? d / t : 0;
+  let say = '沒有可比較的資料';
+  if (t) {
+    if (Math.abs(p - 0.5) < 0.04) say = '直接、間接大致各半';
+    else if (p >= 0.6) say = `直接人力約 ${Math.round(p * 10)} 成`;
+    else if (p > 0.5) say = '直接略多於間接';
+    else if (p <= 0.4) say = `間接人力約 ${Math.round((1 - p) * 10)} 成`;
+    else say = '間接略多於直接';
+  }
+  return dvSplitTile({ bg: '#F2CB6C', title: '直接人力', tag: '直接／間接', a: d, b: i, bLabel: '間接', none: s.acctNone, noneLabel: '會計科目未填', total: s.n, say });
+}
+
+function dvTileGender(s) {
+  const f = s.female, m = s.male, t = f + m;
+  let say = '沒有可比較的資料';
+  if (t) say = Math.abs(f - m) <= t * 0.02 ? '男女大致各半' : (f > m ? `女性多 ${dvFmt(f - m)} 人` : `男性多 ${dvFmt(m - f)} 人`);
+  return dvSplitTile({ bg: '#F4A3BB', title: '女性', tag: '性別', a: f, b: m, bLabel: '男性', none: s.genderNone, noneLabel: '性別未填', total: s.n, say });
+}
+
+function dvTileTemp(s) {
+  const tmp = s.cat[2] + s.cat[3], tp = dvPct(tmp, s.n), R = 38, C = 2 * Math.PI * R, p = s.n ? tmp / s.n : 0;
+  const note = s.catNone ? `人員分類未填 ${dvFmt(s.catNone)} 人` : (tmp === 0 ? '沒有臨時工或移工' : (tp < 20 ? '占在職人數不到兩成' : `約 ${Math.round(tp / 10)} 成是非正式人力`));
+  const arc = p > 0 ? `<circle cx="46" cy="46" r="${R}" fill="none" stroke="#131A2B" stroke-width="9" stroke-linecap="round" stroke-dasharray="${(p * C).toFixed(2)} ${C.toFixed(2)}" transform="rotate(-90 46 46)"/>` : '';
+  return `<div class="dv-card dv-tile dv-ring" style="background:#C2ACF8"><div class="dv-top">臨時工／移工<em>非正式人力</em></div>
+    <div class="dv-mid"><svg viewBox="0 0 92 92"><circle cx="46" cy="46" r="${R}" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="9"/>${arc}
+      <text x="46" y="51" text-anchor="middle" style="font-size:17px;font-weight:600;fill:#131A2B;font-family:Inter,'Segoe UI',sans-serif">${tp}%</text></svg>
+      <div><b class="dv-num">${dvFmt(tmp)}<small>人</small></b><span>臨時工 ${dvFmt(s.cat[2])} · 移工 ${dvFmt(s.cat[3])}</span></div></div>
+    <div class="dv-ft"><span title="${dvEsc(note)}">${note}</span></div></div>`;
+}
+
+function dvHd(tt, extra) {
+  return `<div class="dv-hd"><span class="dv-tt">${tt}</span><span class="dv-sp"></span>${extra || ''}</div>`;
+}
+function dvLegend(items) {
+  return `<span class="dv-lgd">${items.map(x => `<span><i style="background:${x[1]}"></i>${x[0]}</span>`).join('')}</span>`;
+}
+
+function dvRank(s, facsP, withArea) {
+  const rows = facsP.map(f => ({ f, n: s.byFac[f.code] || 0 })).sort((a, b) => b.n - a.n || a.f.code.localeCompare(b.f.code));
+  const top = rows.slice(0, 8), rest = rows.slice(8), mx = Math.max(1, top[0].n);
+  const rc = r => (DV_REGION[r] || {}).bar || '#8A94A6';
+  const used = DV_REGION_ORDER.filter(r => top.some(x => x.f.region === r));
+  const p4 = dvPct(rows.slice(0, 4).reduce((a, x) => a + x.n, 0), s.n);
+  const say = `<b>${dvEsc(top[0].f.code)}</b> ${dvFmt(top[0].n)} 人最多，占 <b>${dvPct(top[0].n, s.n)}%</b>` + (rows.length >= 5 ? `；前四大廠合計 <b>${p4}%</b>` : '');
+  const restTxt = rest.length ? `其餘 ${rest.length} 廠合計 ${dvFmt(rest.reduce((a, x) => a + x.n, 0))} 人` : '';
+  const multi = used.length > 1, rn = r => (DV_REGION[r] || {}).name || '';
+  return `<div class="dv-card dv-rank${!withArea && top.length < 6 ? ' dv-short' : ''}${multi ? ' dv-withrg' : ''}">${dvHd('廠區人力排行', multi ? dvLegend(used.map(r => [DV_REGION[r].name, rc(r)])) : '')}
+    <div class="dv-say">${say}</div>
+    <div class="dv-rk${top.length < 6 ? ' dv-few' : ''}">${top.map((x, i) => `<div class="dv-r"><span class="dv-no dv-num">${i + 1}</span><span class="dv-cd">${dvEsc(x.f.code)}</span><span class="dv-nm" title="${dvEsc(x.f.name)}">${dvEsc(x.f.name)}</span>${multi ? `<span class="dv-rg">${rn(x.f.region)}</span>` : ''}<span class="dv-tr"><i style="width:${(x.n / mx * 100).toFixed(1)}%;background:${rc(x.f.region)}"></i></span><span class="dv-v dv-num">${dvFmt(x.n)}</span><span class="dv-p dv-num">${dvPctTxt(x.n, s.n)}%</span></div>`).join('')}</div>
+    ${restTxt ? `<div class="dv-rest">${restTxt}</div>` : ''}</div>`;
+}
+
+function dvArea(s, regions, facsP) {
+  const rs = regions.map(r => ({ r, n: s.byRegion[r] || 0, k: facsP.filter(f => (f.region || '?') === r).length })).sort((a, b) => b.n - a.n);
+  const shown = rs.slice(0, 4);
+  const cls = shown.length === 2 ? 'dv-n2' : shown.length === 3 ? 'dv-n3' : 'dv-n4';
+  const p1 = v => s.n ? (v / s.n * 100).toFixed(1) : '0.0';
+  return `<div class="dv-card dv-area"><div class="dv-tm ${cls}">${shown.map((x, i) => {
+    const info = DV_REGION[x.r] || { name: x.r === '?' ? '未設定地區' : x.r, tile: '#D5DAE3' };
+    return `<div class="${i === 0 && shown.length === 3 ? 'dv-lead' : ''}" style="background:${info.tile}"><div class="dv-top">${dvEsc(info.name)}${i === 0 ? '<em>地區占比</em>' : ''}</div><div><b class="dv-num">${p1(x.n)}<small>%</small></b><span class="dv-sub dv-num">${dvFmt(x.n)} 人 · ${x.k} 廠</span></div></div>`;
+  }).join('')}</div></div>`;
+}
+
+function dvPyr(s) {
+  const rowsData = [4, 3, 2, 1, 0].map(i => ({ l: DV_AGE_L[i], m: s.ageM[i], f: s.ageF[i], c: DV_AGE_C[i] }));
+  const noneRow = s.ageNoneM + s.ageNoneF > 0;
+  if (noneRow) rowsData.push({ l: '未填', m: s.ageNoneM, f: s.ageNoneF, c: DV_NONE });
+  const pm = Math.max(1, ...rowsData.map(r => Math.max(r.m, r.f)));
+  const parts = [];
+  const bands = [0, 1, 2, 3, 4].filter(i => s.ageM[i] + s.ageF[i] > 0);
+  if (bands.length > 1 && bands.every(i => s.ageF[i] > s.ageM[i])) parts.push('各年齡層都是女性較多');
+  else if (bands.length > 1 && bands.every(i => s.ageM[i] > s.ageF[i])) parts.push('各年齡層都是男性較多');
+  const mi = s.age.indexOf(Math.max(...s.age));
+  if (s.age[mi] > 0) parts.push(`<b>${DV_AGE_SAY[mi]}</b>人數最多`);
+  const under40 = s.age[0] + s.age[1], known = s.ageCnt;
+  if (known && under40 / known >= 0.6) parts.push(`<b>40 歲以下</b>占 ${dvPct(under40, known)}%`);
+  const warn = [];
+  if (s.ageNone) warn.push(`出生日期未填 ${dvFmt(s.ageNone)} 人`);
+  if (s.genderNone) warn.push(`性別未填 ${dvFmt(s.genderNone)} 人不在圖上`);
+  const lg = DV_AGE_L.map((l, i) => [l, DV_AGE_C[i]]).concat(noneRow ? [['未填', DV_NONE]] : []);
+  const bar = (v, c) => `<i${v ? '' : ' class="z"'} style="width:${(v / pm * 100).toFixed(1)}%;background:${c}"></i>`;
+  return `<div class="dv-card dv-pyr">${dvHd('年齡 × 性別', dvLegend(lg))}
+    <div class="dv-say">${parts.slice(0, 2).join('；')}${warn.length ? `<span class="dv-warn">${parts.length ? '　' : ''}${warn.join('、')}</span>` : ''}</div>
+    <div class="dv-py"><div class="dv-r dv-hdr"><span></span><span style="text-align:right">← 男</span><span></span><span>女 →</span><span></span></div>
+    ${rowsData.map(r => `<div class="dv-r" title="${r.l}：男 ${r.m} 人、女 ${r.f} 人"><span class="dv-n dv-num">${dvFmt(r.m)}</span><span class="dv-l">${bar(r.m, r.c)}</span><span class="dv-band">${r.l}</span><span class="dv-rr">${bar(r.f, r.c)}</span><span class="dv-n dv-r2 dv-num">${dvFmt(r.f)}</span></div>`).join('')}</div></div>`;
+}
+
+function dvSen(s) {
+  const items = DV_SEN_L.map((l, i) => ({ l, v: s.sen[i], c: DV_SEN_C[i] }));
+  if (s.senNone) items.push({ l: '未填', v: s.senNone, c: DV_NONE });
+  const mx = Math.max(1, ...items.map(x => x.v)), hiV = Math.max(...s.sen), hi = s.sen.indexOf(hiV);
+  let say = '';
+  if (hiV > 0) {
+    say = `<b>${DV_SEN_SAY[hi]}</b>最多（${dvPct(hiV, s.n)}%）` + (hi === 4 ? '，資深人力為主' : '');
+    if (hi !== 0 && s.n && s.sen[0] / s.n >= 0.15) say += `；1 年以下新人占 ${dvPct(s.sen[0], s.n)}%`;
+  }
+  if (s.senNone) say += `<span class="dv-warn">${say ? '　' : ''}到職日未填 ${dvFmt(s.senNone)} 人</span>`;
+  return `<div class="dv-card dv-sen">${dvHd('年資分布')}<div class="dv-say">${say}</div>
+    <div class="dv-bars">${items.map((x, i) => `<div class="dv-bar2${i === hi && hiV > 0 ? ' dv-hi' : ''}" title="${x.l}：${x.v} 人"><span class="dv-v dv-num">${dvFmt(x.v)}</span><span class="dv-p dv-num">${dvPctTxt(x.v, s.n)}%</span><i style="height:${(x.v / mx * 58).toFixed(1)}%;background:${x.c}"></i><span class="dv-l">${x.l}</span></div>`).join('')}</div></div>`;
+}
+
+function dvAbcd(s) {
+  const AB = ['A', 'B', 'C', 'D'].map((k, i) => [k, s.exp[i], DV_ABCD_C[i]]);
+  if (s.expOther) AB.push(['其他', s.expOther, DV_OTHER]);
+  if (s.expNone) AB.push(['未填', s.expNone, DV_NONE]);
+  const R = 43, W = 12, C = 2 * Math.PI * R, GAP = 2.4, nz = AB.filter(d => d[1] > 0).length;
+  let off = 0;
+  const segs = AB.map(d => {
+    if (!d[1] || !s.n) return '';
+    const len = d[1] / s.n * C, vis = nz > 1 ? Math.max(len - GAP, 0.6) : len;
+    const seg = `<circle cx="56" cy="56" r="${R}" fill="none" stroke="${d[2]}" stroke-width="${W}" stroke-dasharray="${vis.toFixed(2)} ${(C - vis).toFixed(2)}" stroke-dashoffset="${(-off - (nz > 1 ? GAP / 2 : 0)).toFixed(2)}" transform="rotate(-90 56 56)"><title>${d[0]} ${d[1]} 人</title></circle>`;
+    off += len; return seg;
+  }).join('');
+  const top = AB.slice(0, 4).reduce((a, b) => b[1] > a[1] ? b : a);
+  const center = top[1] > 0 ? `${top[0]} ${dvPct(top[1], s.n)}%` : '—';
+  return `<div class="dv-card dv-abcd">${dvHd('ABCD 分類')}<div class="dv-dn"><svg viewBox="0 0 112 112"><circle cx="56" cy="56" r="${R}" fill="none" stroke="var(--dv-track)" stroke-width="${W}"/>${segs}<text x="56" y="54" text-anchor="middle" style="font-size:18px;font-weight:600;fill:var(--dv-t1);font-family:Inter,'Segoe UI',sans-serif">${center}</text><text x="56" y="69" text-anchor="middle" style="font-size:9px;fill:var(--dv-t3);letter-spacing:1px">占比最高</text></svg>
+    <div class="dv-lg">${AB.map(d => `<span title="${d[0]} ${d[1]} 人"><i style="background:${d[2]}"></i>${d[0]}<b class="dv-num">${dvPctTxt(d[1], s.n)}%</b></span>`).join('')}</div></div></div>`;
+}
+
+// ---------- 廠區對比 ----------
+// 可比較的廠＝權限內、有在職人員的廠
+function dvCmpAvailable() {
+  return dvPermFactories().filter(f => dvActiveCount(f) > 0);
+}
+
+function dvCmpTop(facs) {
+  return facs.map(f => ({ c: f.code, n: dvActiveCount(f) })).sort((a, b) => b.n - a.n || a.c.localeCompare(b.c)).slice(0, DV_CMP_MAX).map(x => x.c);
+}
+
+function dvCmpLoad() {
+  const avail = dvCmpAvailable(), codes = avail.map(f => f.code);
+  let sel = dashCmpSel;
+  if (!sel) { try { sel = JSON.parse(localStorage.getItem(DV_CMP_KEY) || 'null'); } catch(e) { sel = null; } }
+  if (Array.isArray(sel)) sel = sel.filter((c, i) => codes.includes(c) && sel.indexOf(c) === i).slice(0, DV_CMP_MAX);
+  if (!Array.isArray(sel) || sel.length < 2) {
+    // 預設＝目前總覽範圍內人數最多的 8 個廠；範圍只有一個廠時改用權限內最多的 8 個
+    const inScope = dvScopeFactories().filter(f => codes.includes(f.code));
+    sel = dvCmpTop(inScope.length >= 2 ? inScope : avail);
+  }
+  dashCmpSel = sel;
+}
+
+function dvCmpSave() { try { localStorage.setItem(DV_CMP_KEY, JSON.stringify(dashCmpSel)); } catch(e) {} }
+
+function dvCmpRemove(code) {
+  if (!dashCmpSel) return;
+  if (dashCmpSel.length <= 2) { dvToast('至少要比較 2 個廠'); return; }
+  dashCmpSel = dashCmpSel.filter(c => c !== code);
+  dvCmpSave(); renderCustomBody();
+}
+
+function dvCmpAdd(code) {
+  if (!code || !dashCmpSel) return;
+  if (!dvCmpAvailable().some(f => f.code === code)) return;   // 只收權限內的廠
+  if (dashCmpSel.length >= DV_CMP_MAX) { dvToast(`最多比較 ${DV_CMP_MAX} 個廠`); renderCustomBody(); return; }
+  if (!dashCmpSel.includes(code)) dashCmpSel.push(code);
+  dvCmpSave(); renderCustomBody();
+}
+
+function dvCmpPreset(v) {
+  if (!v) return;
+  const avail = dvCmpAvailable();
+  let facs = avail;
+  if (v.indexOf('bu:') === 0) { const bu = v.slice(3); facs = avail.filter(f => f.group === bu); }
+  const sel = dvCmpTop(facs);
+  if (sel.length < 2) { dvToast('這個事業群可比較的廠不到 2 個'); renderCustomBody(); return; }
+  dashCmpSel = sel;
+  dvCmpSave(); renderCustomBody();
+}
+
+function dvRenderCompare() {
+  dvCmpLoad();
+  const avail = dvCmpAvailable(), R = dvRole();
+  const selF = dashCmpSel.map(c => avail.find(f => f.code === c)).filter(Boolean);
+  const rows = selF.map(f => ({ f, s: dvStats(dvActive([f])) }));
+  const G = dvStats(dvActive(dvPermFactories())), avgL = dvAvgLabel();
+  const remaining = avail.filter(f => !dashCmpSel.includes(f.code)).sort((a, b) => a.code.localeCompare(b.code));
+  // 快速帶入：各事業群（可比較的廠 ≥2）＋人數最多的 8 個
+  const buCnt = {};
+  avail.forEach(f => { if (f.group) buCnt[f.group] = (buCnt[f.group] || 0) + 1; });
+  const buOpts = (R.fullVision || (R.isBu && getUserBuList(currentUser).length > 1)) ? Object.keys(buCnt).filter(b => buCnt[b] >= 2) : [];
+  const presets = `<option value="">快速帶入…</option>${buOpts.map(b => `<option value="bu:${dvEsc(b)}">${dvEsc(b)}（${buCnt[b]} 廠）</option>`).join('')}<option value="top">人數最多的 ${Math.min(DV_CMP_MAX, avail.length)} 個廠</option>`;
+  const picks = `<div class="dv-picks">比較：
+    ${selF.map(f => `<span class="dv-chip">${dvEsc(f.code)} <small>${dvEsc(f.name)}</small><button onclick="dvCmpRemove('${dvEsc(f.code)}')" title="拿掉 ${dvEsc(f.code)}">×</button></span>`).join('')}
+    ${selF.length < DV_CMP_MAX && remaining.length ? `<select class="dv-add" onchange="dvCmpAdd(this.value)" title="加入要比較的廠"><option value="">＋ 加廠區</option>${remaining.map(f => `<option value="${dvEsc(f.code)}">${dvEsc(f.code)} · ${dvEsc(f.name)}</option>`).join('')}</select>` : ''}
+    <select class="dv3-sel" style="padding:6px 12px;font-size:12px" onchange="dvCmpPreset(this.value)" title="一次換一組廠">${presets}</select>
+    <span class="dv-hint">最多 ${DV_CMP_MAX} 個廠；只列你有權限的廠</span></div>`;
+
+  // 對比總表
+  const M = [
+    { k: '正職占比', f: s => s.cat[0] / s.n },
+    { k: '直接人力', f: s => s.direct / s.n },
+    { k: '女性占比', f: s => s.female / s.n },
+    { k: '臨時工＋移工', f: s => (s.cat[2] + s.cat[3]) / s.n },
+    { k: '平均年齡', f: s => s.ageCnt ? s.ageSum / s.ageCnt : NaN, age: true },
+    { k: '年資 10 年以上', f: s => s.sen[4] / s.n },
+  ];
+  const fmtV = (m, v) => isNaN(v) ? '—' : (m.age ? v.toFixed(1) : Math.round(v * 100) + '%');
+  const barW = (m, v) => isNaN(v) ? 0 : Math.max(0, Math.min(100, m.age ? v / 60 * 100 : v * 100));
+  const maxN = Math.max(1, ...rows.map(r => r.s.n));
+  let t = `<colgroup><col style="width:22%"><col style="width:13%">${M.map(() => '<col>').join('')}</colgroup>`;
+  t += `<tr><th>廠區</th><th>在職人數</th>${M.map(m => `<th>${m.k}</th>`).join('')}</tr>`;
+  rows.forEach(({ f, s }) => {
+    const small = s.n < DV_SMALL;
+    t += `<tr class="${small ? 'dv-small' : ''}"><td title="${dvEsc(f.name)}"><b>${dvEsc(f.code)}</b><span class="dv-nm">${dvEsc(f.name)}</span></td>`;
+    t += `<td><div class="dv-cell"><span class="dv-num">${dvFmt(s.n)}</span><span class="dv-mini"><i style="width:${(s.n / maxN * 100).toFixed(1)}%"></i></span></div></td>`;
+    if (small) { t += `<td colspan="${M.length}" class="dv-muted">人數少於 ${DV_SMALL} 人，比例不穩定、也可能看得出是誰，只顯示人數</td></tr>`; return; }
+    M.forEach(m => {
+      const v = m.f(s), g = m.f(G);
+      let arrow = '';
+      if (!isNaN(v) && !isNaN(g)) { const d = v - g; if (Math.abs(d) >= (m.age ? 2 : 0.03)) arrow = d > 0 ? '▲' : '▼'; }
+      t += `<td><div class="dv-cell"><span class="dv-num">${fmtV(m, v)}<span class="dv-arrow">${arrow}</span></span><span class="dv-mini"><i style="width:${barW(m, v).toFixed(1)}%"></i>${isNaN(g) ? '' : `<b style="left:${barW(m, g).toFixed(1)}%"></b>`}</span></div></td>`;
     });
+    t += '</tr>';
   });
+  const ghost = '<span class="dv-mini" style="visibility:hidden"></span>';
+  t += `<tr class="dv-avg"><td>${avgL}</td><td><div class="dv-cell"><span class="dv-num">${dvFmt(G.n)}</span>${ghost}</div></td>${M.map(m => `<td><div class="dv-cell"><span class="dv-num">${fmtV(m, m.f(G))}<span class="dv-arrow"></span></span>${ghost}</div></td>`).join('')}</tr>`;
+  const table = `<div class="dv-card"><div class="dv-cmp-hd"><span class="dv-tt">對比總表</span><span class="dv-say">比例的分母都是該廠在職總人數；細線＝${avgL}，▲▼＝比平均高或低 3 個百分點以上（平均年齡是 2 歲），只是高低、不代表好壞</span></div>
+    <div class="dv-tblwrap"><table class="dv-tbl">${t}</table></div></div>`;
 
-  // === 同步篩選列 UI ===
-  if (canFilter) renderDashFilterBar();
-
-  // === 渲染頂部固定 KPI 條 ===
-  renderKpiStrip(allEmp, showAllFactories, userFactory);
-
-  if (!customLayout.length) {
-    empty.style.display = 'flex';
-    // 清除所有 widget
-    body.querySelectorAll('.custom-widget').forEach(w => w.remove());
-    return;
+  // 三張「每廠一列」的組成比較（百分比堆疊條，最後一列是平均）
+  const big = rows.filter(r => r.s.n >= DV_SMALL);
+  const bestBy = fn => big.length ? big.reduce((a, b) => fn(b.s) > fn(a.s) ? b : a) : null;
+  // pick(s) 回傳 [標籤, 人數, 顏色] 陣列；未填（灰）、其他（有填但不在選項內）有人才出現
+  const stackCard = (tt, say, labels, colors, pick) => {
+    const extra = [];
+    rows.map(r => r.s).concat([G]).forEach(s => pick(s).slice(labels.length).forEach(p => { if (p[1] > 0 && !extra.some(x => x[0] === p[0])) extra.push([p[0], p[2]]); }));
+    const lg = labels.map((l, i) => [l, colors[i]]).concat(extra);
+    const line = (cd, s, cls, isAvg, title) => {
+      const small = !isAvg && s.n < DV_SMALL;
+      const bar = small ? `<span class="dv-smallnote">人數少於 ${DV_SMALL} 人，不顯示比例</span>`
+        : `<span class="dv-stack">${pick(s).filter(p => p[1] > 0).map(p => `<i style="flex:${p[1]};background:${p[2]}" title="${dvEsc(title || cd)} ${p[0]}：${p[1]} 人（${dvPct(p[1], s.n)}%）"></i>`).join('')}</span>`;
+      return `<div class="dv-r${cls}"><span class="dv-cd" title="${dvEsc(title || cd)}">${dvEsc(cd)}</span>${bar}<span class="dv-n dv-num">${dvFmt(s.n)}</span></div>`;
+    };
+    return `<div class="dv-card">${dvHd(tt, dvLegend(lg))}<div class="dv-say">${say}</div><div class="dv-sb">${rows.map(r => line(r.f.code, r.s, '', false, r.f.code + ' ' + r.f.name)).join('')}${line('平均', G, ' dv-avg', true, avgL)}</div></div>`;
+  };
+  let sayCat = '', sayAge = '', saySen = '';
+  if (big.length >= 2) {
+    const tmpShare = s => (s.cat[2] + s.cat[3]) / s.n, b1 = bestBy(tmpShare);
+    sayCat = tmpShare(b1.s) > 0 ? `<b>${dvEsc(b1.f.code)}</b> 臨時工與移工比例最高（${dvPct(b1.s.cat[2] + b1.s.cat[3], b1.s.n)}%）` : '各廠都沒有臨時工或移工';
+    const young = s => (s.age[0] + s.age[1]) / s.n, old = s => (s.age[3] + s.age[4]) / s.n, by = bestBy(young), bo = bestBy(old);
+    sayAge = `<b>${dvEsc(by.f.code)}</b> 最年輕（40 歲以下 ${dvPct(by.s.age[0] + by.s.age[1], by.s.n)}%）` + (bo.f.code !== by.f.code && old(bo.s) > 0 ? `；<b>${dvEsc(bo.f.code)}</b> 50 歲以上最多（${dvPct(bo.s.age[3] + bo.s.age[4], bo.s.n)}%）` : '');
+    const vet = s => s.sen[4] / s.n, nw = s => s.sen[0] / s.n, bv = bestBy(vet), bn = bestBy(nw);
+    saySen = (vet(bv.s) > 0 ? `<b>${dvEsc(bv.f.code)}</b> 年資 10 年以上最多（${dvPct(bv.s.sen[4], bv.s.n)}%）` : '') + (nw(bn.s) > 0 && bn.f.code !== bv.f.code ? `${vet(bv.s) > 0 ? '；' : ''}<b>${dvEsc(bn.f.code)}</b> 新人比例最高（1 年以下 ${dvPct(bn.s.sen[0], bn.s.n)}%）` : '');
   }
-  empty.style.display = 'none';
-
-  // 清除舊的 widget
-  body.querySelectorAll('.custom-widget').forEach(w => w.remove());
-
-  // === 決定哪些模組要隱藏 ===
-  let hideIds;
-  if (canFilter && dashFilterFactory) {
-    // 篩選到單一廠：隱藏廠區/地區模組（只剩一筆沒意義）
-    hideIds = [...FACTORY_MODE_HIDE];
-  } else if (canFilter && dashFilterBu) {
-    // 篩選到 BU：保留廠區分布（看 BU 內各廠），但藏地區分布
-    hideIds = ['region-dist'];
-  } else if (isBuManager) {
-    // BU 主管沒額外篩選時：保留廠區分布，藏地區（BU 通常同地區）
-    hideIds = ['region-dist'];
-  } else if (isFactoryLimited) {
-    // v253: hr/viewer 看「全部我的廠區」：保留廠區分布（比較自己的廠），藏地區
-    hideIds = ['region-dist'];
-  } else {
-    // 全視野（admin/group_hr/hq_manager）無篩選：全部顯示
-    hideIds = [];
-  }
-
-  // 核心四格已改為頂部固定條，下面區塊不再渲染（避免重複）
-  const ALWAYS_HIDE_IN_BODY = ['kpi-4grid'];
-  const allHideIds = [...hideIds, ...ALWAYS_HIDE_IN_BODY];
-
-  // 過濾後的可見模組
-  const visibleLayout = customLayout.filter(m => !allHideIds.includes(m.id));
-  const visibleCount = visibleLayout.length;
-
-  visibleLayout.forEach((mod, vIdx) => {
-    // 找到原 customLayout 中的真實索引（給 moveWidget 用）
-    const realIdx = customLayout.findIndex(m => m.id === mod.id);
-    const widget = document.createElement('div');
-    widget.className = 'custom-widget';
-    widget.dataset.idx = realIdx;
-    widget.dataset.modId = mod.id;
-    widget.dataset.span = getModuleSpan(mod.id);
-    widget.draggable = true;
-    const isFirst = vIdx === 0;
-    const isLast  = vIdx === visibleCount - 1;
-    const curSpan = getModuleSpan(mod.id);
-    widget.innerHTML = `
-      <div style="position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:3px;z-index:2;align-items:flex-end;">
-        <!-- 欄寬切換 1/2/3 -->
-        <div class="widget-span-bar" title="調整寬度">
-          <button onclick="setWidgetSpan(${realIdx},'third')" class="span-btn ${curSpan==='third'?'active':''}" title="1/3 欄寬">⅓</button>
-          <button onclick="setWidgetSpan(${realIdx},'half')" class="span-btn ${curSpan==='half'?'active':''}" title="1/2 欄寬">½</button>
-          <button onclick="setWidgetSpan(${realIdx},'full')" class="span-btn ${curSpan==='full'?'active':''}" title="整列">全</button>
-        </div>
-        <!-- 上下移動 + 拖曳手把 -->
-        <div style="display:flex;flex-direction:row;gap:2px;">
-          <button onclick="moveWidget(${realIdx},-1)" ${isFirst?'disabled':''} title="上移"
-            style="background:rgba(255,255,255,0.08);border:none;color:${isFirst?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.5)'};width:22px;height:22px;border-radius:4px;cursor:${isFirst?'default':'pointer'};font-size:11px;line-height:1;padding:0;">↑</button>
-          <button onclick="moveWidget(${realIdx},1)" ${isLast?'disabled':''} title="下移"
-            style="background:rgba(255,255,255,0.08);border:none;color:${isLast?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.5)'};width:22px;height:22px;border-radius:4px;cursor:${isLast?'default':'pointer'};font-size:11px;line-height:1;padding:0;">↓</button>
-          <div class="custom-widget-handle" title="拖曳排序（電腦用）" style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;cursor:grab;color:rgba(255,255,255,0.25);font-size:14px;user-select:none;">⠿</div>
-        </div>
-      </div>
-      <div class="custom-widget-inner" id="widget-inner-${mod.id}"></div>
-    `;
-    body.insertBefore(widget, empty);
-    renderWidget(mod.id, widget.querySelector('.custom-widget-inner'), allEmp);
-    setupDrag(widget, realIdx);
-  });
+  const three = `<div class="dv-three">
+    ${stackCard('人員組成', sayCat, DV_CAT, DV_CAT_C, s => DV_CAT.map((c, i) => [c, s.cat[i], DV_CAT_C[i]]).concat([['其他', s.catOther, DV_OTHER], ['未填', s.catNone, DV_NONE]]))}
+    ${stackCard('年齡結構', sayAge, DV_AGE_L, DV_AGE_C, s => DV_AGE_L.map((l, i) => [l, s.age[i], DV_AGE_C[i]]).concat([['未填', s.ageNone, DV_NONE]]))}
+    ${stackCard('年資結構', saySen, DV_SEN_L, DV_SEN_C, s => DV_SEN_L.map((l, i) => [l, s.sen[i], DV_SEN_C[i]]).concat([['未填', s.senNone, DV_NONE]]))}</div>`;
+  return picks + table + three;
 }
 
 // 切換 widget 欄寬
@@ -12746,87 +13298,43 @@ function drawRadar(factories, allEmp, size=200) {
 </div><!-- /.dash-page -->
 
 <!-- ========== 自訂儀表板頁面 ========== -->
-<div id="customDashPage" class="dash-custom-page hidden">
+<div id="customDashPage" class="dash-custom-page dv3 hidden">
 
-  <div class="custom-header dash-topbar-new">
-    <!-- 左側：返回 + 信錦集團 LOGO -->
-    <div class="dash-brand-area">
-      <img src="data:image/png;base64,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" class="dash-brand-logo" alt="syncmold">
-      <span class="dash-brand-name">信錦集團</span>
-    </div>
+  <!-- v312 左邊細選單：返回／總覽／對比／選指標／重設／深淺 -->
+  <aside class="dv3-rail">
+    <div class="dv3-brand">OMS</div>
+    <button class="dv3-it" onclick="closeCustomDash()" title="返回 OMS 主頁"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg>返回</button>
+    <button class="dv3-it on" id="dv3NavBoard" onclick="dvSetView('board')" title="總覽"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="9" rx="2"/><rect x="13" y="4" width="7" height="5" rx="2"/><rect x="13" y="11" width="7" height="9" rx="2"/><rect x="4" y="15" width="7" height="5" rx="2"/></svg>總覽</button>
+    <button class="dv3-it" id="dv3NavCmp" onclick="dvSetView('compare')" title="廠區對比"><svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7"/></svg>對比</button>
+    <button class="dv3-it" onclick="openModulePanel()" title="選擇要看的指標卡"><svg viewBox="0 0 24 24"><path d="M5 7h9M18 7h1M5 12h3M12 12h7M5 17h9M18 17h1"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="16" cy="17" r="2"/></svg>選指標</button>
+    <button class="dv3-it" onclick="resetDashToDefault()" title="重設為預設版面"><svg viewBox="0 0 24 24"><path d="M5 12a7 7 0 1 0 2.2-5.1"/><path d="M5 5v4h4"/></svg>重設</button>
+    <span class="dv3-sp"></span>
+    <button class="dv3-it" id="dashThemeToggleBtn" onclick="toggleDashTheme()" title="切換深色／淺色"></button>
+    <div class="dv3-ava" id="dashTopbarUserAvatar" title="">?</div>
+  </aside>
 
-    <!-- 中央：OMS + 人力戰情看板 -->
-    <div class="dash-topbar-center">
-      <span class="dash-oms-main-title">OMS</span>
-      <span class="dash-oms-main-sub">人力戰情看板</span>
-    </div>
-
-    <!-- 右側：時間 + 使用者 -->
-    <div class="dash-topbar-rightwrap">
-      <div class="dash-topbar-right">
-        <span class="dash-live-dot"></span>
-        <span class="dash-clock" id="customDashTime">--:--:--</span>
-        <span class="dash-system-tag">Workforce Intelligence Dashboard<span id="dashVerTag"></span></span>
+  <main class="dv3-main">
+    <div class="dv3-bar">
+      <div class="dv3-ttl"><b>人力戰情看板</b><span>信錦集團 · <span id="customDashTime">--</span><span id="dashVerTag"></span></span></div>
+      <div class="dv3-pills">
+        <button id="dv3PillBoard" class="on" onclick="dvSetView('board')">總覽</button>
+        <button id="dv3PillCmp" onclick="dvSetView('compare')">廠區對比</button>
       </div>
-      <div class="dash-topbar-user" id="dashTopbarUser" style="display:none;">
-        <div class="dash-topbar-user-info">
-          <span class="dash-topbar-user-name" id="dashTopbarUserName">—</span>
-          <span class="dash-topbar-user-role" id="dashTopbarUserRole">—</span>
-        </div>
-        <div class="dash-topbar-user-avatar" id="dashTopbarUserAvatar">?</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 第二層工具列：返回 + 副標 + 模式切換 + 戰情看板專屬按鈕 -->
-  <div class="dash-subbar">
-    <button onclick="closeCustomDash()" class="dash-subbar-back-btn" title="返回 OMS 主頁">← 返回</button>
-    <span id="customDashSubtitle" class="dash-subbar-subtitle">集團檢視 · 全廠資料</span>
-
-    <!-- 模式切換器（單廠 HR/viewer 才顯示）-->
-    <div id="dashModeSwitcher" style="display:none;align-items:center;gap:6px;flex-shrink:0;">
-      <button id="dashModeFactory" onclick="switchDashViewMode('factory')" class="dash-mode-btn">🏭 本廠</button>
-      <button id="dashModeGroup" onclick="switchDashViewMode('group')" class="dash-mode-btn">🌐 集團</button>
+      <!-- 範圍選擇（事業群／廠區，依權限）：renderDashFilterBar 產生 -->
+      <div class="dv3-scope" id="dashFilterBar"></div>
+      <span class="dv3-sp"></span>
+      <div class="dv3-role" id="dashTopbarUser" style="display:none;" title="登入者與角色"><b id="dashTopbarUserName">—</b><span id="dashTopbarUserRole">—</span></div>
+      <button class="dv3-btn pri" onclick="saveCustomLayout()" title="記住目前選的指標卡（存在這台電腦）">儲存版面</button>
     </div>
 
-    <div class="dash-subbar-spacer"></div>
-
-    <button onclick="openModulePanel()" class="dash-subbar-btn dash-subbar-btn-gold">⚙ 選擇指標</button>
-    <button onclick="resetDashToDefault()" title="重設為集團預設版面" class="dash-subbar-btn dash-subbar-btn-ghost">↺ 重設</button>
-    <button onclick="toggleDashTheme()" id="dashThemeToggleBtn" title="切換背景：黑底/白底" class="dash-subbar-btn dash-subbar-btn-theme">☀</button>
-    <button onclick="saveCustomLayout()" class="dash-subbar-btn dash-subbar-btn-primary">✓ 儲存</button>
-  </div>
-
-    <!-- BU + 廠區篩選列（admin 專用，會在 renderDashFilterBar 中渲染）-->
-  <div class="dash-filter-bar" id="dashFilterBar" style="display:none;"></div>
-
-  <!-- 固定 KPI 條（核心四格） -->
-  <div class="dash-kpi-strip" id="dashKpiStrip">
-    <div class="kpi-strip-card blue">
-      <div class="kpi-strip-label">📊 在職人數</div>
-      <div class="kpi-strip-num"><span id="stripActive">—</span><span class="kpi-strip-unit">人</span></div>
+    <!-- 卡片區：renderCustomBody 產生 -->
+    <div class="dv3-body" id="customBody">
+      <div id="dv3Grid" style="display:contents;"></div>
+      <div class="dv3-empty" id="customEmpty" style="display:none;">尚未選擇任何指標<br>點左邊「選指標」加入，或點「重設」載入預設版面</div>
     </div>
-    <div class="kpi-strip-card green">
-      <div class="kpi-strip-label">⚡ 本廠在職率</div>
-      <div class="kpi-strip-num"><span id="stripRate">—</span><span class="kpi-strip-unit">%</span></div>
-    </div>
-    <div class="kpi-strip-card gold">
-      <div class="kpi-strip-label">★ 正職</div>
-      <div class="kpi-strip-num"><span id="stripFull">—</span><span class="kpi-strip-unit">人</span></div>
-    </div>
-    <div class="kpi-strip-card red">
-      <div class="kpi-strip-label">◆ 臨時工 / 移工</div>
-      <div class="kpi-strip-num"><span id="stripTemp">—</span><span class="kpi-strip-unit">人</span></div>
-    </div>
-  </div>
-
-  <!-- 模組容器（拖曳區）-->
-  <div class="custom-body" id="customBody">
-    <div class="empty-custom" id="customEmpty">
-      <div class="empty-custom-icon">📊</div>
-      <div class="empty-custom-text">尚未選擇任何指標模組<br>點擊右上角「⚙ 選擇指標」加入<br>或點「↺ 重設預設」載入集團預設版面</div>
-    </div>
-  </div>
+    <div class="dv3-foot" id="dv3Foot"></div>
+  </main>
+  <div class="dv3-toast" id="dv3Toast"></div>
 </div>
 
 <!-- 模組選擇面板 -->
