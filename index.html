@@ -268,7 +268,7 @@
   }
   .bu-group-name {
     font-family: "Inter", sans-serif;
-    font-size: 9.5px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
@@ -284,7 +284,7 @@
   }
   .bu-count-badge {
     font-family: "Inter", sans-serif;
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-soft);
     background: var(--bg-tint);
@@ -298,7 +298,7 @@
   /* 廠區行 */
   .bu-factory-row {
     display: grid;
-    grid-template-columns: 28px 1fr 46px 30px 18px;
+    grid-template-columns: 32px 1fr 46px 32px 18px;
     align-items: center;
     padding: 1px 8px 1px 14px;
     cursor: pointer;
@@ -322,15 +322,15 @@
   }
   .bu-factory-code {
     font-family: "Inter", sans-serif;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--gold-deep);
-    width: 28px;
+    width: 32px;
     flex-shrink: 0;
   }
   .bu-factory-name {
     flex: 1;
-    font-size: 11px;
+    font-size: 13px;
     color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
@@ -339,7 +339,7 @@
   }
   .bu-factory-cnt {
     font-family: "Inter", sans-serif;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     border-radius: 8px;
     padding: 1px 4px;
@@ -351,13 +351,13 @@
   }
   .bu-factory-region {
     font-family: "Inter", sans-serif;
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 600;
     letter-spacing: 1px;
     padding: 1px 5px;
     border-radius: 3px;
     flex-shrink: 0;
-    width: 28px;
+    width: 32px;
     text-align: center;
   }
   .region-tw  { background: rgba(168,68,40,0.12);   color: #A84428; }
@@ -1650,9 +1650,9 @@
     /* 手機版更緊湊 */
     .bu-factory-row { padding: 1px 8px 1px 12px; min-height: 22px; }
     .bu-group-header { padding: 2px 8px 1px; }
-    .bu-factory-name { font-size: 11.5px; }
-    .bu-factory-code { font-size: 12px; width: 26px; }
-    .bu-group-name { font-size: 9px; letter-spacing: 1px; }
+    .bu-factory-name { font-size: 13px; }
+    .bu-factory-code { font-size: 13px; width: 30px; }
+    .bu-group-name { font-size: 11px; letter-spacing: 1px; }
     .bu-panel-stats { font-size: 10px; padding: 3px 12px; gap: 10px; }
     .bu-panel-header { padding: 5px 12px 4px; }
     .bu-panel-title { font-size: 15px; letter-spacing: 2px; }
@@ -4650,7 +4650,7 @@
 </style>
 <style id="v315css">
   /* ===== v315：首頁事業群代號、調整順序、廠區主檔讀不到提示 ===== */
-  .bu-code-chip { display: inline-block; font-family: 'Inter', 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: .5px; padding: 1px 5px; border-radius: 5px; margin-right: 6px; color: #fff; flex-shrink: 0; }
+  .bu-code-chip { display: inline-block; font-family: 'Inter', 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .5px; padding: 1px 5px; border-radius: 5px; margin-right: 6px; color: #fff; flex-shrink: 0; }
   .fac-plan-tag { display: inline-block; font-size: 9px; padding: 0 5px; border-radius: 9px; margin-left: 5px; border: 1px solid #D97706; color: #B45309; background: #FFF7ED; vertical-align: 1px; white-space: nowrap; }
   .fac-ud { display: inline-flex; gap: 2px; margin-left: auto; padding-left: 6px; }
   .fac-ud button { width: 18px; height: 18px; line-height: 15px; padding: 0; text-align: center; border: 1px solid var(--line-soft); border-radius: 4px; font-size: 9px; color: var(--navy); background: #fff; cursor: pointer; }
@@ -5777,7 +5777,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V315';
+const APP_VER = 'V315-1';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -13863,7 +13863,7 @@ function renderBuPanel() {
         cntBadge +
         (facSortMode
           ? '<span class="fac-ud-row">' + tail + '</span>'   // 調整順序中：▲▼ 佔國別＋箭頭兩欄
-          : '<span class="bu-factory-region ' + regionCls + '" style="text-align:center;font-size:8px;">' + facEsc(regionTxt) + '</span>' + tail);
+          : '<span class="bu-factory-region ' + regionCls + '" style="text-align:center;">' + facEsc(regionTxt) + '</span>' + tail);
       row.addEventListener('click', (ev) => {
         if (facSortMode) return;   // 調整順序中不進廠
         if (canEnter) enterFactory(f.code);
@@ -13897,7 +13897,7 @@ function renderBuPanel() {
         row.innerHTML = '<span class="bu-factory-code">' + facEsc(f.code) + '</span>' +
           '<span class="bu-factory-name">' + facEsc(f.name) + '<span class="fac-plan-tag" style="border-color:#CBD5E1;color:#64748B;background:#F1F5F9">' + tag + '</span></span>' +
           '<span class="bu-factory-cnt" style="color:var(--text-soft);">' + (activeCount(f.code) || '—') + '</span>' +
-          '<span class="bu-factory-region" style="text-align:center;font-size:8px;">' + facEsc(f.region || '—') + '</span>' +
+          '<span class="bu-factory-region" style="text-align:center;">' + facEsc(f.region || '—') + '</span>' +
           '<span class="bu-arrow" style="text-align:center;font-size:11px;color:var(--text-soft);">' + (canEnter ? '→' : '🔒') + '</span>';
         row.addEventListener('click', () => {
           if (canEnter) enterFactory(f.code);
