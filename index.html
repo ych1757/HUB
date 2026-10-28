@@ -4648,6 +4648,117 @@
     .dv3 table.dv-tbl { min-width: 560px; }
   }
 </style>
+<style id="v315css">
+  /* ===== v315：首頁事業群代號、調整順序、廠區主檔讀不到提示 ===== */
+  .bu-code-chip { display: inline-block; font-family: 'Inter', 'JetBrains Mono', monospace; font-size: 9.5px; font-weight: 700; letter-spacing: .5px; padding: 1px 5px; border-radius: 5px; margin-right: 6px; color: #fff; flex-shrink: 0; }
+  .fac-plan-tag { display: inline-block; font-size: 9px; padding: 0 5px; border-radius: 9px; margin-left: 5px; border: 1px solid #D97706; color: #B45309; background: #FFF7ED; vertical-align: 1px; white-space: nowrap; }
+  .fac-ud { display: inline-flex; gap: 2px; margin-left: auto; padding-left: 6px; }
+  .fac-ud button { width: 18px; height: 18px; line-height: 15px; padding: 0; text-align: center; border: 1px solid var(--line-soft); border-radius: 4px; font-size: 9px; color: var(--navy); background: #fff; cursor: pointer; }
+  .fac-ud button:disabled { opacity: .3; cursor: default; }
+  .fac-ud-row { grid-column: span 2; display: flex; justify-content: center; }
+  .fac-ud-row .fac-ud button { width: 16px; height: 16px; line-height: 13px; font-size: 8px; }
+  .fac-sort-btn { background: #fff; border: 1px solid var(--line-soft); color: var(--navy); padding: 3px 8px; border-radius: 5px; font-size: 11px; cursor: pointer; white-space: nowrap; margin: 2px 6px 0 0; flex-shrink: 0; }
+  .fac-sort-bar { display: none; align-items: center; gap: 6px; background: #FFF7E6; border: 1px solid #F5C26B; border-radius: 6px; padding: 5px 8px; margin: 6px 10px 2px; font-size: 11px; color: #8A5300; }
+  .fac-sort-bar button { border: 1px solid var(--line-soft); background: #fff; border-radius: 5px; font-size: 11px; padding: 2px 8px; cursor: pointer; color: var(--navy); }
+  .fac-sort-bar button.pri { background: var(--rust); border-color: var(--rust); color: #fff; }
+  .fac-src-banner { display: none; margin: 6px 10px 2px; padding: 6px 8px; border-radius: 6px; background: #FDF3F2; border-left: 4px solid #D42B3A; color: #B4232F; font-size: 11px; line-height: 1.4; }
+  .bu-panel-stats .fac-auto { font-size: 9px; color: var(--text-soft); margin-left: 2px; }
+
+  /* ===== v315：廠區變動控制頁 ===== */
+  .fc-page { position: fixed; inset: 0; z-index: 8700; background: var(--bg-cream); font-family: 'Microsoft JhengHei', 'Noto Sans TC', sans-serif; color: #1d2b3a; display: none; flex-direction: column; }
+  .fc-top { background: var(--navy); color: #fff; display: flex; align-items: center; gap: 14px; padding: 10px 18px; flex-shrink: 0; }
+  .fc-top b { font-size: 17px; letter-spacing: 1px; white-space: nowrap; }
+  .fc-top .sub { font-size: 11px; opacity: .75; }
+  .fc-top .sp { flex: 1; }
+  .fc-top button { background: #fff; color: var(--navy); border: none; border-radius: 6px; padding: 6px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .fc-top button.ghost { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.5); font-weight: 400; }
+  .fc-top button:disabled { opacity: .45; cursor: not-allowed; }
+  .fc-body { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: 14px; padding: 14px 18px; min-height: 0; }
+  .fc-card { background: #fff; border-radius: 10px; box-shadow: 0 2px 10px rgba(15,45,94,.07); min-height: 0; display: flex; flex-direction: column; }
+  .fc-filters { display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); font-size: 12px; flex-wrap: wrap; }
+  .fc-filters select { font-size: 12px; padding: 4px 6px; border: 1px solid var(--line-soft); border-radius: 6px; background: #fff; }
+  .fc-filters .clr { font-size: 11px; color: var(--rust); border: none; background: none; cursor: pointer; }
+  .fc-filters .cnt { margin-left: auto; font-size: 11px; color: var(--text-soft); }
+  .fc-scroll { overflow: auto; min-height: 0; flex: 1; }
+  .fc-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  .fc-table th { background: var(--navy); color: #fff; font-size: 11px; font-weight: 700; padding: 6px; text-align: left; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+  .fc-table td { padding: 5px 6px; border-bottom: 1px solid #EEF2F8; white-space: nowrap; }
+  .fc-table td.num, .fc-table th.num { text-align: right; }
+  .fc-table tr.row { cursor: pointer; }
+  .fc-table tr.row:hover td { background: #F5F8FD; }
+  .fc-table tr.sel td { background: #E3EEFB; }
+  .fc-table tr.closed td { color: #94A3B8; }
+  .fc-table tr.grp td { background: #F3F6FB; font-weight: 700; font-size: 11.5px; color: var(--navy); }
+  .fc-code { font-family: 'JetBrains Mono', 'Consolas', monospace; font-weight: 700; }
+  .fc-st { display: inline-block; padding: 1px 8px; border-radius: 9px; font-size: 10.5px; border: 1px solid; }
+  .fc-st.active { color: #15803D; border-color: #86C99D; background: #EFFAF2; }
+  .fc-st.planning { color: #B45309; border-color: #F5C26B; background: #FFF7E6; }
+  .fc-st.closing { color: #9A3412; border-color: #FDBA74; background: #FFF1E6; }
+  .fc-st.closed { color: #64748B; border-color: #CBD5E1; background: #F1F5F9; }
+  .fc-tg { display: inline-block; width: 30px; height: 16px; border-radius: 9px; background: #CBD5E1; position: relative; vertical-align: -3px; border: none; padding: 0; cursor: pointer; }
+  .fc-tg:after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+  .fc-tg.on { background: #22A06B; }
+  .fc-tg.on:after { left: 16px; }
+  .fc-tg:disabled { opacity: .4; cursor: not-allowed; }
+  .fc-sys { display: inline-block; font-size: 9.5px; padding: 0 4px; border-radius: 4px; margin-right: 2px; border: 1px solid #CBD5E1; color: #64748B; }
+  .fc-sys.need { border-color: #F5C26B; color: #B45309; background: #FFF7E6; }
+  .fc-sys.done { border-color: #86C99D; color: #15803D; background: #EFFAF2; }
+  .fc-muted { color: #9AA9BC; font-size: 10.5px; }
+  .fc-det-hd { padding: 12px 14px 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fc-det-hd h3 { margin: 0; font-size: 15px; color: var(--navy); }
+  .fc-tabs { display: flex; gap: 4px; padding: 0 12px; border-bottom: 1px solid var(--line-soft); }
+  .fc-tabs button { font-size: 12px; padding: 7px 10px; color: var(--text-soft); border: none; background: none; border-bottom: 2px solid transparent; cursor: pointer; }
+  .fc-tabs button.on { color: var(--navy); font-weight: 700; border-color: var(--rust); }
+  .fc-flds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; padding: 12px 14px; }
+  .fc-fld { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--text-soft); min-width: 0; }
+  .fc-fld.w2 { grid-column: 1 / 3; }
+  .fc-fld i { font-style: normal; color: #D42B3A; }
+  .fc-fld input, .fc-fld select, .fc-fld textarea { font-size: 12px; color: #1d2b3a; border: 1px solid var(--line-soft); border-radius: 6px; padding: 5px 7px; background: #fff; font-family: inherit; min-width: 0; }
+  .fc-fld textarea { resize: vertical; min-height: 34px; }
+  .fc-fld input[readonly], .fc-fld .auto { background: #EEF4FB; color: #3B5578; }
+  .fc-fld .hint { font-size: 10px; color: #9AA9BC; }
+  .fc-acts { display: flex; gap: 8px; padding: 8px 14px 12px; border-top: 1px solid var(--line-soft); align-items: center; flex-shrink: 0; }
+  .fc-acts .sp { flex: 1; }
+  .fc-acts button, .fc-mini { font-size: 12px; border-radius: 6px; padding: 6px 12px; border: 1px solid var(--line-soft); background: #fff; color: var(--navy); cursor: pointer; }
+  .fc-acts button.pri, .fc-mini.pri { background: var(--rust); border-color: var(--rust); color: #fff; font-weight: 700; }
+  .fc-acts button.danger { border-color: #E9A0A7; color: #C0303E; }
+  .fc-acts button:disabled, .fc-mini:disabled { opacity: .45; cursor: not-allowed; }
+  .fc-mini { padding: 3px 8px; font-size: 11px; }
+  .fc-msg { margin: 8px 14px 0; padding: 7px 10px; border-radius: 6px; font-size: 12px; line-height: 1.45; }
+  .fc-msg.ok { background: #EFFAF2; color: #15803D; }
+  .fc-msg.err { background: #FDF3F2; color: #B4232F; border-left: 4px solid #D42B3A; }
+  .fc-msg.info { background: #EEF4FB; color: #3B5578; }
+  .fc-note { font-size: 10.5px; color: var(--text-soft); padding: 0 14px 10px; }
+  .fc-empty { padding: 40px 20px; text-align: center; color: #9AA9BC; font-size: 13px; }
+  .fc-sub-table { border-collapse: collapse; width: 100%; font-size: 11.5px; }
+  .fc-sub-table th { text-align: left; font-size: 10.5px; color: var(--text-soft); font-weight: 700; padding: 4px 6px; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
+  .fc-sub-table td { padding: 4px 6px; border-bottom: 1px solid #EEF2F8; vertical-align: top; }
+  .fc-sub-table select, .fc-sub-table input { font-size: 11px; padding: 2px 4px; border: 1px solid var(--line-soft); border-radius: 4px; max-width: 120px; }
+  .fc-imp { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 12px 14px; font-size: 12.5px; }
+  .fc-imp b { text-align: right; }
+  .fc-ev { padding: 8px 14px; border-bottom: 1px solid #EEF2F8; font-size: 11.5px; }
+  .fc-ev .h { display: flex; gap: 8px; align-items: center; color: var(--navy); font-weight: 700; }
+  .fc-ev .h span { font-weight: 400; color: var(--text-soft); }
+  .fc-ev ul { margin: 4px 0 0 18px; padding: 0; color: #334155; }
+  .fc-foot { font-size: 10.5px; color: var(--text-soft); text-align: center; padding: 4px 0 8px; flex-shrink: 0; }
+  .fc-modal { position: fixed; inset: 0; z-index: 8800; background: rgba(15,30,50,.45); display: none; align-items: center; justify-content: center; }
+  .fc-modal .box { width: 520px; max-width: calc(100vw - 32px); background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.25); overflow: hidden; font-family: 'Microsoft JhengHei', sans-serif; }
+  .fc-modal .bh { padding: 12px 16px; font-weight: 700; font-size: 15px; border-bottom: 1px solid var(--line-soft); color: var(--navy); }
+  .fc-modal .bh.danger { background: #FDF3F2; border-color: #F3C7CB; color: #B4232F; }
+  .fc-modal .bb { padding: 14px 16px; font-size: 12.5px; color: #1d2b3a; display: flex; flex-direction: column; gap: 10px; max-height: 70vh; overflow: auto; }
+  .fc-modal .imp { background: #F6F8FB; border-radius: 8px; padding: 8px 10px; display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; font-size: 12px; }
+  .fc-modal .imp b { text-align: right; }
+  .fc-modal .f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #6080A0; }
+  .fc-modal .f i { font-style: normal; color: #D42B3A; }
+  .fc-modal .f input { border: 1px solid #D0DCF0; border-radius: 6px; padding: 6px 8px; font-size: 12.5px; color: #1d2b3a; font-family: inherit; }
+  .fc-modal .bf { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px 14px; }
+  .fc-modal .bf button { font-size: 12.5px; border-radius: 6px; padding: 7px 14px; border: 1px solid #D0DCF0; background: #fff; cursor: pointer; }
+  .fc-modal .bf button.danger { background: #C0303E; border-color: #C0303E; color: #fff; }
+  .fc-modal .bf button.pri { background: var(--rust); border-color: var(--rust); color: #fff; }
+  .fc-modal .bf button:disabled { background: #E9EEF5; color: #9AA9BC; border-color: #E9EEF5; cursor: not-allowed; }
+  @media (max-width: 1100px) { .fc-body { grid-template-columns: minmax(0, 1fr); overflow: auto; } .fc-card { min-height: 360px; } }
+  @media (max-width: 760px) { .fc-top .sub { display: none; } .fc-body { padding: 10px; } .fc-flds { grid-template-columns: 1fr; } .fc-fld.w2 { grid-column: 1; } }
+</style>
 </head>
 <body>
 <!-- ============ SyncHub Portal ============ -->
@@ -5316,18 +5427,21 @@
             <div class="bu-panel-eyebrow">FACTORY LIST</div>
             <div class="bu-panel-title">廠區列表</div>
           </div>
-          <button onclick="goBackToSyncHub()" title="返回 SyncHub" style="background:var(--navy);border:none;color:#fff;padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;letter-spacing:0.5px;display:flex;align-items:center;gap:3px;white-space:nowrap;margin-top:2px;flex-shrink:0;">⬅ Hub</button>
+          <div style="display:flex;align-items:flex-start;"><button id="facSortBtn" class="fac-sort-btn" style="display:none;" onclick="facSortStart()" title="調整首頁事業群與廠區的順序（只有管理員）">⇅ 調整順序</button>
+          <button onclick="goBackToSyncHub()" title="返回 SyncHub" style="background:var(--navy);border:none;color:#fff;padding:4px 10px;border-radius:5px;font-size:11px;cursor:pointer;letter-spacing:0.5px;display:flex;align-items:center;gap:3px;white-space:nowrap;margin-top:2px;flex-shrink:0;">⬅ Hub</button></div>
         </div>
         <div class="bu-panel-stats">
-          <span><strong>17</strong> 廠</span>
-          <span><strong>4</strong> 國</span>
-          <span><strong>6</strong> BU</span>
+          <span><strong id="statFacN">—</strong> 廠</span>
+          <span><strong id="statCountryN">—</strong> 國</span>
+          <span><strong id="statBuN">—</strong> BU</span>
           <span style="margin-left:auto;display:flex;align-items:center;gap:4px;white-space:nowrap;">
             <span style="font-size:10px;color:var(--text-soft);">在職</span>
             <span id="totalActiveSpan" style="font-family:"Inter", sans-serif;font-style: normal;font-size:20px;font-weight:700;color:var(--rust);line-height:1;"></span>
             <span style="font-size:10px;color:var(--text-soft);">人</span>
           </span>
         </div>
+        <div class="fac-src-banner" id="facSrcBanner"></div>
+        <div class="fac-sort-bar" id="facSortBar"><b>調整順序中</b>：按 ▲▼ 移動<span style="flex:1"></span><button onclick="facSortCancel()">取消</button><button class="pri" id="facSortSaveBtn" onclick="facSortSave()">儲存</button></div>
         <div class="bu-panel-body" id="buPanelBody"></div>
       </div>
 
@@ -5362,8 +5476,8 @@
                   <span>📺</span>宣導影片管理
                 </button>
                 <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
-                <button id="mgmtItemFactory" onclick="closeMgmtDropdown();openFactoryMgmt();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
-                  <span>🏭</span>廠區管理
+                <button id="mgmtItemFactory" onclick="closeMgmtDropdown();openFacCtrl();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
+                  <span>🏭</span>廠區變動控制
                 </button>
                 <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
                 <button id="mgmtItemLog" onclick="closeMgmtDropdown();openLogPage();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
@@ -5601,6 +5715,9 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- v315：廠區變動控制頁與它的確認框（內容由程式畫） -->
+<div class="fc-page" id="facCtrlPage"></div>
+<div class="fc-modal" id="facCtrlModal" onclick="if(event.target===this)facCloseModal()"></div>
 
 <div class="modal-overlay" id="empModal" onclick="closeModal(event)">
   <div class="modal">
@@ -5660,7 +5777,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V314-3';
+const APP_VER = 'V315';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6131,7 +6248,8 @@ async function appInit() {
   const msg = document.getElementById('sbLoadingMsg');
   const setMsg = t => { if (msg) msg.textContent = t; };
   try {
-    const hubModeP = Promise.all([loadHubHomeMode(), loadHubVideos()]);   // v309／v313：首頁模式、影片清單跟名單同時讀（兩支都自己處理失敗與逾時，不會丟錯）
+    const hubModeP = Promise.all([loadHubHomeMode(), loadHubVideos()]);
+    const facP = loadFactoriesFromDB();   // v315：廠區主檔改讀資料庫（自己處理失敗，不會丟錯）   // v309／v313：首頁模式、影片清單跟名單同時讀（兩支都自己處理失敗與逾時，不會丟錯）
     setMsg('載入員工名單…');
     employees = await loadEmployeesPickerFromSB();   // v266：登入前只載公開精簡名單（無敏感 PII）
     const total = Object.values(employees).reduce((s, a) => s + a.length, 0);
@@ -6145,6 +6263,7 @@ async function appInit() {
     cachedUsers = await loadUsersFromSB();   // v269：來源＝oms_roster(synchub_profiles 正本)；移除舊的寫 oms_users 種子
     // v267：異動紀錄(change_log)改到進 OMS(已過 Auth)後才載入(見 ensureFullEmployees)，以便對它上 RLS
     await hubModeP;   // v309：大廳出現前就知道要不要顯示影片，畫面不會跳一下
+    await facP;
     setMsg('完成');
   } catch(e) {
     setMsg('❌ 連線失敗：' + e.message);
@@ -6176,34 +6295,66 @@ const FACTORIES_DEFAULT = [
     { code: "LT", name: "陸合(泰國)",       group: "陸合企業",       region: "TH", color: "#8B6F4E", address: "78/19 Moo 5 T.Takam Bangpakong Chachoengsao Thailand 24130", x: 1411, y: 385 },
 ];
 
-const OMS_FACTORIES_KEY = 'oms_factories';
+const OMS_FACTORIES_KEY = 'oms_factories';            // v315 起不用（舊版存在這台電腦的廠區清單，啟動時刪掉，免得蓋回資料庫）
+const OMS_FAC_CACHE_KEY = 'oms_factories_db_v1';      // v315：上次從資料庫讀到的廠區（只在讀不到資料庫時唯讀顯示）
+// 沒登入也讀得到的欄位（OMS_316 對公開金鑰只開放這些；不含修改人、撤銷原因、備註）
+const FAC_COLS = 'code,name,bu,country,address,active,full_name_zh,name_en,address_local,address_en,lat,lng,map_x,map_y,country_code,status,show_on_home,effective_from,closed_on,sort_order,color';
+let FACTORIES_SOURCE = 'default';   // 'db'＝資料庫／'cache'＝這台電腦上次讀到的（唯讀）／'default'＝程式內建舊清單（唯讀）
+let OMS_BUS = [];                   // 事業群（代號、名稱、顏色、順序），來源 oms_business_units
 
-function loadFactories() {
-  // v230: localStorage 廠區快取（Supabase 廠區資料啟動後已固定）
-  try {
-    const saved = localStorage.getItem(OMS_FACTORIES_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // v314-1：廠區名稱統一（261015）。只換「還是舊名稱」的，管理員之後自己改過的不動
-        const RENAME = { SY: ['臺北信錦(零組件)', '臺北信錦', '台北總公司'], GH: ['福清冠華(塑膠)', '福清冠華', '福建冠華'],
-          GT: ['敬得觀音', '敬得(觀音)'], TC: ['敬得太倉', '敬得(太倉)'], LH: ['陸合台中', '陸合(台中)'], LS: ['陸合蘇州', '陸合(蘇州)'], LT: ['陸合泰國', '陸合(泰國)'] };
-        let changed = false;
-        parsed.forEach(f => { const r = f && RENAME[f.code]; if (r && r.indexOf(f.name) >= 0 && r.indexOf(f.name) < r.length - 1) { f.name = r[r.length - 1]; changed = true; } });
-        if (changed) { try { localStorage.setItem(OMS_FACTORIES_KEY, JSON.stringify(parsed)); } catch (e) {} }
-        return parsed;
-      }
-    }
-  } catch(e) {}
-  return FACTORIES_DEFAULT.map(f => ({...f}));
+// 資料庫一列 → 程式裡用的廠區物件（沿用舊欄位名：group＝事業群、region＝國家代碼、x/y＝地圖位置、disabled＝已撤銷）
+function facFromRow(r) {
+  const status = r.status || (r.active === false ? 'closed' : 'active');
+  const lat = r.lat == null ? null : Number(r.lat), lng = r.lng == null ? null : Number(r.lng);
+  let x = r.map_x, y = r.map_y;
+  if ((x == null || y == null) && lat != null && lng != null) { x = Math.round((lng + 180) * 5); y = Math.round((90 - lat) * 5); }
+  const region = r.country_code || ({ '台灣': 'TW', '中國': 'CN', '越南': 'VN', '泰國': 'TH' }[r.country] || '');
+  return { code: r.code, name: r.name, group: r.bu || '', region, country: r.country || '', color: r.color || undefined,
+           address: r.address || '', x: x == null ? null : x, y: y == null ? null : y, status,
+           showOnHome: status !== 'closed' && r.show_on_home !== false, sort: r.sort_order == null ? 100 : r.sort_order,
+           disabled: status === 'closed' };
 }
 
+function loadFactories() {
+  try { localStorage.removeItem(OMS_FACTORIES_KEY); } catch (e) {}
+  try {
+    const c = JSON.parse(localStorage.getItem(OMS_FAC_CACHE_KEY) || 'null');
+    if (c && Array.isArray(c.rows) && c.rows.length) {
+      FACTORIES_SOURCE = 'cache';
+      if (Array.isArray(c.bus)) OMS_BUS = c.bus;
+      return c.rows.map(facFromRow);
+    }
+  } catch (e) {}
+  FACTORIES_SOURCE = 'default';
+  return FACTORIES_DEFAULT.map(f => ({ ...f, status: 'active', showOnHome: true, sort: 100 }));
+}
+
+// v315：從資料庫讀廠區與事業群（成功＝改用資料庫；失敗＝維持快取或內建清單、首頁顯示紅字、廠區異動暫停）
+async function loadFactoriesFromDB() {
+  try {
+    const [rows, bus] = await Promise.all([
+      sbSelect('factories', 'select=' + FAC_COLS + '&order=sort_order.asc,code.asc'),
+      sbSelect('oms_business_units', 'select=code,name,color,sort_order,active&order=sort_order.asc,code.asc')]);
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('廠區主檔讀到 0 筆');
+    FACTORIES = rows.map(facFromRow);
+    OMS_BUS = Array.isArray(bus) ? bus : [];
+    FACTORIES_SOURCE = 'db';
+    try { localStorage.setItem(OMS_FAC_CACHE_KEY, JSON.stringify({ at: Date.now(), rows, bus: OMS_BUS })); } catch (e) {}
+    if (typeof refreshAllFactoryDropdowns === 'function') refreshAllFactoryDropdowns();
+    if (typeof updateFacSourceBanner === 'function') updateFacSourceBanner();
+    return true;
+  } catch (e) {
+    console.warn('[v315] 讀廠區主檔失敗', e);
+    if (FACTORIES_SOURCE === 'db') FACTORIES_SOURCE = 'cache';   // 讀回失敗：畫面上是上次讀到的資料，改標唯讀
+    if (typeof updateFacSourceBanner === 'function') updateFacSourceBanner();
+    return false;
+  }
+}
+
+// v315：舊「廠區管理」視窗已停用（資料庫只接受寫入函式）；保留函式名稱以免舊按鈕出錯
 function saveFactories(list) {
-  localStorage.setItem(OMS_FACTORIES_KEY, JSON.stringify(list));
-  // 同步到 Supabase（廠區變動罕見，直接 upsert）
-  sbUpsert('factories', list.map(f => ({
-    code: f.code, name: f.name, bu: f.group||'', country: f.region||'', address: f.address||'', active: !f.disabled
-  })), 'code').catch(e => console.warn('saveFactories SB:', e));
+  console.warn('[v315] 舊廠區管理已停用，請改用「廠區變動控制」');
+  showToast('舊的廠區管理已停用，請用「管理工具 → 廠區變動控制」', 'error');
 }
 
 let FACTORIES = loadFactories();
@@ -6503,7 +6654,7 @@ function renderMapDots(config) {
   if (!dotColor.VN) dotColor.VN = '#5A7040';
   if (!dotColor.TH) dotColor.TH = '#6A507A';
 
-  FACTORIES.forEach(f => {
+  homeFactories().filter(f => f.x != null && f.y != null).forEach(f => {   // v315：只畫首頁顯示的廠
     const color = dotColor[f.region] || '#7A5C2E';
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('class', 'factory-dot');
@@ -6520,6 +6671,7 @@ function renderMapDots(config) {
     core.setAttribute('fill', color);
     core.setAttribute('stroke', 'rgba(255,252,240,0.9)');
     core.setAttribute('stroke-width', '0.6');
+    if (f.status === 'planning') { core.setAttribute('fill', '#ffffff'); core.setAttribute('stroke', color); core.setAttribute('stroke-width', '0.8'); }   // v315：籌備中＝空心
     g.appendChild(core);
 
     g.addEventListener('mouseenter', () => {
@@ -6540,8 +6692,8 @@ function renderMapDots(config) {
       tooltip.style.top  = top  + 'px';
       tooltip.innerHTML =
         '<strong style="color:' + color + ';">' + f.code + '</strong>' +
-        '　' + f.name +
-        '<span class="tt-addr">' + f.address + '</span>';
+        '　' + facEsc(f.name) + (f.status === 'planning' ? '（籌備中）' : '') +
+        '<span class="tt-addr">' + facEsc(f.address || '') + '</span>';
       tooltip.classList.add('show');
     });
     g.addEventListener('mouseleave', () => {
@@ -6556,103 +6708,7 @@ function renderMapDots(config) {
   });
 }
 
-function renderBuPanel() {
-  const container = document.getElementById('buPanelBody');
-  if (!container) return;
-  container.innerHTML = '';
-
-  const allData = employees;
-  const activeCount = code => (allData[code] || []).filter(e => !e.status || e.status === '在職').length;
-
-  const groupMeta = {
-    '信錦台北':      { color: '#D42B3A' },
-    '信鋐科技':      { color: '#D42B3A' },
-    '組裝產品事業群': { color: '#2563EB' },
-    '自製零件事業群': { color: '#7C3AED' },
-    '敬得科技':      { color: '#D97706' },
-    '陸合企業':      { color: '#16A34A' },
-  };
-  // 預設排序：已知事業群在前，新增的事業群依字母順序排在後面
-  const fixedOrder = ['信錦台北','信鋐科技','組裝產品事業群','自製零件事業群','敬得科技','陸合企業'];
-  const groups = {};
-  FACTORIES.filter(f => !f.disabled).forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
-  // 動態組合：固定順序 + 新增的事業群（排除已停用廠區的孤立群組）
-  const allGroupNames = Object.keys(groups);
-  const extraGroups = allGroupNames.filter(g => !fixedOrder.includes(g)).sort();
-  const orderedGroups = [...fixedOrder.filter(g => groups[g]), ...extraGroups];
-  // 顏色池：給新增事業群自動分配顏色
-  const extraColors = ['#0891B2','#059669','#7C3AED','#DB2777','#EA580C','#65A30D'];
-  let extraColorIdx = 0;
-
-  // 計算集團總在職人數並更新統計列（只計算啟用中廠區）
-  const totalActive = FACTORIES.filter(f=>!f.disabled).reduce((sum, f) => sum + activeCount(f.code), 0);
-  const totalSpan = document.getElementById('totalActiveSpan');
-  if (totalSpan) {
-    totalSpan.textContent = totalActive;
-  }
-
-  orderedGroups.forEach(gName => {
-    const fList = groups[gName];
-    if (!fList) return;
-    const meta = groupMeta[gName] || { color: extraColors[extraColorIdx++ % extraColors.length] };
-    // 快取新事業群的顏色，避免每次渲染顏色不同
-    if (!groupMeta[gName]) groupMeta[gName] = meta;
-    const color = meta.color;
-
-    const grpActive = fList.reduce((sum, f) => sum + activeCount(f.code), 0);
-
-    const grpDiv = document.createElement('div');
-    grpDiv.className = 'bu-group';
-
-    const hdr = document.createElement('div');
-    hdr.className = 'bu-group-header';
-    hdr.innerHTML =
-      '<div style="display:flex;align-items:center;grid-column:1/3;">' +
-        '<span class="bu-group-dot" style="background:' + color + ';"></span>' +
-        '<span class="bu-group-name">' + gName + '</span>' +
-      '</div>' +
-      (grpActive > 0 ? '<span class="bu-factory-cnt" style="color:' + color + ';background:' + color + '18;">' + grpActive + '</span>'
-                     : '<span class="bu-factory-cnt" style="color:transparent;">0</span>') +
-      '<span class="bu-count-badge" style="text-align:center;">' + fList.length + ' 廠</span>' +
-      '<span></span>';
-    grpDiv.appendChild(hdr);
-
-    fList.forEach(f => {
-      const cnt = activeCount(f.code);
-      const row = document.createElement('div');
-      row.className = 'bu-factory-row';
-      // === 第 2 層保護：視覺提示權限狀態 ===
-      const canEnter = canAccessFactory(f.code);
-      if (!canEnter) row.classList.add('factory-locked');
-      const regionCls = f.region === 'TW' ? 'region-tw' : f.region === 'CN' ? 'region-cn' : f.region === 'VN' ? 'region-vn' : 'region-th';
-      const regionTxt = f.region === 'TW' ? 'TW' : f.region === 'CN' ? 'CN' : f.region === 'VN' ? 'VN' : 'TH';
-      // 人數徽章顏色跟 BU 一致
-      const cntBadge = cnt > 0
-        ? '<span class="bu-factory-cnt" style="color:' + color + ';background:' + color + '18;">' + cnt + '</span>'
-        : '<span class="bu-factory-cnt" style="color:var(--text-soft);">—</span>';
-      // 鎖頭或箭頭
-      const arrowIcon = canEnter
-        ? '<span class="bu-arrow" style="text-align:center;font-size:11px;color:var(--text-soft);">→</span>'
-        : '<span class="bu-arrow" style="text-align:center;font-size:11px;color:var(--text-soft);" title="您沒有此廠的瀏覽權限">🔒</span>';
-      row.innerHTML =
-        '<span class="bu-factory-code">' + f.code + '</span>' +
-        '<span class="bu-factory-name">' + f.name + '</span>' +
-        cntBadge +
-        '<span class="bu-factory-region ' + regionCls + '" style="text-align:center;font-size:8px;">' + regionTxt + '</span>' +
-        arrowIcon;
-      if (canEnter) {
-        row.addEventListener('click', () => enterFactory(f.code));
-      } else {
-        row.addEventListener('click', () => showToast('您沒有 ' + f.code + ' · ' + f.name + ' 的瀏覽權限', 'error'));
-      }
-      grpDiv.appendChild(row);
-    });
-
-    container.appendChild(grpDiv);
-  });
-}
-
-function renderFactoryList() { renderBuPanel(); } // 向下相容
+// v315：renderBuPanel／renderFactoryList 改到檔尾的 v315 程式區（事業群代號、調整順序、首頁顯示）
 
 // === 廠區權限檢查（共用） ===
 // 回傳 true = 可以進該廠 / false = 沒權限
@@ -6685,7 +6741,7 @@ function enterFactory(code) {
   if (!f) return;
   currentFactory = f;
   activeBatchData = null; // 進入新廠區時清除上次的匯入資料
-  const regionLabel = f.region === 'TW' ? 'TAIWAN' : f.region === 'CN' ? 'CHINA' : 'SOUTHEAST ASIA';
+  const regionLabel = ({ TW: 'TAIWAN', CN: 'CHINA', VN: 'VIETNAM', TH: 'THAILAND', MY: 'MALAYSIA', SG: 'SINGAPORE', US: 'USA' })[f.region] || (f.country || 'SOUTHEAST ASIA');   // v315
   document.getElementById('formEyebrow').textContent = regionLabel + ' · ' + f.group;
   document.getElementById('formFactoryName').textContent = f.name;
   document.getElementById('formFactoryCode').textContent = f.code;
@@ -6703,6 +6759,11 @@ function enterFactory(code) {
   const isReadOnly = (role === 'viewer' || role === 'hq_manager' || role === 'bu_manager');
   if (tabSingle) tabSingle.style.display = isReadOnly ? 'none' : '';
   if (tabBatch)  tabBatch.style.display  = isReadOnly ? 'none' : '';
+  if (f.status === 'closed') {   // v315
+    if (tabSingle) tabSingle.style.display = 'none';
+    if (tabBatch)  tabBatch.style.display  = 'none';
+    showToast('此廠已撤銷：可以查看、編輯、辦理調廠或離職，但不能新增員工或匯入', 'info');
+  }
   // 唯讀角色顯示提示
   const roLabel = document.getElementById('viewerRoLabel');
   if (roLabel) {
@@ -8849,6 +8910,7 @@ function goBackToSyncHub() {
 // ============ 廠區管理 ============
 function openFactoryMgmt() {
   closeMgmtDropdown();
+  if (typeof openFacCtrl === 'function') { openFacCtrl(); return; }   // v315：改用廠區變動控制頁
   renderFactoryMgmtTable();
   // 填入事業群 datalist
   const groups = [...new Set(FACTORIES.map(f => f.group))];
@@ -9110,7 +9172,8 @@ function renderUsersTable() {
   });
   console.log('[OMS] empFactoryMap keys:', Object.keys(empFactoryMap).length, 'employees keys:', Object.keys(empData).length);
 
-  const buCodeMap = {'信錦台北':'SHQ','信鋐科技':'XBU','組裝產品事業群':'ABU','自製零件事業群':'MBU','敬得科技':'GBU','陸合企業':'LBU'};
+  const buCodeMap = (Array.isArray(OMS_BUS) && OMS_BUS.length) ? Object.fromEntries(OMS_BUS.map(b => [b.name, b.code]))   // v315：讀事業群表
+    : {'信錦台北':'SHQ','信鋐科技':'XBU','組裝產品事業群':'ABU','自製零件事業群':'MBU','敬得科技':'GBU','陸合企業':'LBU'};
 
   let users = profileUsers;   // v264：使用者管理改用 synchub_profiles（經 EF 載入）
 
@@ -9425,15 +9488,16 @@ function setSelectedBus(buValue) {
 }
 
 // 廠區 checkbox 輔助函數
-function buildFactoryCheckboxes() {
+function buildFactoryCheckboxes(keep) {
   const container = document.getElementById('uFactoryCheckboxes');
   if (!container) return;
-  const active = FACTORIES.filter(f => !f.disabled).sort((a,b) => a.code.localeCompare(b.code));
+  const keepArr = Array.isArray(keep) ? keep : [];
+  const active = FACTORIES.filter(f => !f.disabled || keepArr.indexOf(f.code) >= 0).sort((a,b) => a.code.localeCompare(b.code));   // v315：已撤銷的只在原本有勾時列出
   container.innerHTML = active.map(f => `
     <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;white-space:nowrap;padding:2px 0;">
       <input type="checkbox" value="${f.code}" onchange="onFactoryCheckChange()" style="width:16px;height:16px;flex-shrink:0;cursor:pointer;">
       <span style="font-family:'Inter',monospace;font-weight:700;color:var(--gold-deep);width:32px;flex-shrink:0;">${f.code}</span>
-      <span style="color:var(--text-main);">${f.name}</span>
+      <span style="color:var(--text-main);">${f.name}${f.disabled ? '（已撤銷）' : ''}</span>
     </label>`).join('');
 }
 
@@ -9443,9 +9507,9 @@ function getSelectedFactories() {
 }
 
 function setSelectedFactories(factoriesValue) {
-  buildFactoryCheckboxes();
   const arr = Array.isArray(factoriesValue) ? factoriesValue
              : (factoriesValue && factoriesValue !== 'ALL' ? [factoriesValue] : []);
+  buildFactoryCheckboxes(arr);
   document.querySelectorAll('#uFactoryCheckboxes input[type=checkbox]').forEach(cb => {
     cb.checked = arr.includes(cb.value);
   });
@@ -9479,7 +9543,10 @@ function onUserRoleChange() {
     // hr / viewer：顯示廠區多選
     buField.style.display = 'none';
     factoryField.style.display = '';
-    buildFactoryCheckboxes();
+    const keepSel = getSelectedFactories();   // v315：重畫勾選框時保留原本勾的（含已撤銷的廠）
+    buildFactoryCheckboxes(keepSel);
+    document.querySelectorAll('#uFactoryCheckboxes input[type=checkbox]').forEach(cb => { cb.checked = keepSel.indexOf(cb.value) >= 0; });
+    onFactoryCheckChange();
   }
 }
 
@@ -9535,7 +9602,7 @@ function openEditModal(code, index) {
       <label>${f.label}</label>
       ${f.type === 'select'
         ? `<select id="ef_${f.key}" ${f.readonly ? 'disabled' : ''}>
-            ${f.options.map(o => `<option value="${o}" ${e[f.key]===o?'selected':''}>${o||'—'}</option>`).join('')}
+            ${(e[f.key] && f.options.indexOf(e[f.key]) < 0) ? `<option value="${e[f.key]}" selected>${e[f.key]}（原值）</option>` : ''}${f.options.map(o => `<option value="${o}" ${e[f.key]===o?'selected':''}>${o||'—'}</option>`).join('')}
            </select>`
         : `<input id="ef_${f.key}" type="${f.type}" value="${e[f.key]||''}" placeholder="${f.ph || ''}" ${f.readonly ? 'readonly style="background:var(--bg-tint);color:var(--text-soft);"' : ''}>`
       }
@@ -13642,6 +13709,941 @@ function drawRadar(factories, allEmp, size=200) {
     };
   }
 })();
+</script>
+<script>
+// ============================================================
+// v315：廠區主檔改讀資料庫＋首頁事業群代號／調整順序＋廠區變動控制頁
+//   資料庫：factories（OMS_316 擴充）、oms_business_units、oms_factory_events、oms_factory_rollout
+//   寫入一律走資料庫函式 oms_factory_save（mode create/update）／oms_factory_reorder；網頁不能直接寫 factories
+// ============================================================
+function facEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function facErrMsg(e) {
+  let s = String(e && e.message ? e.message : e).replace(/^sb[A-Za-z]+ [a-z_]+: /, '');
+  if (/^\s*\{/.test(s)) { try { const j = JSON.parse(s); s = j.message || j.hint || j.details || s; } catch (x) {} }   // sbPatchRows 會把整段 JSON 丟出來
+  return s.slice(0, 300);
+}
+// 呼叫資料庫函式（錯誤訊息取資料庫回的中文 message）
+async function sbRpc(fn, args) {
+  const res = await fetch(SB_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: sbHdr(), body: JSON.stringify(args || {}) });
+  const txt = await res.text();
+  let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
+  if (!res.ok) {
+    const err = new Error((j && (j.message || j.hint || j.details)) || txt || ('HTTP ' + res.status));
+    err.code = j && j.code; err.status = res.status;
+    throw err;
+  }
+  return j;
+}
+async function sbInsertRows(table, rows) {
+  const res = await fetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: sbHdr({ 'Prefer': 'return=representation' }), body: JSON.stringify(rows) });
+  const txt = await res.text();
+  if (!res.ok) {
+    let j = null; try { j = JSON.parse(txt); } catch (e) {}
+    throw new Error((j && j.message) || txt || ('HTTP ' + res.status));
+  }
+  return txt ? JSON.parse(txt) : [];
+}
+
+// ---------- 首頁：事業群（代號、顏色、順序）----------
+function busMeta() {
+  const fallback = [['SHQ', '信錦台北', '#D42B3A'], ['XBU', '信鋐科技', '#D42B3A'], ['ABU', '組裝產品事業群', '#2563EB'],
+                    ['MBU', '自製零件事業群', '#7C3AED'], ['GBU', '敬得科技', '#D97706'], ['LBU', '陸合企業', '#16A34A']];
+  if (Array.isArray(OMS_BUS) && OMS_BUS.length) {
+    return OMS_BUS.filter(b => b.active !== false).slice()
+      .sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || String(a.code).localeCompare(String(b.code)));
+  }
+  return fallback.map((x, i) => ({ code: x[0], name: x[1], color: x[2], sort_order: (i + 1) * 10 }));
+}
+// 首頁要顯示的廠：沒撤銷、而且「首頁顯示」開著
+function homeFactories() {
+  return FACTORIES.filter(f => f.status !== 'closed' && !f.disabled && f.showOnHome !== false);
+}
+function homeGroups() {
+  const metas = busMeta();
+  const metaByName = {}; metas.forEach(b => { metaByName[b.name] = b; });
+  const groups = {};
+  homeFactories().forEach(f => { (groups[f.group] = groups[f.group] || []).push(f); });
+  Object.values(groups).forEach(l => l.sort((a, b) => (a.sort ?? 100) - (b.sort ?? 100) || a.code.localeCompare(b.code)));
+  const order = [...metas.map(b => b.name).filter(g => groups[g]), ...Object.keys(groups).filter(g => !metaByName[g]).sort()];
+  return { metas, metaByName, groups, order };
+}
+
+let facSortMode = false;
+let facSortDraft = null;   // { bus: [事業群名…], facs: { 事業群名: [代號…] } }
+
+let facHiddenOpen = false;   // 首頁「未在首頁的廠」區塊展開與否
+function renderBuPanel() {
+  const container = document.getElementById('buPanelBody');
+  if (!container) return;
+  if (facSortMode && !(currentUser && currentUser.role === 'admin')) { facSortMode = false; facSortDraft = null; }   // 換人登入時不留管理員的調整模式
+  container.innerHTML = '';
+  const allData = employees;
+  const activeCount = code => (allData[code] || []).filter(e => !e.status || e.status === '在職').length;
+  const { metaByName, groups } = homeGroups();
+  let { order } = homeGroups();
+  if (facSortMode && facSortDraft) {
+    order = facSortDraft.bus.filter(g => groups[g]);
+    Object.keys(groups).forEach(g => {
+      const d = facSortDraft.facs[g];
+      if (d) groups[g].sort((a, b) => d.indexOf(a.code) - d.indexOf(b.code));
+    });
+  }
+  const extraColors = ['#0891B2', '#059669', '#7C3AED', '#DB2777', '#EA580C', '#65A30D'];
+  let extraIdx = 0;
+  const shown = homeFactories();
+
+  // 統計：依實際顯示的廠自動算（v315 起不再寫死 17／4／6）
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('statFacN', shown.length);
+  setTxt('statCountryN', new Set(shown.map(f => f.region).filter(Boolean)).size);
+  setTxt('statBuN', new Set(shown.map(f => f.group).filter(Boolean)).size);
+  // 在職總數：跟舊版一樣算所有沒撤銷的廠（首頁沒顯示的廠也算）
+  const totalSpan = document.getElementById('totalActiveSpan');
+  if (totalSpan) totalSpan.textContent = FACTORIES.filter(f => f.status !== 'closed' && !f.disabled).reduce((s, f) => s + activeCount(f.code), 0);
+
+  const isAdmin = !!(currentUser && currentUser.role === 'admin');
+  const sbtn = document.getElementById('facSortBtn');
+  if (sbtn) sbtn.style.display = (isAdmin && FACTORIES_SOURCE === 'db' && !facSortMode) ? '' : 'none';
+  const sbar = document.getElementById('facSortBar');
+  if (sbar) sbar.style.display = facSortMode ? 'flex' : 'none';
+  updateFacSourceBanner();
+
+  order.forEach((gName, gi) => {
+    const fList = groups[gName];
+    if (!fList) return;
+    const meta = metaByName[gName] || { code: '', color: extraColors[extraIdx++ % extraColors.length] };
+    const color = meta.color || '#64748B';
+    const grpActive = fList.reduce((sum, f) => sum + activeCount(f.code), 0);
+    const grpDiv = document.createElement('div');
+    grpDiv.className = 'bu-group';
+    const hdr = document.createElement('div');
+    hdr.className = 'bu-group-header';
+    const ud = facSortMode
+      ? '<span class="fac-ud"><button data-sort="bu" data-g="' + gi + '" data-dir="-1"' + (gi === 0 ? ' disabled' : '') + ' title="往上">▲</button>' +
+        '<button data-sort="bu" data-g="' + gi + '" data-dir="1"' + (gi === order.length - 1 ? ' disabled' : '') + ' title="往下">▼</button></span>'
+      : '';
+    hdr.innerHTML =
+      '<div style="display:flex;align-items:center;grid-column:1/3;min-width:0;">' +
+        '<span class="bu-group-dot" style="background:' + color + ';"></span>' +
+        (meta.code ? '<span class="bu-code-chip" style="background:' + color + ';">' + facEsc(meta.code) + '</span>' : '') +
+        '<span class="bu-group-name">' + facEsc(gName) + '</span>' + ud +
+      '</div>' +
+      (grpActive > 0 ? '<span class="bu-factory-cnt" style="color:' + color + ';background:' + color + '18;">' + grpActive + '</span>'
+                     : '<span class="bu-factory-cnt" style="color:transparent;">0</span>') +
+      '<span class="bu-count-badge" style="text-align:center;">' + fList.length + ' 廠</span>' +
+      '<span></span>';
+    grpDiv.appendChild(hdr);
+
+    fList.forEach((f, fi) => {
+      const cnt = activeCount(f.code);
+      const row = document.createElement('div');
+      row.className = 'bu-factory-row';
+      const canEnter = canAccessFactory(f.code);
+      if (!canEnter) row.classList.add('factory-locked');
+      const regionCls = f.region === 'TW' ? 'region-tw' : f.region === 'CN' ? 'region-cn' : f.region === 'VN' ? 'region-vn' : f.region === 'TH' ? 'region-th' : '';
+      const regionTxt = f.region || '—';
+      const cntBadge = cnt > 0
+        ? '<span class="bu-factory-cnt" style="color:' + color + ';background:' + color + '18;">' + cnt + '</span>'
+        : '<span class="bu-factory-cnt" style="color:var(--text-soft);">—</span>';
+      let tail;
+      if (facSortMode) {
+        tail = '<span class="fac-ud" style="margin:0;padding:0;justify-content:center;">' +
+          '<button data-sort="fac" data-g="' + gi + '" data-i="' + fi + '" data-dir="-1"' + (fi === 0 ? ' disabled' : '') + ' title="往上">▲</button>' +
+          '<button data-sort="fac" data-g="' + gi + '" data-i="' + fi + '" data-dir="1"' + (fi === fList.length - 1 ? ' disabled' : '') + ' title="往下">▼</button></span>';
+      } else {
+        tail = canEnter
+          ? '<span class="bu-arrow" style="text-align:center;font-size:11px;color:var(--text-soft);">→</span>'
+          : '<span class="bu-arrow" style="text-align:center;font-size:11px;color:var(--text-soft);" title="您沒有此廠的瀏覽權限">🔒</span>';
+      }
+      row.innerHTML =
+        '<span class="bu-factory-code">' + facEsc(f.code) + '</span>' +
+        '<span class="bu-factory-name">' + facEsc(f.name) + (f.status === 'planning' ? '<span class="fac-plan-tag">籌備中</span>' : f.status === 'closing' ? '<span class="fac-plan-tag">撤銷中</span>' : '') + '</span>' +
+        cntBadge +
+        (facSortMode
+          ? '<span class="fac-ud-row">' + tail + '</span>'   // 調整順序中：▲▼ 佔國別＋箭頭兩欄
+          : '<span class="bu-factory-region ' + regionCls + '" style="text-align:center;font-size:8px;">' + facEsc(regionTxt) + '</span>' + tail);
+      row.addEventListener('click', (ev) => {
+        if (facSortMode) return;   // 調整順序中不進廠
+        if (canEnter) enterFactory(f.code);
+        else showToast('您沒有 ' + f.code + ' · ' + f.name + ' 的瀏覽權限', 'error');
+      });
+      grpDiv.appendChild(row);
+    });
+    container.appendChild(grpDiv);
+  });
+
+  // 未在首頁的廠（首頁顯示關掉的、籌備中預設不顯示的、已撤銷的）：照樣可以進去查看、建員工、辦離職
+  const hidden = FACTORIES.filter(f => !(f.status !== 'closed' && !f.disabled && f.showOnHome !== false))
+    .sort((a, b) => (a.status === 'closed') - (b.status === 'closed') || a.code.localeCompare(b.code));
+  if (hidden.length && !facSortMode) {
+    const box = document.createElement('div');
+    box.className = 'bu-group fac-hidden-group';
+    const hdr = document.createElement('div');
+    hdr.className = 'bu-group-header';
+    hdr.style.cursor = 'pointer';
+    hdr.innerHTML = '<div style="display:flex;align-items:center;grid-column:1/-1;min-width:0;color:var(--text-soft);">' +
+      '<span style="width:14px;display:inline-block">' + (facHiddenOpen ? '▾' : '▸') + '</span>未在首頁的廠（' + hidden.length + '）' +
+      '<span style="font-size:9.5px;margin-left:6px;">籌備中、已撤銷、或首頁顯示關掉的；點開可進入</span></div>';
+    hdr.addEventListener('click', () => { facHiddenOpen = !facHiddenOpen; renderBuPanel(); });
+    box.appendChild(hdr);
+    if (facHiddenOpen) {
+      hidden.forEach(f => {
+        const canEnter = canAccessFactory(f.code);
+        const row = document.createElement('div');
+        row.className = 'bu-factory-row fac-hidden-row' + (canEnter ? '' : ' factory-locked');
+        const tag = f.status === 'closed' ? '已撤銷' : f.status === 'planning' ? '籌備中' : f.status === 'closing' ? '撤銷中' : '首頁不顯示';
+        row.innerHTML = '<span class="bu-factory-code">' + facEsc(f.code) + '</span>' +
+          '<span class="bu-factory-name">' + facEsc(f.name) + '<span class="fac-plan-tag" style="border-color:#CBD5E1;color:#64748B;background:#F1F5F9">' + tag + '</span></span>' +
+          '<span class="bu-factory-cnt" style="color:var(--text-soft);">' + (activeCount(f.code) || '—') + '</span>' +
+          '<span class="bu-factory-region" style="text-align:center;font-size:8px;">' + facEsc(f.region || '—') + '</span>' +
+          '<span class="bu-arrow" style="text-align:center;font-size:11px;color:var(--text-soft);">' + (canEnter ? '→' : '🔒') + '</span>';
+        row.addEventListener('click', () => {
+          if (canEnter) enterFactory(f.code);
+          else showToast('您沒有 ' + f.code + ' · ' + f.name + ' 的瀏覽權限', 'error');
+        });
+        box.appendChild(row);
+      });
+    }
+    container.appendChild(box);
+  }
+}
+function renderFactoryList() { renderBuPanel(); } // 向下相容
+
+// 調整順序：開始／移動／取消／儲存
+function facSortStart() {
+  if (!(currentUser && currentUser.role === 'admin')) { showToast('僅集團系統管理員可調整順序', 'error'); return; }
+  if (FACTORIES_SOURCE !== 'db') { showToast('廠區主檔讀不到，暫時不能調整順序', 'error'); return; }
+  const { groups, order } = homeGroups();
+  facSortDraft = { bus: order.slice(), facs: {} };
+  Object.keys(groups).forEach(g => { facSortDraft.facs[g] = groups[g].map(f => f.code); });
+  facSortMode = true;
+  renderBuPanel();
+}
+function facSortCancel() { facSortMode = false; facSortDraft = null; renderBuPanel(); }
+function facSortMove(kind, gi, fi, dir) {
+  if (!facSortDraft) return;
+  const { groups } = homeGroups();
+  const busShown = facSortDraft.bus.filter(g => groups[g]);
+  if (kind === 'bu') {
+    const a = busShown[gi], b = busShown[gi + dir];
+    if (!a || !b) return;
+    const ia = facSortDraft.bus.indexOf(a), ib = facSortDraft.bus.indexOf(b);
+    facSortDraft.bus[ia] = b; facSortDraft.bus[ib] = a;
+  } else {
+    const g = busShown[gi]; const list = g && facSortDraft.facs[g];
+    if (!list || !list[fi] || !list[fi + dir]) return;
+    const t = list[fi]; list[fi] = list[fi + dir]; list[fi + dir] = t;
+  }
+  renderBuPanel();
+}
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest && e.target.closest('#buPanelBody button[data-sort]');
+  if (!btn || !facSortMode) return;
+  e.stopPropagation();
+  facSortMove(btn.dataset.sort, Number(btn.dataset.g), Number(btn.dataset.i || 0), Number(btn.dataset.dir));
+}, true);
+let _facSortBusy = false;
+async function facSortSave() {
+  if (_facSortBusy || !facSortDraft) return;
+  _facSortBusy = true;
+  const saveBtn = document.getElementById('facSortSaveBtn'); if (saveBtn) saveBtn.disabled = true;
+  try {
+    // 事業群：首頁上的照新順序排在前面、其他維持原順序，排序設成 10、20、30…（只改有變的）
+    const metas = busMeta();
+    const byName = {}; metas.forEach(b => { byName[b.name] = b; });
+    const first = facSortDraft.bus.filter(g => byName[g]).map(g => byName[g]);
+    const all = [...first, ...metas.filter(b => first.indexOf(b) < 0)];
+    for (let i = 0; i < all.length; i++) {
+      const want = (i + 1) * 10;
+      if (all[i].sort_order !== want) {
+        const r = await sbPatchRows('oms_business_units', 'code=eq.' + encodeURIComponent(all[i].code), { sort_order: want });
+        if (!Array.isArray(r) || !r.length) throw new Error('事業群 ' + all[i].code + ' 的順序沒有存進資料庫（可能沒有權限）');
+      }
+    }
+    // 廠區：照新順序（先事業群、再群內）；不在首頁的廠排在後面、維持原本相對順序
+    const codes = [];
+    facSortDraft.bus.forEach(g => (facSortDraft.facs[g] || []).forEach(c => codes.push(c)));
+    FACTORIES.filter(f => codes.indexOf(f.code) < 0).sort((a, b) => (a.sort ?? 100) - (b.sort ?? 100) || a.code.localeCompare(b.code)).forEach(f => codes.push(f.code));
+    await sbRpc('oms_factory_reorder', { p_codes: codes });
+    facSortMode = false; facSortDraft = null;
+    const ok = await loadFactoriesFromDB();
+    renderBuPanel(); renderMapDots(loadRegionConfig());
+    showToast(ok ? '順序已儲存' : '順序已送出，但讀回失敗，請重新整理確認', ok ? 'success' : 'error');
+  } catch (e) {
+    // 中途失敗時，可能有部分事業群順序已存：用資料庫現值重畫
+    facSortMode = false; facSortDraft = null;
+    await loadFactoriesFromDB();
+    renderBuPanel(); renderMapDots(loadRegionConfig());
+    showToast('順序沒有全部存成功（畫面已改成資料庫現在的順序，請確認後再調）：' + facErrMsg(e), 'error');
+  } finally {
+    _facSortBusy = false;
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+// 廠區主檔讀不到時的紅色提示（首頁與控制頁共用）
+function updateFacSourceBanner() {
+  const el = document.getElementById('facSrcBanner');
+  if (!el) return;
+  if (FACTORIES_SOURCE === 'db') { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.textContent = FACTORIES_SOURCE === 'cache'
+    ? '⚠ 廠區主檔暫時讀不到，目前顯示這台電腦上次讀到的資料（唯讀）；廠區異動與調整順序暫停，請重新整理再試'
+    : '⚠ 廠區主檔讀不到，目前顯示程式內建的舊清單（唯讀，可能不是最新）；廠區異動與調整順序暫停，請重新整理再試';
+}
+
+// ============================================================
+// 廠區變動控制頁
+// ============================================================
+const FC_SYS = ['GHG', 'QMS', 'MHR', 'PMP'];
+const FC_STATUS = { planning: '籌備中', active: '營運中', closing: '撤銷中', closed: '已撤銷' };
+const FC_COUNTRY = { TW: '台灣', CN: '中國', VN: '越南', TH: '泰國', MY: '馬來西亞', SG: '新加坡', US: '美國' };
+const FC_ACTION = { create: '新增', update: '修改', close: '撤銷', reopen: '恢復' };
+const FC_RACTION = { open: '開通', close: '停用', rename: '改名同步', other: '其他' };
+const FC_FIELD = { name: '顯示名稱', full_name_zh: '公司全名', name_en: '英文名', bu: '事業群', country_code: '國家代碼', country: '國家', address: '地址（中）',
+  address_local: '地址（當地語）', address_en: '地址（英）', lat: '緯度', lng: '經度', map_x: '地圖位置 x', map_y: '地圖位置 y', status: '狀態',
+  show_on_home: '首頁顯示', effective_from: '生效日', closed_on: '撤銷日', close_reason: '撤銷原因', sort_order: '順序', color: '代表色', note: '備註', active: '啟用' };
+// 控制頁表單欄位（key, 標籤, 種類）
+const FC_FORM = [
+  ['name', '顯示名稱', 'text', true], ['full_name_zh', '公司全名', 'text', false, 'w2'], ['name_en', '英文名', 'text', false, 'w2'],
+  ['bu', '事業群', 'bu', true], ['country_code', '國家', 'country', true],
+  ['address', '地址（中）', 'textarea', false, 'w2'], ['address_local', '地址（當地語）', 'textarea', false, 'w2'], ['address_en', '地址（英）', 'textarea', false, 'w2'],
+  ['lat', '緯度', 'num', false], ['lng', '經度', 'num', false], ['map_x', '地圖位置 x（空白＝依經緯度自動算）', 'int', false], ['map_y', '地圖位置 y', 'int', false],
+  ['status', '狀態', 'status', true], ['show_on_home', '首頁顯示', 'bool', false], ['effective_from', '生效日（開始營運）', 'date', false],
+  ['color', '代表色（#RRGGBB，可空白）', 'text', false], ['note', '備註', 'textarea', false, 'w2'],
+];
+
+let fc = { rows: [], rollout: [], access: null, sel: null, isNew: false, tab: 'basic',
+           filters: { bu: '', country: '', status: '', showClosed: false }, msg: null, events: {}, busy: false, loadErr: '' };
+
+function fcRow(code) { return fc.rows.find(r => r.code === code) || null; }
+function fcCanWrite() { return !fc.loadErr && fc.rows.length > 0 && !!(currentUser && currentUser.role === 'admin'); }
+function fcMsg(text, kind) { fc.msg = text ? { text, kind: kind || 'info' } : null; }
+function fcFmtTime(s) {
+  if (!s) return '';
+  const d = new Date(s); if (isNaN(d)) return String(s);
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function fcWho(s) { return s ? String(s).split('@')[0] : ''; }
+// 顯示用：狀態、是否、國家轉中文；空值顯示（空）
+function fcShow(k, val) {
+  if (val === null || val === undefined || val === '') return '（空）';
+  if (k === 'status') return FC_STATUS[val] || val;
+  if (k === 'show_on_home' || k === 'active') return (val === true || val === 'true') ? '是' : '否';
+  if (k === 'country_code') return (FC_COUNTRY[val] ? val + ' ' + FC_COUNTRY[val] : val);
+  return String(val);
+}
+function fcActive(code) { return (employees[code] || []).filter(e => !e.status || e.status === '在職').length; }
+
+async function openFacCtrl() {
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團系統管理員可使用', 'error'); return; }
+  if (typeof closeMgmtDropdown === 'function') closeMgmtDropdown();
+  document.getElementById('facCtrlPage').style.display = 'flex';
+  fc.sel = null; fc.isNew = false; fc.tab = 'basic'; fcMsg(null);
+  renderFacCtrl();
+  await facCtrlLoad();
+  renderFacCtrl();
+}
+function closeFacCtrl() {
+  if (fcDirty() && !confirm('有改了還沒儲存的資料，確定離開？')) return;
+  document.getElementById('facCtrlPage').style.display = 'none';
+  facCloseModal();
+}
+async function facCtrlLoad() {
+  fc.loadErr = '';
+  try {
+    const [rows, roll] = await Promise.all([
+      sbSelect('factories', 'select=*&order=sort_order.asc,code.asc'),
+      sbSelectAll('oms_factory_rollout', 'select=*&order=id.asc')]);
+    if (!Array.isArray(rows) || !rows.length) throw new Error('廠區主檔讀到 0 筆');
+    fc.rows = rows;
+    fc.rollout = Array.isArray(roll) ? roll : [];
+  } catch (e) {
+    fc.loadErr = facErrMsg(e);
+  }
+  try {
+    const sa = await sbSelectAll('system_access', 'select=emp_id,factory_code&order=emp_id');
+    fc.access = {};
+    sa.forEach(r => { fc.access[r.factory_code] = (fc.access[r.factory_code] || 0) + 1; });
+  } catch (e) { fc.access = null; }
+}
+// 寫入後一律從資料庫讀回；回傳 true＝讀回成功（控制頁與首頁都是資料庫現值）
+async function fcAfterWrite(selCode) {
+  await facCtrlLoad();
+  const homeOk = await loadFactoriesFromDB();
+  renderBuPanel();
+  if (typeof renderMapDots === 'function') renderMapDots(loadRegionConfig());
+  fc.isNew = false;
+  if (selCode) { fc.sel = selCode; delete fc.events[selCode]; }
+  renderFacCtrl();
+  return !fc.loadErr && homeOk;
+}
+// 寫入成功後的訊息：讀回失敗或結果跟預期不同時不顯示綠字
+function fcDoneMsg(okText, readOk, check) {
+  if (!readOk) { fcMsg(okText.replace(/（已從資料庫讀回確認）/, '') + '，但讀回資料庫失敗，請重新整理確認結果', 'err'); return; }
+  if (check && !check()) { fcMsg(okText.replace(/（已從資料庫讀回確認）/, '') + '，但讀回的結果跟預期不同，請重新整理確認', 'err'); return; }
+  fcMsg(okText, 'ok');
+}
+// 「這個廠區剛被別人改過」：重新載入最新資料（保留使用者打的內容）
+async function fcConflictReload() {
+  await facCtrlLoad();
+  await loadFactoriesFromDB();
+  renderBuPanel();
+  if (typeof renderMapDots === 'function') renderMapDots(loadRegionConfig());
+}
+
+// 篩選：skip＝算某個選單的選項時不套用它自己
+function fcFilterRows(skip) {
+  const f = fc.filters;
+  return fc.rows.filter(r => (f.showClosed || r.status !== 'closed' || f.status === 'closed')
+    && (skip === 'bu' || !f.bu || r.bu === f.bu)
+    && (skip === 'country' || !f.country || r.country_code === f.country)
+    && (skip === 'status' || !f.status || r.status === f.status));
+}
+function fcVisibleRows() { return fcFilterRows(''); }
+function fcSetFilter(k, v) {
+  if (k === 'name' && fcDirty() && !confirm('基本資料還沒存，確定繼續？')) return;
+  fc.filters[k] = v;
+  // 篩選連動：其他已選的值如果不在新的選項裡就清掉
+  for (let i = 0; i < 2; i++) {
+    if (fc.filters.bu && fcFilterRows('bu').every(r => r.bu !== fc.filters.bu)) fc.filters.bu = '';
+    if (fc.filters.country && fcFilterRows('country').every(r => r.country_code !== fc.filters.country)) fc.filters.country = '';
+    if (fc.filters.status && fcFilterRows('status').every(r => r.status !== fc.filters.status)) fc.filters.status = '';
+  }
+  renderFacCtrl({ keep: true });
+}
+function fcClearFilter() { fc.filters = { bu: '', country: '', status: '', showClosed: false }; renderFacCtrl({ keep: true }); }
+
+function fcSysCell(code) {
+  const rows = fc.rollout.filter(r => r.factory_code === code);
+  if (!rows.length) return '<span class="fc-muted">未追蹤</span>';
+  const latest = {};
+  rows.forEach(r => { latest[r.system + '|' + r.action] = r; });
+  return Object.values(latest).map(r => {
+    const cls = (r.status === '已開通' || r.status === '已停用') ? 'done' : (r.required === '需要' ? 'need' : '');
+    const label = r.required === '不適用' ? '不適用' : (r.required === '待決定' && (r.status === '待開通' || r.status === '待停用') ? '待決定' : r.status);
+    return '<span class="fc-sys ' + cls + '">' + facEsc(r.system) + (r.action === 'open' ? '' : FC_RACTION[r.action] || r.action) + ' ' + facEsc(label) + '</span>';
+  }).join('');
+}
+
+// opts.keep＝重畫後把基本資料表單裡使用者打的內容填回去（同一個廠／新增表單才填回）
+function renderFacCtrl(opts) {
+  const page = document.getElementById('facCtrlPage');
+  if (!page || page.style.display === 'none') return;
+  const formKey = fc.isNew ? '__new' : fc.sel;
+  let keepVals = null;
+  if (opts && opts.keep && fc.tab === 'basic' && document.getElementById('fcf_name') && fc.formKey === formKey) keepVals = fcFormValues();
+  const f = fc.filters;
+  const metas = busMeta();
+  const allBu = [...metas.map(b => b.name), ...[...new Set(fc.rows.map(r => r.bu).filter(Boolean))].filter(n => !metas.some(b => b.name === n))];
+  const buWith = new Set(fcFilterRows('bu').map(r => r.bu));
+  const buNames = allBu.filter(n => buWith.has(n) || n === f.bu);
+  const countryOpts = [...new Set(fcFilterRows('country').map(r => r.country_code).filter(Boolean))].sort();
+  const statusWith = new Set(fcFilterRows('status').map(r => r.status));
+  const vis = fcVisibleRows();
+  const cnt = s => fc.rows.filter(r => r.status === s).length;
+  const canW = fcCanWrite();
+
+  let rowsHtml = '';
+  buNames.forEach(g => {
+    const list = vis.filter(r => r.bu === g);
+    if (!list.length) return;
+    const m = metas.find(b => b.name === g) || {};
+    rowsHtml += '<tr class="grp"><td colspan="9">' + (m.code ? '<span class="bu-code-chip" style="background:' + (m.color || '#64748B') + '">' + facEsc(m.code) + '</span>' : '') +
+      facEsc(g) + '　<span style="font-weight:400;color:var(--text-soft)">' + list.length + ' 廠</span></td></tr>';
+    list.forEach(r => {
+      const sel = !fc.isNew && fc.sel === r.code;
+      rowsHtml += '<tr class="row' + (sel ? ' sel' : '') + (r.status === 'closed' ? ' closed' : '') + '" onclick="fcSelect(\'' + facEsc(r.code) + '\')">' +
+        '<td><span class="fc-code">' + facEsc(r.code) + '</span></td><td>' + facEsc(r.name) + '</td>' +
+        '<td>' + facEsc(FC_COUNTRY[r.country_code] || r.country || '') + '</td>' +
+        '<td><span class="fc-st ' + facEsc(r.status) + '">' + facEsc(FC_STATUS[r.status] || r.status) + '</span></td>' +
+        '<td>' + facEsc(r.effective_from || '—') + '</td>' +
+        '<td><button class="fc-tg' + (r.show_on_home ? ' on' : '') + '" title="' + (r.status === 'closed' ? '已撤銷的廠不能在首頁顯示' : '切換首頁顯示') + '"' +
+          ((r.status === 'closed' || !canW) ? ' disabled' : '') + ' onclick="event.stopPropagation();fcToggleHome(\'' + facEsc(r.code) + '\')"></button></td>' +
+        '<td class="num">' + fcActive(r.code) + '</td>' +
+        '<td>' + fcSysCell(r.code) + '</td>' +
+        '<td style="color:var(--text-soft);font-size:11px">' + facEsc(fcFmtTime(r.updated_at)) + ' ' + facEsc(fcWho(r.updated_by)) + '</td></tr>';
+    });
+  });
+  // 事業群不在清單裡的（理論上不會有）
+  const orphan = vis.filter(r => buNames.indexOf(r.bu) < 0);
+  orphan.forEach(r => { rowsHtml += '<tr class="row" onclick="fcSelect(\'' + facEsc(r.code) + '\')"><td class="fc-code">' + facEsc(r.code) + '</td><td colspan="8">' + facEsc(r.name) + '（事業群：' + facEsc(r.bu || '空白') + '）</td></tr>'; });
+  if (!rowsHtml) rowsHtml = '<tr><td colspan="9" class="fc-empty">' + (fc.loadErr ? '讀不到廠區主檔' : '沒有符合篩選的廠區') + '</td></tr>';
+
+  page.innerHTML =
+    '<div class="fc-top"><b>🏭 廠區變動控制</b><span class="sub">新增／修改／撤銷／恢復廠區 · 只有系統管理員可以使用 · 每次異動資料庫自動記錄</span><span class="sp"></span>' +
+      '<button class="ghost" onclick="closeFacCtrl()">⬅ 回 OMS 首頁</button>' +
+      '<button onclick="fcNew()"' + (canW ? '' : ' disabled') + '>＋ 新增廠區</button></div>' +
+    (fc.loadErr ? '<div class="fc-msg err" style="margin:10px 18px 0">⚠ 廠區主檔讀不到（' + facEsc(fc.loadErr) + '）。為了安全，這頁暫停所有修改，請重新整理再試。</div>' : '') +
+    '<div class="fc-body">' +
+      '<div class="fc-card">' +
+        '<div class="fc-filters">事業群 <select onchange="fcSetFilter(\'bu\',this.value)"><option value="">全部</option>' +
+          buNames.map(n => '<option value="' + facEsc(n) + '"' + (f.bu === n ? ' selected' : '') + '>' + facEsc(n) + '</option>').join('') + '</select>' +
+          ' 國家 <select onchange="fcSetFilter(\'country\',this.value)"><option value="">全部</option>' +
+          countryOpts.map(c => '<option value="' + facEsc(c) + '"' + (f.country === c ? ' selected' : '') + '>' + facEsc(FC_COUNTRY[c] || c) + '</option>').join('') + '</select>' +
+          ' 狀態 <select onchange="fcSetFilter(\'status\',this.value)"><option value="">' + (f.showClosed ? '全部' : '全部（未撤銷）') + '</option>' +
+          Object.keys(FC_STATUS).filter(s => statusWith.has(s) || f.status === s || (s === 'closed' && cnt('closed') > 0))
+            .map(s => '<option value="' + s + '"' + (f.status === s ? ' selected' : '') + '>' + FC_STATUS[s] + '</option>').join('') + '</select>' +
+          ' <label style="font-size:12px;white-space:nowrap"><input type="checkbox"' + (f.showClosed ? ' checked' : '') + ' onchange="fcSetFilter(\'showClosed\',this.checked)"> 顯示已撤銷</label>' +
+          ' <button class="clr" onclick="fcClearFilter()">✕ 清除</button>' +
+          '<span class="cnt">共 ' + fc.rows.length + ' 廠（營運中 ' + cnt('active') + '、籌備中 ' + cnt('planning') + '、撤銷中 ' + cnt('closing') + '、已撤銷 ' + cnt('closed') + '）</span></div>' +
+        '<div class="fc-scroll"><table class="fc-table"><thead><tr><th>代號</th><th>顯示名稱</th><th>國家</th><th>狀態</th><th>生效日</th><th>首頁顯示</th><th class="num">在職</th><th>各系統開通</th><th>最後異動</th></tr></thead>' +
+          '<tbody>' + rowsHtml + '</tbody></table></div>' +
+      '</div>' +
+      '<div class="fc-card" id="fcDetail">' + renderFacDetail() + '</div>' +
+    '</div>' +
+    '<div class="fc-foot">沿用 SyncHub 設計 · 在職人數＝OMS 員工資料 · 異動資料庫自動記錄 · 各系統在使用者下次登入或重新整理後才看到變動</div>';
+  // 表單屬於哪個廠（新增＝__new）；要保留時把使用者打的內容填回
+  fc.formKey = (fc.tab === 'basic' && document.getElementById('fcf_name')) ? formKey : null;
+  if (keepVals && fc.formKey === formKey) fcFillForm(keepVals);
+}
+function fcFillForm(vals) {
+  Object.keys(vals).forEach(k => {
+    const el = document.getElementById('fcf_' + k);
+    if (!el || el.readOnly || el.type === 'hidden') return;
+    if (el.type === 'checkbox') el.checked = !!vals[k]; else el.value = vals[k];
+  });
+}
+
+function fcSelect(code) {
+  if (fcDirty() && !confirm('有改了還沒儲存的資料，確定切換？')) return;
+  fc.isNew = false; fc.sel = code; fcMsg(null);
+  if (fc.tab === 'events') fcLoadEvents(code);
+  renderFacCtrl();
+}
+function fcNew() {
+  if (!fcCanWrite()) return;
+  if (fcDirty() && !confirm('有改了還沒儲存的資料，確定改成新增？')) return;
+  fc.isNew = true; fc.sel = null; fc.tab = 'basic'; fcMsg(null);
+  renderFacCtrl();
+}
+function fcSetTab(t) {
+  if (t !== fc.tab && fc.tab === 'basic' && fcDirty() && !confirm('基本資料有改了還沒儲存，確定切換分頁？（改的內容會不見）')) return;
+  if (t !== fc.tab) fcMsg(null);   // 換分頁就清掉上一頁的訊息
+  fc.tab = t;
+  if (t === 'events' && fc.sel) fcLoadEvents(fc.sel);
+  renderFacCtrl();
+}
+
+function renderFacDetail() {
+  const r = fc.isNew ? null : fcRow(fc.sel);
+  if (!fc.isNew && !r) return '<div class="fc-empty">點左邊清單的一個廠查看詳情，或按右上「＋ 新增廠區」</div>';
+  const msg = fc.msg ? '<div class="fc-msg ' + fc.msg.kind + '">' + facEsc(fc.msg.text) + '</div>' : '';
+  if (fc.isNew) {
+    return '<div class="fc-det-hd"><h3>新增廠區</h3><span class="fc-st planning">籌備中</span></div>' + msg +
+      '<div class="fc-scroll">' + fcFormHtml(null) + '</div>' +
+      '<div class="fc-acts"><span class="sp"></span><button onclick="fcCancelNew()">取消</button><button class="pri" onclick="fcSave()"' + (fcCanWrite() ? '' : ' disabled') + '>新增</button></div>' +
+      '<div class="fc-note">代號建立後不能改、也不能刪（打錯請洽 DTO）。新增預設「籌備中」、不在首頁顯示；營運後再改成營運中，首頁顯示會自動打開。</div>';
+  }
+  const tabs = [['basic', '基本資料'], ['rollout', '各系統開通'], ['impact', '影響人數'], ['events', '異動紀錄']];
+  let body = '', acts = '';
+  if (fc.tab === 'basic') {
+    body = fcFormHtml(r);
+    acts = '<div class="fc-acts">' +
+      (r.status === 'closed'
+        ? '<button onclick="fcOpenReopen()"' + (fcCanWrite() ? '' : ' disabled') + '>恢復此廠…</button>'
+        : '<button class="danger" onclick="fcOpenClose()"' + (fcCanWrite() ? '' : ' disabled') + '>撤銷此廠…</button>') +
+      '<span class="sp"></span><button onclick="fcResetForm()">取消</button><button class="pri" onclick="fcSave()"' + (fcCanWrite() ? '' : ' disabled') + '>儲存</button></div>' +
+      '<div class="fc-note">白底＝要填；淡藍底＝系統自動。撤銷按鈕跟儲存分開放，按下去還要輸入代號確認。</div>';
+  } else if (fc.tab === 'rollout') {
+    body = fcRolloutHtml(r);
+  } else if (fc.tab === 'impact') {
+    body = fcImpactHtml(r);
+  } else {
+    body = fcEventsHtml(r);
+  }
+  return '<div class="fc-det-hd"><span class="fc-code" style="font-size:15px">' + facEsc(r.code) + '</span><h3>' + facEsc(r.name) + '</h3>' +
+      '<span class="fc-st ' + facEsc(r.status) + '">' + facEsc(FC_STATUS[r.status] || r.status) + '</span></div>' +
+    '<div class="fc-tabs">' + tabs.map(t => '<button class="' + (fc.tab === t[0] ? 'on' : '') + '" onclick="fcSetTab(\'' + t[0] + '\')">' + t[1] + '</button>').join('') + '</div>' +
+    msg + '<div class="fc-scroll">' + body + '</div>' + acts;
+}
+
+function fcFormHtml(r) {
+  const v = k => (r && r[k] != null) ? r[k] : '';
+  const metas = busMeta();
+  const buOpts = [...metas.map(b => b.name)];
+  if (r && r.bu && buOpts.indexOf(r.bu) < 0) buOpts.push(r.bu);
+  let h = '<div class="fc-flds">';
+  h += '<div class="fc-fld"><span><i>★</i>代號' + (r ? '（建立後不能改）' : '（2～4 個大寫英文字母）') + '</span>' +
+       '<input id="fcf_code" ' + (r ? 'readonly value="' + facEsc(r.code) + '"' : 'maxlength="4" placeholder="例：DN" oninput="this.value=this.value.toUpperCase()"') + '></div>';
+  FC_FORM.forEach(([k, label, type, req, w]) => {
+    const cls = 'fc-fld' + (w ? ' ' + w : '');
+    const lab = '<span>' + (req ? '<i>★</i>' : '') + facEsc(label) + '</span>';
+    let inp;
+    if (type === 'bu') {
+      inp = '<select id="fcf_bu"><option value="">（請選）</option>' + buOpts.map(n => {
+        const m = metas.find(b => b.name === n);
+        return '<option value="' + facEsc(n) + '"' + (v('bu') === n ? ' selected' : '') + '>' + facEsc((m ? m.code + ' ' : '') + n) + '</option>';
+      }).join('') + '</select>';
+    } else if (type === 'country') {
+      inp = '<select id="fcf_country_code"><option value="">（請選）</option>' + Object.keys(FC_COUNTRY).map(c =>
+        '<option value="' + c + '"' + (v('country_code') === c ? ' selected' : '') + '>' + c + ' ' + FC_COUNTRY[c] + '</option>').join('') + '</select>';
+    } else if (type === 'status') {
+      if (r && r.status === 'closed') inp = '<input readonly value="已撤銷（要改請按下面「恢復此廠…」）"><input type="hidden" id="fcf_status" value="closed">';
+      else inp = '<select id="fcf_status" onchange="fcStatusChanged()">' + ['planning', 'active', 'closing'].map(s =>
+        '<option value="' + s + '"' + ((r ? r.status : 'planning') === s ? ' selected' : '') + '>' + FC_STATUS[s] + '</option>').join('') + '</select>';
+    } else if (type === 'bool') {
+      const on = r ? !!r.show_on_home : false;
+      inp = '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#1d2b3a"><input type="checkbox" id="fcf_show_on_home"' + (on ? ' checked' : '') +
+            ((r && r.status === 'closed') ? ' disabled' : '') + '> 在首頁列表與地圖顯示</label>';
+    } else if (type === 'textarea') {
+      inp = '<textarea id="fcf_' + k + '" rows="2">' + facEsc(v(k)) + '</textarea>';
+    } else {
+      const t = type === 'date' ? 'date' : 'text';
+      const ph = k === 'map_x' ? (r && r.lat != null && r.lng != null ? '自動：' + Math.round((Number(r.lng) + 180) * 5) : '依經緯度自動算') :
+                 k === 'map_y' ? (r && r.lat != null && r.lng != null ? '自動：' + Math.round((90 - Number(r.lat)) * 5) : '') :
+                 k === 'lat' ? '例 10.78230487' : k === 'lng' ? '例 106.9937037' : '';
+      inp = '<input id="fcf_' + k + '" type="' + t + '" value="' + facEsc(v(k)) + '" placeholder="' + facEsc(ph) + '">';
+    }
+    h += '<div class="' + cls + '">' + lab + inp + '</div>';
+  });
+  if (r) {
+    h += '<div class="fc-fld"><span>最後修改</span><div class="auto" style="font-size:12px;border:1px solid var(--line-soft);border-radius:6px;padding:5px 7px">' +
+         facEsc(fcFmtTime(r.updated_at) + ' ' + fcWho(r.updated_by)) + '</div></div>';
+    if (r.status === 'closed') h += '<div class="fc-fld"><span>撤銷日／原因</span><div class="auto" style="font-size:12px;border:1px solid var(--line-soft);border-radius:6px;padding:5px 7px">' +
+         facEsc((r.closed_on || '') + ' ' + (r.close_reason || '')) + '</div></div>';
+  }
+  return h + '</div>';
+}
+
+// 讀表單（只讀有出現的欄位）
+function fcFormValues() {
+  const g = id => document.getElementById('fcf_' + id);
+  const out = {};
+  const code = g('code'); if (code) out.code = code.value.trim().toUpperCase();
+  FC_FORM.forEach(([k, , type]) => {
+    const el = g(k); if (!el) return;
+    if (type === 'bool') out[k] = !!el.checked;
+    else out[k] = String(el.value == null ? '' : el.value).trim();
+  });
+  return out;
+}
+function fcNorm(k, val) {
+  if (val === null || val === undefined || val === '') return '';
+  if (k === 'show_on_home') return !!val;
+  if (k === 'lat' || k === 'lng') return Number(val);
+  if (k === 'map_x' || k === 'map_y' || k === 'sort_order') return Math.round(Number(val));
+  return String(val).trim();
+}
+function fcChanges(r, v) {
+  const ch = {};
+  FC_FORM.forEach(([k]) => {
+    if (!(k in v)) return;
+    if (r && r.status === 'closed' && k === 'status') return;
+    const a = fcNorm(k, r ? r[k] : ''), b = fcNorm(k, v[k]);
+    if (r ? a !== b : b !== '' && b !== false) ch[k] = v[k];
+  });
+  return ch;
+}
+function fcDirty() {
+  const page = document.getElementById('facCtrlPage');
+  if (!page || page.style.display === 'none' || fc.tab !== 'basic') return false;
+  if (!document.getElementById('fcf_name')) return false;
+  const v = fcFormValues();
+  if (fc.isNew) {
+    const ch = fcChanges(null, v);
+    if (ch.status === 'planning') delete ch.status;          // 預設值不算改動
+    if (ch.show_on_home === false) delete ch.show_on_home;
+    return Object.keys(ch).length > 0 || !!v.code;
+  }
+  const r = fcRow(fc.sel);
+  return !!r && Object.keys(fcChanges(r, v)).length > 0;
+}
+async function fcResetForm() { fcMsg(null); await facCtrlLoad(); renderFacCtrl(); }   // 取消＝重新讀資料庫（拿到最新的修改時間）
+// 狀態下拉連動「首頁顯示」：新增時營運中／撤銷中預設勾、籌備中不勾；籌備中改營運中時勾（資料庫也會自動打開）
+function fcStatusChanged() {
+  const st = document.getElementById('fcf_status'), cb = document.getElementById('fcf_show_on_home');
+  if (!st || !cb || cb.disabled) return;
+  const s = st.value, r = fc.isNew ? null : fcRow(fc.sel);
+  if (!r) cb.checked = (s === 'active' || s === 'closing');
+  else if (r.status === 'planning' && (s === 'active' || s === 'closing')) cb.checked = true;
+  else if (s === r.status) cb.checked = !!r.show_on_home;
+}
+function fcCancelNew() { if (fcDirty() && !confirm('新增的內容還沒存，確定取消？')) return; fc.isNew = false; fcMsg(null); renderFacCtrl(); }
+
+let _fcBusy = false;
+async function fcSave() {
+  if (_fcBusy) return;
+  if (!fcCanWrite()) { fcMsg('廠區主檔讀不到或沒有權限，暫停修改', 'err'); renderFacCtrl(); return; }
+  const v = fcFormValues();
+  const r = fc.isNew ? null : fcRow(fc.sel);
+  // 檢查
+  const errs = [];
+  if (fc.isNew && !/^[A-Z]{2,4}$/.test(v.code || '')) errs.push('代號要 2～4 個大寫英文字母');
+  if (fc.isNew && fcRow(v.code)) errs.push('代號 ' + v.code + ' 已經存在（狀態：' + (FC_STATUS[fcRow(v.code).status] || '') + '），不能新增');
+  if (!v.name) errs.push('顯示名稱要填');
+  if (!v.bu) errs.push('事業群要選');
+  if (!v.country_code) errs.push('國家要選');
+  ['lat', 'lng'].forEach(k => {
+    if (v[k] === '') return;
+    const n = Number(v[k]);
+    if (!isFinite(n) || (k === 'lat' ? Math.abs(n) > 90 : Math.abs(n) > 180)) errs.push(FC_FIELD[k] + '格式不對');
+  });
+  ['map_x', 'map_y'].forEach(k => { if (v[k] !== '' && !isFinite(Number(v[k]))) errs.push(FC_FIELD[k] + '要填數字'); });
+  if ((v.lat === '') !== (v.lng === '')) errs.push('緯度、經度要一起填（或都空白）');
+  if (v.color && !/^#[0-9A-Fa-f]{6}$/.test(v.color)) errs.push('代表色要是 #RRGGBB 格式');
+  if (errs.length) { fcMsg(errs.join('；'), 'err'); renderFacCtrl({ keep: true }); return; }
+  // 地圖位置：空白＝首頁依經緯度即時算（不寫死）；改了經緯度而地圖位置沒動＝清空，改成依新經緯度算
+  if (r && (fcNorm('lat', v.lat) !== fcNorm('lat', r.lat) || fcNorm('lng', v.lng) !== fcNorm('lng', r.lng))
+      && fcNorm('map_x', v.map_x) === fcNorm('map_x', r.map_x) && fcNorm('map_y', v.map_y) === fcNorm('map_y', r.map_y)
+      && (r.map_x != null || r.map_y != null)) {
+    v.map_x = ''; v.map_y = '';
+  }
+  const ch = fcChanges(r, v);
+  if (fc.isNew) {
+    ch.status = v.status || 'planning';
+    ch.show_on_home = !!v.show_on_home;                                          // 新增一律送出首頁顯示（畫面看到什麼就存什麼）
+    ch.sort_order = String(Math.max(0, ...fc.rows.map(x => Number(x.sort_order) || 0)) + 10);   // 新廠排在最後
+  }
+  if (!fc.isNew && !Object.keys(ch).length) { fcMsg('沒有改動', 'info'); renderFacCtrl({ keep: true }); return; }
+  const lines = Object.keys(ch).filter(k => !(fc.isNew && k === 'sort_order')).map(k => '・' + (FC_FIELD[k] || k) + '：' + (r ? fcShow(k, r[k]) + ' → ' : '') + fcShow(k, ch[k]));
+  const warn = [];
+  if (r && ('name' in ch)) warn.push('改名：GHG、QMS、MHR 自己存的廠名不會自動跟著改，要請各系統同步。');
+  if (r && ('bu' in ch)) warn.push('改事業群：事業群主管的範圍、QMS 跨廠查詢、MHR 事業群範圍會跟著變。');
+  if (r && (r.status === 'planning' || r.status === 'closed') && (ch.status === 'active' || ch.status === 'closing') && !('show_on_home' in ch)) warn.push('改成' + FC_STATUS[ch.status] + '：首頁顯示會自動打開。');
+  if (r && ('map_x' in ch) && ch.map_x === '') warn.push('經緯度改了：地圖位置改成依新經緯度自動算。');
+  const ask = (fc.isNew ? '確定新增廠區 ' + v.code + ' ' + v.name + '？\n\n' : '確定儲存 ' + r.code + ' ' + r.name + ' 的修改？\n\n') +
+    lines.join('\n') + (warn.length ? '\n\n⚠ ' + warn.join('\n⚠ ') : '');
+  if (!confirm(ask)) return;
+
+  const p = { mode: fc.isNew ? 'create' : 'update', code: fc.isNew ? v.code : r.code };
+  Object.keys(ch).forEach(k => { p[k] = ch[k]; });
+  if (!fc.isNew) p.expected_updated_at = r.updated_at;   // 原樣回傳讀到的時間字串（防兩人同時改）
+  fcMsg(null);
+  _fcBusy = true;
+  const wasNew = fc.isNew;
+  try {
+    const saved = await sbRpc('oms_factory_save', { p });
+    if (!saved || saved.code !== p.code) throw new Error('資料庫沒有回傳存好的資料');
+    let rollErr = '';
+    if (wasNew) {
+      try {
+        await sbInsertRows('oms_factory_rollout', FC_SYS.map(s => ({ factory_code: p.code, system: s, action: 'open', required: s === 'GHG' ? '需要' : '待決定' })));
+      } catch (e2) { console.warn('[v315] 建開通清單失敗', e2); rollErr = facErrMsg(e2); }
+    }
+    const readOk = await fcAfterWrite(p.code);
+    if (rollErr) fcMsg('廠區已新增，但各系統開通清單沒建成功：' + rollErr, 'err');
+    else fcDoneMsg((wasNew ? '已新增 ' : '已儲存 ') + p.code + '（已從資料庫讀回確認）', readOk, () => {
+      const nr = fcRow(p.code);
+      return !!nr && Object.keys(ch).every(k => k === 'map_x' || k === 'map_y' || k === 'show_on_home' || fcNorm(k, nr[k]) === fcNorm(k, ch[k]));
+    });
+    fc.isNew = false;
+    renderFacCtrl();
+  } catch (e) {
+    if (e.code === 'P0409') {
+      await fcConflictReload();
+      fcMsg('沒有存成功：這個廠區剛被別人改過。已重新載入最新資料（你打的內容還在），請確認後再按一次儲存。', 'err');
+    } else fcMsg('沒有存成功：' + facErrMsg(e), 'err');
+    renderFacCtrl({ keep: true });
+  } finally { _fcBusy = false; }
+}
+
+async function fcToggleHome(code) {
+  if (_fcBusy || !fcCanWrite()) return;
+  const r = fcRow(code); if (!r || r.status === 'closed') return;
+  if (fcDirty() && !confirm('基本資料有改了還沒儲存，切換首頁顯示會放棄這些修改，確定繼續？')) return;
+  if (!confirm((r.show_on_home ? '從首頁拿掉 ' : '在首頁顯示 ') + r.code + ' ' + r.name + '？\n（只影響首頁列表與地圖，員工資料、授權與其他系統照常）')) return;
+  const want = !r.show_on_home;
+  _fcBusy = true;
+  try {
+    await sbRpc('oms_factory_save', { p: { mode: 'update', code: r.code, show_on_home: want, expected_updated_at: r.updated_at } });
+    const readOk = await fcAfterWrite(fc.sel);
+    fcDoneMsg((want ? '已在首頁顯示 ' : '已從首頁拿掉 ') + r.code + '（已從資料庫讀回確認）', readOk, () => { const nr = fcRow(r.code); return !!nr && nr.show_on_home === want; });
+    renderFacCtrl();
+  } catch (e) {
+    if (e.code === 'P0409') { await fcConflictReload(); fcMsg('沒有存成功：' + r.code + ' 剛被別人改過，已重新載入最新資料，請確認後再切換。', 'err'); }
+    else fcMsg('沒有存成功：' + facErrMsg(e), 'err');
+    renderFacCtrl();
+  } finally { _fcBusy = false; }
+}
+
+// 各系統開通
+function fcRolloutHtml(r) {
+  const rows = fc.rollout.filter(x => x.factory_code === r.code);
+  const canW = fcCanWrite();
+  let h = '<div style="padding:10px 14px">';
+  if (!rows.length) h += '<div class="fc-muted" style="padding:6px 0 10px">這個廠沒有追蹤各系統開通（現有 17 廠建表前就已開通，不追蹤）。需要時可以在下面加一列。</div>';
+  else {
+    h += '<table class="fc-sub-table"><thead><tr><th>系統</th><th>事項</th><th>需要嗎</th><th>狀態</th><th>完成</th><th>備註</th><th></th></tr></thead><tbody>';
+    rows.forEach(x => {
+      h += '<tr><td><b>' + facEsc(x.system) + '</b></td><td>' + facEsc(FC_RACTION[x.action] || x.action) + '</td>' +
+        '<td><select id="fcr_req_' + x.id + '"' + (canW ? '' : ' disabled') + '>' + ['需要', '不適用', '待決定'].map(o => '<option' + (x.required === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></td>' +
+        '<td><select id="fcr_st_' + x.id + '"' + (canW ? '' : ' disabled') + '>' + ['待開通', '已開通', '待停用', '已停用', '不適用'].map(o => '<option' + (x.status === o ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></td>' +
+        '<td style="font-size:10.5px;color:var(--text-soft)">' + facEsc(x.done_at ? fcFmtTime(x.done_at) + ' ' + fcWho(x.done_by) : '—') + '</td>' +
+        '<td><input id="fcr_note_' + x.id + '" value="' + facEsc(x.note || '') + '"' + (canW ? '' : ' disabled') + ' style="max-width:110px"></td>' +
+        '<td><button class="fc-mini pri" onclick="fcRolloutSave(' + x.id + ')"' + (canW ? '' : ' disabled') + '>存</button></td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  h += '<div style="display:flex;gap:6px;align-items:center;margin-top:12px;font-size:11.5px">加一列：<select id="fcr_new_sys">' + FC_SYS.concat(['CFS', 'SOP', 'CAPA']).map(s => '<option>' + s + '</option>').join('') + '</select>' +
+       '<select id="fcr_new_act">' + Object.keys(FC_RACTION).map(a => '<option value="' + a + '">' + FC_RACTION[a] + '</option>').join('') + '</select>' +
+       '<button class="fc-mini" onclick="fcRolloutAdd(\'' + facEsc(r.code) + '\')"' + (canW ? '' : ' disabled') + '>＋ 加入</button></div>';
+  h += '<div class="fc-note" style="padding:10px 0 0">OMS 讀不到其他系統的設定，開通或停用要請各系統做好後，再回這裡改成「已開通／已停用」（完成人與時間由資料庫自動填）。</div></div>';
+  return h;
+}
+async function fcRolloutSave(id) {
+  if (_fcBusy || !fcCanWrite()) return;
+  const req = document.getElementById('fcr_req_' + id), st = document.getElementById('fcr_st_' + id), note = document.getElementById('fcr_note_' + id);
+  if (!req || !st) return;
+  _fcBusy = true;
+  try {
+    const out = await sbPatchRows('oms_factory_rollout', 'id=eq.' + encodeURIComponent(id), { required: req.value, status: st.value, note: note ? note.value.trim() || null : null });
+    if (!Array.isArray(out) || !out.length) throw new Error('沒有存進資料庫（可能沒有權限）');
+    await fcAfterWrite(fc.sel);
+    fcMsg('開通清單已更新', 'ok'); renderFacCtrl();
+  } catch (e) { fcMsg('開通清單沒有存成功：' + facErrMsg(e), 'err'); renderFacCtrl(); }
+  finally { _fcBusy = false; }
+}
+async function fcRolloutAdd(code) {
+  if (_fcBusy || !fcCanWrite()) return;
+  const sys = document.getElementById('fcr_new_sys').value, act = document.getElementById('fcr_new_act').value;
+  if (fc.rollout.some(x => x.factory_code === code && x.system === sys && x.action === act && !x.event_id)) { fcMsg(sys + ' ' + (FC_RACTION[act] || act) + ' 已經有一列了', 'err'); renderFacCtrl(); return; }
+  _fcBusy = true;
+  try {
+    await sbInsertRows('oms_factory_rollout', [{ factory_code: code, system: sys, action: act, required: '待決定', status: act === 'close' ? '待停用' : '待開通' }]);
+    await fcAfterWrite(code);
+    fcMsg('已加入 ' + sys + ' ' + (FC_RACTION[act] || act), 'ok'); renderFacCtrl();
+  } catch (e) { fcMsg('沒有加入成功：' + facErrMsg(e), 'err'); renderFacCtrl(); }
+  finally { _fcBusy = false; }
+}
+
+// 影響人數（只顯示數字）
+function fcImpactNums(r) {
+  const users = Array.isArray(cachedUsers) ? cachedUsers : [];
+  const inScope = users.filter(u => {
+    if (u.active === false) return false;                    // 停用的帳號不算
+    const fs = u.factories;
+    if (Array.isArray(fs) && fs.indexOf(r.code) >= 0) return true;
+    if (u.role === 'bu_manager' && r.bu && (Array.isArray(u.bu) ? u.bu.indexOf(r.bu) >= 0 : u.bu === r.bu)) return true;
+    return false;
+  }).length;
+  return { active: fcActive(r.code), access: fc.access ? (fc.access[r.code] || 0) : null, roles: inScope };
+}
+function fcImpactHtml(r) {
+  const n = fcImpactNums(r);
+  return '<div class="fc-imp"><span>在職人數（OMS 員工資料）</span><b>' + n.active + ' 人</b>' +
+    '<span>任職此廠的授權人數（授權當時的快照）</span><b>' + (n.access == null ? '讀不到' : n.access + ' 人') + '</b>' +
+    '<span>OMS 角色範圍含此廠的帳號（指定此廠＋事業群主管；不含全集團範圍的帳號）</span><b>' + n.roles + ' 個</b>' +
+    '<span>GHG／QMS／MHR／PMP 範圍含此廠的人</span><b style="font-weight:400;color:var(--text-soft)">各系統自查</b></div>' +
+    '<div class="fc-note">撤銷不會自動改人員資料或權限；要調人請到該廠員工清單、系統資料授權頁處理。</div>';
+}
+
+// 異動紀錄
+async function fcLoadEvents(code) {
+  if (fc.events[code] && fc.events[code].rows) return;
+  fc.events[code] = { loading: true };
+  try {
+    const rows = await sbSelect('oms_factory_events', 'select=*&factory_code=eq.' + encodeURIComponent(code) + '&order=id.desc&limit=200');
+    fc.events[code] = { rows: Array.isArray(rows) ? rows : [] };
+  } catch (e) { fc.events[code] = { err: facErrMsg(e) }; }
+  if (fc.sel === code && fc.tab === 'events') renderFacCtrl();   // 只在還停在異動紀錄分頁時重畫（不會清掉別頁正在打的內容）
+}
+function fcEventsHtml(r) {
+  const ev = fc.events[r.code];
+  if (!ev || ev.loading) return '<div class="fc-empty">讀取中…</div>';
+  if (ev.err) return '<div class="fc-msg err">讀不到異動紀錄：' + facEsc(ev.err) + '</div>';
+  if (!ev.rows.length) return '<div class="fc-empty">還沒有異動紀錄（316 之前的變動沒有記錄）</div>';
+  const skip = { updated_at: 1, updated_by: 1, created_at: 1 };
+  return ev.rows.map(e => {
+    const b = e.before || {}, a = e.after || {};
+    const keys = Object.keys(Object.assign({}, b, a)).filter(k => !skip[k] && JSON.stringify(b[k]) !== JSON.stringify(a[k]));
+    const lis = e.action === 'create'
+      ? ['建立：' + facEsc(a.name || '') + '（' + facEsc(fcShow('status', a.status)) + '，首頁顯示：' + facEsc(fcShow('show_on_home', a.show_on_home)) + '）']
+      : keys.map(k => facEsc(FC_FIELD[k] || k) + '：' + facEsc(fcShow(k, b[k])) + ' → ' + facEsc(fcShow(k, a[k])));
+    return '<div class="fc-ev"><div class="h">' + facEsc(FC_ACTION[e.action] || e.action) + '<span>' + facEsc(fcFmtTime(e.created_at)) + ' · ' + facEsc(fcWho(e.actor_email)) + '</span></div>' +
+      (e.reason ? '<div style="color:#475569;margin-top:2px">原因：' + facEsc(e.reason) + '</div>' : '') +
+      (lis.length ? '<ul>' + lis.map(x => '<li>' + x + '</li>').join('') + '</ul>' : '') + '</div>';
+  }).join('');
+}
+
+// 撤銷／恢復確認框
+function facCloseModal() { const m = document.getElementById('facCtrlModal'); if (m) { m.style.display = 'none'; m.innerHTML = ''; } }
+function fcTodayStr() { const d = new Date(), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); }
+function fcOpenClose() {
+  const r = fcRow(fc.sel); if (!r || !fcCanWrite()) return;
+  if (fcDirty() && !confirm('基本資料有改了還沒儲存，撤銷前要先放棄這些修改嗎？')) return;
+  const n = fcImpactNums(r);
+  const m = document.getElementById('facCtrlModal');
+  m.innerHTML = '<div class="box"><div class="bh danger">撤銷廠區：' + facEsc(r.code + ' ' + r.name) + '</div><div class="bb">' +
+    '<div>撤銷後：這個廠從首頁、各系統的新增／指派選單拿掉；過去的資料全部保留、照樣查得到；人員和權限<b>不會</b>自動改動。之後可以「恢復」。</div>' +
+    '<div class="imp"><span>在職人數</span><b>' + n.active + ' 人</b><span>任職此廠的授權人數（授權當時的快照）</span><b>' + (n.access == null ? '讀不到' : n.access + ' 人') + '</b>' +
+      '<span>OMS 角色範圍含此廠的帳號（不含全集團範圍）</span><b>' + n.roles + ' 個</b><span>GHG／QMS／MHR／PMP 範圍含此廠的人</span><b style="font-weight:400;color:#6080A0">各系統自查</b></div>' +
+    (n.active > 0 ? '<div class="fc-msg err" style="margin:0">⚠ 這個廠還有 ' + n.active + ' 位在職人員，撤銷前請確認是否要先辦理調廠或離職。</div>' : '') +
+    '<div class="f"><span><i>★</i>撤銷日</span><input type="date" id="fcc_date" value="' + fcTodayStr() + '" oninput="fcCheckClose()"></div>' +
+    '<div class="f"><span><i>★</i>撤銷原因</span><input id="fcc_reason" placeholder="必填" oninput="fcCheckClose()"></div>' +
+    '<div class="f"><span><i>★</i>請輸入廠區代號「' + facEsc(r.code) + '」確認</span><input id="fcc_code" autocomplete="off" oninput="fcCheckClose()"></div>' +
+    '</div><div class="bf"><button onclick="facCloseModal()">取消</button><button class="danger" id="fcc_ok" disabled onclick="fcDoClose()">確定撤銷</button></div></div>';
+  m.style.display = 'flex';
+}
+function fcCheckClose() {
+  const r = fcRow(fc.sel); const ok = document.getElementById('fcc_ok'); if (!r || !ok) return;
+  ok.disabled = !(document.getElementById('fcc_code').value.trim().toUpperCase() === r.code
+    && document.getElementById('fcc_reason').value.trim() && document.getElementById('fcc_date').value);
+}
+async function fcDoClose() {
+  const r = fcRow(fc.sel); if (!r || _fcBusy || !fcCanWrite()) return;
+  const date = document.getElementById('fcc_date').value, reason = document.getElementById('fcc_reason').value.trim();
+  if (document.getElementById('fcc_code').value.trim().toUpperCase() !== r.code || !reason || !date) return;
+  _fcBusy = true;
+  const okBtn = document.getElementById('fcc_ok'); if (okBtn) okBtn.disabled = true;
+  try {
+    await sbRpc('oms_factory_save', { p: { mode: 'update', code: r.code, status: 'closed', closed_on: date, close_reason: reason, reason, expected_updated_at: r.updated_at } });
+    // 已開通的系統各要一列「停用」待辦：已經有（例如撤銷→恢復→再撤銷）就改回待停用，沒有才新增（避免撞唯一鍵）
+    const opened = [...new Set(fc.rollout.filter(x => x.factory_code === r.code && x.action === 'open' && x.status === '已開通').map(x => x.system))];
+    let rollErr = '';
+    for (const sys of opened) {
+      try {
+        const ex = fc.rollout.find(x => x.factory_code === r.code && x.system === sys && x.action === 'close' && !x.event_id);
+        if (ex) {
+          const out = await sbPatchRows('oms_factory_rollout', 'id=eq.' + encodeURIComponent(ex.id), { required: '需要', status: '待停用' });
+          if (!Array.isArray(out) || !out.length) throw new Error(sys + ' 停用待辦沒有存進資料庫');
+        } else {
+          await sbInsertRows('oms_factory_rollout', [{ factory_code: r.code, system: sys, action: 'close', required: '需要', status: '待停用' }]);
+        }
+      } catch (e2) { rollErr += (rollErr ? '；' : '') + facErrMsg(e2); }
+    }
+    facCloseModal();
+    const readOk = await fcAfterWrite(r.code);
+    if (rollErr) fcMsg('已撤銷 ' + r.code + '，但「停用」待辦沒建成功：' + rollErr, 'err');
+    else fcDoneMsg('已撤銷 ' + r.code + '（已從資料庫讀回確認）', readOk, () => { const nr = fcRow(r.code); return !!nr && nr.status === 'closed'; });
+    renderFacCtrl();
+  } catch (e) {
+    facCloseModal();
+    if (e.code === 'P0409') { await fcConflictReload(); fcMsg('沒有撤銷成功：' + r.code + ' 剛被別人改過，已重新載入最新資料，請確認後再撤銷。', 'err'); }
+    else fcMsg('沒有撤銷成功：' + facErrMsg(e), 'err');
+    renderFacCtrl();
+  } finally { _fcBusy = false; }
+}
+function fcOpenReopen() {
+  const r = fcRow(fc.sel); if (!r || !fcCanWrite()) return;
+  const m = document.getElementById('facCtrlModal');
+  m.innerHTML = '<div class="box"><div class="bh">恢復廠區：' + facEsc(r.code + ' ' + r.name) + '</div><div class="bb">' +
+    '<div>恢復後狀態改成「營運中」、首頁顯示自動打開；上次的撤銷日與原因會清掉（異動紀錄裡留著）。各系統要不要重新開通，請在「各系統開通」追蹤。</div>' +
+    '<div class="f"><span><i>★</i>恢復原因</span><input id="fco_reason" placeholder="必填" oninput="document.getElementById(\'fco_ok\').disabled=!this.value.trim()"></div>' +
+    '</div><div class="bf"><button onclick="facCloseModal()">取消</button><button class="pri" id="fco_ok" disabled onclick="fcDoReopen()">確定恢復</button></div></div>';
+  m.style.display = 'flex';
+}
+async function fcDoReopen() {
+  const r = fcRow(fc.sel); if (!r || _fcBusy || !fcCanWrite()) return;
+  const reason = document.getElementById('fco_reason').value.trim(); if (!reason) return;
+  _fcBusy = true;
+  try {
+    await sbRpc('oms_factory_save', { p: { mode: 'update', code: r.code, status: 'active', reason, expected_updated_at: r.updated_at } });
+    facCloseModal();
+    const readOk = await fcAfterWrite(r.code);
+    fcDoneMsg('已恢復 ' + r.code + '（已從資料庫讀回確認）', readOk, () => { const nr = fcRow(r.code); return !!nr && nr.status === 'active'; });
+    renderFacCtrl();
+  } catch (e) {
+    facCloseModal();
+    if (e.code === 'P0409') { await fcConflictReload(); fcMsg('沒有恢復成功：' + r.code + ' 剛被別人改過，已重新載入最新資料，請確認後再恢復。', 'err'); }
+    else fcMsg('沒有恢復成功：' + facErrMsg(e), 'err');
+    renderFacCtrl();
+  } finally { _fcBusy = false; }
+}
+
 </script>
 </body>
 </html>
