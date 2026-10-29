@@ -5777,7 +5777,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V315-1';
+const APP_VER = 'V315-2';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -5828,17 +5828,55 @@ async function sbAuthSignIn(email, password) {
   _lastLoginPwd = (j.user && j.user.user_metadata && j.user.user_metadata.must_change) ? password : '';   // v314
   return j;
 }
-async function sbAuthRefresh() {
-  if (!_omsRefresh) return false;
+// v315-2：續期同一時間只送一次（同時好幾個讀取被退回時共用這一次；續期碼用過就換新，重複送會被拒）
+//   _omsAuthDead＝續期被資料庫拒絕（續期碼失效）→ 要重新輸入密碼；網路斷線不算，之後再試
+let _omsRefreshing = null, _omsAuthDead = false;
+function sbAuthRefresh() {
+  if (!_omsRefresh) return Promise.resolve(false);
+  if (_omsRefreshing) return _omsRefreshing;
+  _omsRefreshing = (async () => {
+    try {
+      const res = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: _omsRefresh }),
+      });
+      if (!res.ok) { if (res.status === 400 || res.status === 401 || res.status === 403) _omsAuthDead = true; return false; }
+      saveAuthSession(await res.json());
+      _omsAuthDead = false;
+      return true;
+    } catch (e) { return false; }   // 網路斷線：不登出，等下次再試
+  })();
+  _omsRefreshing.finally(() => { _omsRefreshing = null; scheduleTokenRefresh(); });
+  return _omsRefreshing;
+}
+// 登入憑證幾點到期（毫秒）；讀不出來回 0
+function jwtExpMs(t) {
   try {
-    const res = await fetch(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: _omsRefresh }),
-    });
-    if (!res.ok) return false;
-    saveAuthSession(await res.json());
-    return true;
-  } catch (e) { return false; }
+    const p = JSON.parse(atob(String(t).split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return p && p.exp ? p.exp * 1000 : 0;
+  } catch (e) { return 0; }
+}
+const TOKEN_EARLY_MS = 5 * 60 * 1000;   // 到期前 5 分鐘續
+// 快到期（或已過期）就續；回傳 true＝目前有可用的憑證
+async function ensureFreshToken(silent) {
+  if (!_omsJWT) return false;
+  const exp = jwtExpMs(_omsJWT);
+  if (exp && exp - Date.now() > TOKEN_EARLY_MS) return true;
+  const ok = await sbAuthRefresh();
+  if (!ok && _omsAuthDead) omsSessionExpired(silent);
+  return ok;
+}
+// 續期被拒＝這次登入已失效：清掉憑證、回大廳；使用者再點 OMS 會跳出輸入密碼（沿用 v264 的流程）
+//   silent＝開頁當下（畫面還沒載好）：只清憑證，提示等畫面載完再跳
+function omsSessionExpired(silent) {
+  if (!_omsJWT && !_omsRefresh) return;
+  clearAuthSession();
+  _omsAuthDead = false;
+  if (_omsRefreshTimer) { clearTimeout(_omsRefreshTimer); _omsRefreshTimer = null; }
+  if (silent) return;
+  const hub = document.getElementById('syncHubPage');
+  if (hub && !hub.classList.contains('show') && typeof goBackToSyncHub === 'function') goBackToSyncHub();   // 在 OMS 裡面 → 回大廳（大廳蓋在 OMS 畫面上面）
+  if (typeof showSyncHubToast === 'function') showSyncHubToast('登入已過期，請再點一次 OMS、重新輸入密碼', 8000);
 }
 async function sbAuthUpdatePassword(newPwd) {
   const res = await fetch(SB_URL + '/auth/v1/user', {
@@ -5851,13 +5889,42 @@ async function sbAuthUpdatePassword(newPwd) {
 }
 function omsMustChange() { return !!(_omsAuthUser && _omsAuthUser.user_metadata && _omsAuthUser.user_metadata.must_change); }
 let _omsRefreshTimer = null;
-function startTokenAutoRefresh() {
-  if (_omsRefreshTimer) clearInterval(_omsRefreshTimer);
-  _omsRefreshTimer = setInterval(() => { if (_omsJWT) sbAuthRefresh(); }, 45 * 60 * 1000);
+// v315-2：原本固定每 45 分鐘、從打開頁面起算，重新整理就重算＝可能永遠續不到。改成照憑證到期時間排。
+function scheduleTokenRefresh() {
+  if (_omsRefreshTimer) { clearTimeout(_omsRefreshTimer); _omsRefreshTimer = null; }
+  if (!_omsJWT || !_omsRefresh) return;
+  const exp = jwtExpMs(_omsJWT);
+  const wait = exp ? Math.max(10 * 1000, exp - Date.now() - TOKEN_EARLY_MS) : 10 * 60 * 1000;
+  _omsRefreshTimer = setTimeout(() => { _omsRefreshTimer = null; ensureFreshToken(); }, wait);
+}
+function startTokenAutoRefresh() { scheduleTokenRefresh(); }
+// 電腦睡醒、切回這個分頁、網路恢復：計時器可能停過，馬上檢查一次
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') ensureFreshToken(); });
+window.addEventListener('focus', () => { ensureFreshToken(); });
+window.addEventListener('online', () => { ensureFreshToken(); });
+
+// v315-2：所有帶登入憑證連資料庫的地方都走這支：被退回 401（憑證過期）→ 續期後用新憑證重試一次
+async function sbFetch(url, opts) {
+  opts = opts || {};
+  const h0 = opts.headers || {};
+  const sentJWT = (h0['Authorization'] && _omsJWT && h0['Authorization'] === 'Bearer ' + _omsJWT) ? _omsJWT : null;
+  let res = await fetch(url, opts);
+  if (res.status !== 401 || !sentJWT || !_omsRefresh) return res;
+  // 401 但跟憑證無關（例如權限不足）就照原樣回；判斷＝憑證快到期，或資料庫回的訊息提到 JWT
+  const nearExp = (jwtExpMs(sentJWT) - Date.now()) < 60 * 1000;
+  let saysJwt = false; try { saysJwt = /jwt/i.test(await res.clone().text()); } catch (e) {}
+  if (!nearExp && !saysJwt) return res;
+  const ok =(_omsJWT && _omsJWT !== sentJWT) ? true : await sbAuthRefresh();   // 別的讀取已經續好了就直接用
+  if (ok && _omsJWT) {
+    const h = Object.assign({}, h0, { 'Authorization': 'Bearer ' + _omsJWT });
+    return fetch(url, Object.assign({}, opts, { headers: h }));
+  }
+  if (_omsAuthDead) omsSessionExpired();
+  return res;
 }
 
 async function sbSelect(table, qs) {
-  const res = await fetch(SB_URL + '/rest/v1/' + table + '?' + (qs||''), { headers: sbHdr() });
+  const res = await sbFetch(SB_URL + '/rest/v1/' + table + '?' + (qs||''), { headers: sbHdr() });
   if (!res.ok) throw new Error('sbSelect ' + table + ': ' + await res.text());
   return res.json();
 }
@@ -5884,7 +5951,7 @@ async function sbSelectAll(table, qs, maxRows) {
 }
 async function sbUpsert(table, data, conflict) {
   const url = SB_URL + '/rest/v1/' + table + (conflict ? '?on_conflict=' + conflict : '');
-  const res = await fetch(url, {
+  const res = await sbFetch(url, {
     method: 'POST',
     headers: sbHdr({ 'Prefer': 'resolution=merge-duplicates,return=minimal' }),
     body: JSON.stringify(data),
@@ -5892,7 +5959,7 @@ async function sbUpsert(table, data, conflict) {
   if (!res.ok) throw new Error('sbUpsert ' + table + ': ' + await res.text());
 }
 async function sbDelete(table, filter) {
-  const res = await fetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
+  const res = await sbFetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
     method: 'DELETE', headers: sbHdr(),
   });
   if (!res.ok) throw new Error('sbDelete ' + table + ': ' + await res.text());
@@ -8445,7 +8512,7 @@ async function loadHubVideoMgmtRows() {
 }
 // 改一列、要資料庫回傳改完的那列（被列級保護擋下時會回空陣列＝沒有改到，不能當成功）
 async function sbPatchRows(table, filter, data) {
-  const res = await fetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
+  const res = await sbFetch(SB_URL + '/rest/v1/' + table + '?' + filter, {
     method: 'PATCH', headers: sbHdr({ 'Prefer': 'return=representation' }), body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error('sbPatchRows ' + table + ': ' + await res.text());
@@ -8670,11 +8737,11 @@ function syncHubLogout() {
   showSyncHub();
 }
 
-function showSyncHubToast(msg) {
+function showSyncHubToast(msg, ms) {
   const el = document.getElementById('syncHubToast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
+  setTimeout(() => el.classList.remove('show'), ms || 3000);
 }
 
 // v266：完整 employees（含敏感欄）只在進 OMS（已過 Auth、有 JWT）後載入；
@@ -9091,7 +9158,7 @@ function clearUserFilter() {
   renderUsersTable();
 }
 async function sbCallAdminFn(action, payload) {
-  const res = await fetch(SB_URL + '/functions/v1/synchub-admin-users', {
+  const res = await sbFetch(SB_URL + '/functions/v1/synchub-admin-users', {
     method: 'POST',
     headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + (_omsJWT || SB_KEY), 'Content-Type': 'application/json' },
     body: JSON.stringify(Object.assign({ action }, payload || {})),
@@ -9728,10 +9795,13 @@ function viewEmpLog(code, empId, empName) {
 }
 
 // --- 初始化（v230: 先連 Supabase，再呼叫 initAuth）---
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
   loadAuthSession();                              // v264：還原本分頁的 Auth JWT
-  if (_omsJWT) startTokenAutoRefresh();
-  appInit();
+  // v315-2：重新整理後憑證可能已過期或快過期 → 先續期再載資料（網路斷線就照舊往下，不擋畫面）
+  let expired = false;
+  if (_omsJWT) { try { await ensureFreshToken(true); } catch (e) {} expired = !_omsJWT; scheduleTokenRefresh(); }
+  await appInit();
+  if (expired) showSyncHubToast('登入已過期，請再點一次 OMS、重新輸入密碼', 8000);   // 續期被拒：畫面載完再提示
 });
 
 
@@ -13726,7 +13796,7 @@ function facErrMsg(e) {
 }
 // 呼叫資料庫函式（錯誤訊息取資料庫回的中文 message）
 async function sbRpc(fn, args) {
-  const res = await fetch(SB_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: sbHdr(), body: JSON.stringify(args || {}) });
+  const res = await sbFetch(SB_URL + '/rest/v1/rpc/' + fn, { method: 'POST', headers: sbHdr(), body: JSON.stringify(args || {}) });
   const txt = await res.text();
   let j = null; try { j = txt ? JSON.parse(txt) : null; } catch (e) {}
   if (!res.ok) {
@@ -13737,7 +13807,7 @@ async function sbRpc(fn, args) {
   return j;
 }
 async function sbInsertRows(table, rows) {
-  const res = await fetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: sbHdr({ 'Prefer': 'return=representation' }), body: JSON.stringify(rows) });
+  const res = await sbFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: sbHdr({ 'Prefer': 'return=representation' }), body: JSON.stringify(rows) });
   const txt = await res.text();
   if (!res.ok) {
     let j = null; try { j = JSON.parse(txt); } catch (e) {}
