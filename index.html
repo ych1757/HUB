@@ -4652,6 +4652,7 @@
   /* ===== v315：首頁事業群代號、調整順序、廠區主檔讀不到提示 ===== */
   .bu-code-chip { display: inline-block; font-family: 'Inter', 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; letter-spacing: .5px; padding: 1px 5px; border-radius: 5px; margin-right: 6px; color: #fff; flex-shrink: 0; }
   .fac-plan-tag { display: inline-block; font-size: 9px; padding: 0 5px; border-radius: 9px; margin-left: 5px; border: 1px solid #D97706; color: #B45309; background: #FFF7ED; vertical-align: 1px; white-space: nowrap; }
+  .fac-office-tag { border-color: #0E7490; color: #0E7490; background: #ECFEFF; }   /* v316：辦事處 */
   .fac-ud { display: inline-flex; gap: 2px; margin-left: auto; padding-left: 6px; }
   .fac-ud button { width: 18px; height: 18px; line-height: 15px; padding: 0; text-align: center; border: 1px solid var(--line-soft); border-radius: 4px; font-size: 9px; color: var(--navy); background: #fff; cursor: pointer; }
   .fac-ud button:disabled { opacity: .3; cursor: default; }
@@ -5777,7 +5778,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V315-2';
+const APP_VER = 'V316';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6344,7 +6345,7 @@ async function appInit() {
 
 const FACTORIES_DEFAULT = [
     { code: "SY", name: "台北總公司",       group: "信錦台北",       region: "TW", color: "#F06260", address: "新北市中和區建康路168號9F",          x: 1509, y: 324 },
-    { code: "SH", name: "信鋐",             group: "信鋐科技",       region: "TW", color: "#C44052", address: "桃園市龜山區山鶯路348號",           x: 1507, y: 326 },
+    { code: "SH", name: "信鋐科技",         group: "信鋐科技",       region: "TW", color: "#C44052", address: "桃園市龜山區山鶯路348號",           x: 1507, y: 326 },
     { code: "GT", name: "敬得(觀音)",       group: "敬得科技",       region: "TW", address: "桃園市觀音工業區大同一路1-1號",     x: 1505, y: 328 },
     { code: "LH", name: "陸合(台中)",       group: "陸合企業",       region: "TW", address: "台中市南屯區寶山里工業34路14號",    x: 1503, y: 332 },
     { code: "TC", name: "敬得(太倉)",       group: "敬得科技",       region: "CN", address: "江蘇省太倉市城廂鎮弇山西路130號", x: 1508, y: 290 },
@@ -6365,7 +6366,7 @@ const FACTORIES_DEFAULT = [
 const OMS_FACTORIES_KEY = 'oms_factories';            // v315 起不用（舊版存在這台電腦的廠區清單，啟動時刪掉，免得蓋回資料庫）
 const OMS_FAC_CACHE_KEY = 'oms_factories_db_v1';      // v315：上次從資料庫讀到的廠區（只在讀不到資料庫時唯讀顯示）
 // 沒登入也讀得到的欄位（OMS_316 對公開金鑰只開放這些；不含修改人、撤銷原因、備註）
-const FAC_COLS = 'code,name,bu,country,address,active,full_name_zh,name_en,address_local,address_en,lat,lng,map_x,map_y,country_code,status,show_on_home,effective_from,closed_on,sort_order,color';
+const FAC_COLS = 'code,name,bu,country,address,active,full_name_zh,name_en,address_local,address_en,lat,lng,map_x,map_y,country_code,status,show_on_home,effective_from,closed_on,sort_order,color,site_type';   // v316：site_type＝據點類型（OMS_317）
 let FACTORIES_SOURCE = 'default';   // 'db'＝資料庫／'cache'＝這台電腦上次讀到的（唯讀）／'default'＝程式內建舊清單（唯讀）
 let OMS_BUS = [];                   // 事業群（代號、名稱、顏色、順序），來源 oms_business_units
 
@@ -6379,7 +6380,7 @@ function facFromRow(r) {
   return { code: r.code, name: r.name, group: r.bu || '', region, country: r.country || '', color: r.color || undefined,
            address: r.address || '', x: x == null ? null : x, y: y == null ? null : y, status,
            showOnHome: status !== 'closed' && r.show_on_home !== false, sort: r.sort_order == null ? 100 : r.sort_order,
-           disabled: status === 'closed' };
+           disabled: status === 'closed', siteType: r.site_type === 'office' ? 'office' : 'factory' };   // v316：沒有這欄（舊暫存）＝工廠
 }
 
 function loadFactories() {
@@ -9638,7 +9639,7 @@ const EDIT_FIELDS = [
   { key: 'account',   label: '會計科目', type: 'text' },
   { key: 'education', label: '學歷',     type: 'text' },
   { key: 'leaveDate', label: '離職日',   type: 'date' },
-  { key: 'postingFactory', label: '派駐廠區', type: 'select', options: ['','SY - 台北總公司','SF - 蘇州富鴻齊','FF - 福州富鴻齊','JS - 中山富鴻齊','CF - 重慶富鴻齊','TH - Syncmold Thailand','VN - Syncmold Vietnam','GH - 福建冠華','FQ - 福清富群','KS - 昆山鴻嘉駿','KH - 東莞冠皇(小五金)','KH - 東莞冠皇(沖壓)','GT - 敬得(觀音)','TC - 敬得(太倉)','LH - 陸合(台中)','LS - 陸合(蘇州)','LT - 陸合(泰國)','SH - 信鋐'] },
+  { key: 'postingFactory', label: '派駐廠區', type: 'select', options: ['','SY - 台北總公司','SF - 蘇州富鴻齊','FF - 福州富鴻齊','JS - 中山富鴻齊','CF - 重慶富鴻齊','TH - Syncmold Thailand','VN - Syncmold Vietnam','GH - 福建冠華','FQ - 福清富群','KS - 昆山鴻嘉駿','KH - 東莞冠皇(小五金)','KH - 東莞冠皇(沖壓)','GT - 敬得(觀音)','TC - 敬得(太倉)','LH - 陸合(台中)','LS - 陸合(蘇州)','LT - 陸合(泰國)','SH - 信鋐科技'] },
   { key: 'remark',    label: '備註',     type: 'text',   full: true },
 ];
 
@@ -13866,7 +13867,7 @@ function renderBuPanel() {
 
   // 統計：依實際顯示的廠自動算（v315 起不再寫死 17／4／6）
   const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  setTxt('statFacN', shown.length);
+  setTxt('statFacN', shown.filter(f => f.siteType !== 'office').length);   // v316：「N 廠」只算工廠，辦事處不算
   setTxt('statCountryN', new Set(shown.map(f => f.region).filter(Boolean)).size);
   setTxt('statBuN', new Set(shown.map(f => f.group).filter(Boolean)).size);
   // 在職總數：跟舊版一樣算所有沒撤銷的廠（首頁沒顯示的廠也算）
@@ -13902,7 +13903,7 @@ function renderBuPanel() {
       '</div>' +
       (grpActive > 0 ? '<span class="bu-factory-cnt" style="color:' + color + ';background:' + color + '18;">' + grpActive + '</span>'
                      : '<span class="bu-factory-cnt" style="color:transparent;">0</span>') +
-      '<span class="bu-count-badge" style="text-align:center;">' + fList.length + ' 廠</span>' +
+      '<span class="bu-count-badge" style="text-align:center;">' + fList.filter(f => f.siteType !== 'office').length + ' 廠</span>' +   // v316：辦事處不算「廠」
       '<span></span>';
     grpDiv.appendChild(hdr);
 
@@ -13929,7 +13930,7 @@ function renderBuPanel() {
       }
       row.innerHTML =
         '<span class="bu-factory-code">' + facEsc(f.code) + '</span>' +
-        '<span class="bu-factory-name">' + facEsc(f.name) + (f.status === 'planning' ? '<span class="fac-plan-tag">籌備中</span>' : f.status === 'closing' ? '<span class="fac-plan-tag">撤銷中</span>' : '') + '</span>' +
+        '<span class="bu-factory-name">' + facEsc(f.name) + (f.siteType === 'office' ? '<span class="fac-plan-tag fac-office-tag">辦事處</span>' : '') + (f.status === 'planning' ? '<span class="fac-plan-tag">籌備中</span>' : f.status === 'closing' ? '<span class="fac-plan-tag">撤銷中</span>' : '') + '</span>' +
         cntBadge +
         (facSortMode
           ? '<span class="fac-ud-row">' + tail + '</span>'   // 調整順序中：▲▼ 佔國別＋箭頭兩欄
@@ -14069,16 +14070,17 @@ function updateFacSourceBanner() {
 // ============================================================
 const FC_SYS = ['GHG', 'QMS', 'MHR', 'PMP'];
 const FC_STATUS = { planning: '籌備中', active: '營運中', closing: '撤銷中', closed: '已撤銷' };
+const FC_SITE = { factory: '工廠', office: '辦事處' };   // v316：據點類型（OMS_317 site_type）
 const FC_COUNTRY = { TW: '台灣', CN: '中國', VN: '越南', TH: '泰國', MY: '馬來西亞', SG: '新加坡', US: '美國' };
 const FC_ACTION = { create: '新增', update: '修改', close: '撤銷', reopen: '恢復' };
 const FC_RACTION = { open: '開通', close: '停用', rename: '改名同步', other: '其他' };
-const FC_FIELD = { name: '顯示名稱', full_name_zh: '公司全名', name_en: '英文名', bu: '事業群', country_code: '國家代碼', country: '國家', address: '地址（中）',
+const FC_FIELD = { site_type: '據點類型', name: '顯示名稱', full_name_zh: '公司全名', name_en: '英文名', bu: '事業群', country_code: '國家代碼', country: '國家', address: '地址（中）',
   address_local: '地址（當地語）', address_en: '地址（英）', lat: '緯度', lng: '經度', map_x: '地圖位置 x', map_y: '地圖位置 y', status: '狀態',
   show_on_home: '首頁顯示', effective_from: '生效日', closed_on: '撤銷日', close_reason: '撤銷原因', sort_order: '順序', color: '代表色', note: '備註', active: '啟用' };
 // 控制頁表單欄位（key, 標籤, 種類）
 const FC_FORM = [
   ['name', '顯示名稱', 'text', true], ['full_name_zh', '公司全名', 'text', false, 'w2'], ['name_en', '英文名', 'text', false, 'w2'],
-  ['bu', '事業群', 'bu', true], ['country_code', '國家', 'country', true],
+  ['bu', '事業群', 'bu', true], ['country_code', '國家', 'country', true], ['site_type', '據點類型', 'sitetype', true],
   ['address', '地址（中）', 'textarea', false, 'w2'], ['address_local', '地址（當地語）', 'textarea', false, 'w2'], ['address_en', '地址（英）', 'textarea', false, 'w2'],
   ['lat', '緯度', 'num', false], ['lng', '經度', 'num', false], ['map_x', '地圖位置 x（空白＝依經緯度自動算）', 'int', false], ['map_y', '地圖位置 y', 'int', false],
   ['status', '狀態', 'status', true], ['show_on_home', '首頁顯示', 'bool', false], ['effective_from', '生效日（開始營運）', 'date', false],
@@ -14089,6 +14091,11 @@ let fc = { rows: [], rollout: [], access: null, sel: null, isNew: false, tab: 'b
            filters: { bu: '', country: '', status: '', showClosed: false }, msg: null, events: {}, busy: false, loadErr: '' };
 
 function fcRow(code) { return fc.rows.find(r => r.code === code) || null; }
+// v316：「N 廠」／「N 廠、N 辦事處」
+function fcCountText(list) {
+  const off = list.filter(r => r.site_type === 'office').length;
+  return (list.length - off) + ' 廠' + (off ? '、' + off + ' 辦事處' : '');
+}
 function fcCanWrite() { return !fc.loadErr && fc.rows.length > 0 && !!(currentUser && currentUser.role === 'admin'); }
 function fcMsg(text, kind) { fc.msg = text ? { text, kind: kind || 'info' } : null; }
 function fcFmtTime(s) {
@@ -14102,6 +14109,7 @@ function fcWho(s) { return s ? String(s).split('@')[0] : ''; }
 function fcShow(k, val) {
   if (val === null || val === undefined || val === '') return '（空）';
   if (k === 'status') return FC_STATUS[val] || val;
+  if (k === 'site_type') return FC_SITE[val] || val;
   if (k === 'show_on_home' || k === 'active') return (val === true || val === 'true') ? '是' : '否';
   if (k === 'country_code') return (FC_COUNTRY[val] ? val + ' ' + FC_COUNTRY[val] : val);
   return String(val);
@@ -14223,11 +14231,11 @@ function renderFacCtrl(opts) {
     if (!list.length) return;
     const m = metas.find(b => b.name === g) || {};
     rowsHtml += '<tr class="grp"><td colspan="9">' + (m.code ? '<span class="bu-code-chip" style="background:' + (m.color || '#64748B') + '">' + facEsc(m.code) + '</span>' : '') +
-      facEsc(g) + '　<span style="font-weight:400;color:var(--text-soft)">' + list.length + ' 廠</span></td></tr>';
+      facEsc(g) + '　<span style="font-weight:400;color:var(--text-soft)">' + fcCountText(list) + '</span></td></tr>';
     list.forEach(r => {
       const sel = !fc.isNew && fc.sel === r.code;
       rowsHtml += '<tr class="row' + (sel ? ' sel' : '') + (r.status === 'closed' ? ' closed' : '') + '" onclick="fcSelect(\'' + facEsc(r.code) + '\')">' +
-        '<td><span class="fc-code">' + facEsc(r.code) + '</span></td><td>' + facEsc(r.name) + '</td>' +
+        '<td><span class="fc-code">' + facEsc(r.code) + '</span></td><td>' + facEsc(r.name) + (r.site_type === 'office' ? '<span class="fac-plan-tag fac-office-tag">辦事處</span>' : '') + '</td>' +
         '<td>' + facEsc(FC_COUNTRY[r.country_code] || r.country || '') + '</td>' +
         '<td><span class="fc-st ' + facEsc(r.status) + '">' + facEsc(FC_STATUS[r.status] || r.status) + '</span></td>' +
         '<td>' + facEsc(r.effective_from || '—') + '</td>' +
@@ -14259,7 +14267,7 @@ function renderFacCtrl(opts) {
             .map(s => '<option value="' + s + '"' + (f.status === s ? ' selected' : '') + '>' + FC_STATUS[s] + '</option>').join('') + '</select>' +
           ' <label style="font-size:12px;white-space:nowrap"><input type="checkbox"' + (f.showClosed ? ' checked' : '') + ' onchange="fcSetFilter(\'showClosed\',this.checked)"> 顯示已撤銷</label>' +
           ' <button class="clr" onclick="fcClearFilter()">✕ 清除</button>' +
-          '<span class="cnt">共 ' + fc.rows.length + ' 廠（營運中 ' + cnt('active') + '、籌備中 ' + cnt('planning') + '、撤銷中 ' + cnt('closing') + '、已撤銷 ' + cnt('closed') + '）</span></div>' +
+          '<span class="cnt">共 ' + fcCountText(fc.rows) + '（營運中 ' + cnt('active') + '、籌備中 ' + cnt('planning') + '、撤銷中 ' + cnt('closing') + '、已撤銷 ' + cnt('closed') + '）</span></div>' +
         '<div class="fc-scroll"><table class="fc-table"><thead><tr><th>代號</th><th>顯示名稱</th><th>國家</th><th>狀態</th><th>生效日</th><th>首頁顯示</th><th class="num">在職</th><th>各系統開通</th><th>最後異動</th></tr></thead>' +
           '<tbody>' + rowsHtml + '</tbody></table></div>' +
       '</div>' +
@@ -14306,7 +14314,7 @@ function renderFacDetail() {
     return '<div class="fc-det-hd"><h3>新增廠區</h3><span class="fc-st planning">籌備中</span></div>' + msg +
       '<div class="fc-scroll">' + fcFormHtml(null) + '</div>' +
       '<div class="fc-acts"><span class="sp"></span><button onclick="fcCancelNew()">取消</button><button class="pri" onclick="fcSave()"' + (fcCanWrite() ? '' : ' disabled') + '>新增</button></div>' +
-      '<div class="fc-note">代號建立後不能改、也不能刪（打錯請洽 DTO）。新增預設「籌備中」、不在首頁顯示；營運後再改成營運中，首頁顯示會自動打開。</div>';
+      '<div class="fc-note">代號建立後不能改、也不能刪（打錯請洽 DTO）。新增預設「籌備中」、不在首頁顯示；營運後再改成營運中，首頁顯示會自動打開（辦事處不會自動打開，要的話自己勾）。</div>';
   }
   const tabs = [['basic', '基本資料'], ['rollout', '各系統開通'], ['impact', '影響人數'], ['events', '異動紀錄']];
   let body = '', acts = '';
@@ -14351,6 +14359,10 @@ function fcFormHtml(r) {
     } else if (type === 'country') {
       inp = '<select id="fcf_country_code"><option value="">（請選）</option>' + Object.keys(FC_COUNTRY).map(c =>
         '<option value="' + c + '"' + (v('country_code') === c ? ' selected' : '') + '>' + c + ' ' + FC_COUNTRY[c] + '</option>').join('') + '</select>';
+    } else if (type === 'sitetype') {   // v316
+      const cur = (r && r.site_type) || 'factory';
+      inp = '<select id="fcf_site_type" onchange="fcStatusChanged()">' + Object.keys(FC_SITE).map(t =>
+        '<option value="' + t + '"' + (cur === t ? ' selected' : '') + '>' + FC_SITE[t] + '</option>').join('') + '</select>';
     } else if (type === 'status') {
       if (r && r.status === 'closed') inp = '<input readonly value="已撤銷（要改請按下面「恢復此廠…」）"><input type="hidden" id="fcf_status" value="closed">';
       else inp = '<select id="fcf_status" onchange="fcStatusChanged()">' + ['planning', 'active', 'closing'].map(s =>
@@ -14416,6 +14428,7 @@ function fcDirty() {
   if (fc.isNew) {
     const ch = fcChanges(null, v);
     if (ch.status === 'planning') delete ch.status;          // 預設值不算改動
+    if (ch.site_type === 'factory') delete ch.site_type;
     if (ch.show_on_home === false) delete ch.show_on_home;
     return Object.keys(ch).length > 0 || !!v.code;
   }
@@ -14424,12 +14437,15 @@ function fcDirty() {
 }
 async function fcResetForm() { fcMsg(null); await facCtrlLoad(); renderFacCtrl(); }   // 取消＝重新讀資料庫（拿到最新的修改時間）
 // 狀態下拉連動「首頁顯示」：新增時營運中／撤銷中預設勾、籌備中不勾；籌備中改營運中時勾（資料庫也會自動打開）
+// v316：據點類型也走這支——辦事處預設不勾、改營運中也不自動勾（跟資料庫 OMS_317 一致；管理員可以手動勾）
 function fcStatusChanged() {
   const st = document.getElementById('fcf_status'), cb = document.getElementById('fcf_show_on_home');
   if (!st || !cb || cb.disabled) return;
+  const ty = document.getElementById('fcf_site_type');
+  const isFac = !ty || ty.value !== 'office';
   const s = st.value, r = fc.isNew ? null : fcRow(fc.sel);
-  if (!r) cb.checked = (s === 'active' || s === 'closing');
-  else if (r.status === 'planning' && (s === 'active' || s === 'closing')) cb.checked = true;
+  if (!r) cb.checked = isFac && (s === 'active' || s === 'closing');
+  else if (r.status === 'planning' && (s === 'active' || s === 'closing') && isFac) cb.checked = true;
   else if (s === r.status) cb.checked = !!r.show_on_home;
 }
 function fcCancelNew() { if (fcDirty() && !confirm('新增的內容還沒存，確定取消？')) return; fc.isNew = false; fcMsg(null); renderFacCtrl(); }
@@ -14473,7 +14489,8 @@ async function fcSave() {
   const warn = [];
   if (r && ('name' in ch)) warn.push('改名：GHG、QMS、MHR 自己存的廠名不會自動跟著改，要請各系統同步。');
   if (r && ('bu' in ch)) warn.push('改事業群：事業群主管的範圍、QMS 跨廠查詢、MHR 事業群範圍會跟著變。');
-  if (r && (r.status === 'planning' || r.status === 'closed') && (ch.status === 'active' || ch.status === 'closing') && !('show_on_home' in ch)) warn.push('改成' + FC_STATUS[ch.status] + '：首頁顯示會自動打開。');
+  if (r && ('site_type' in ch)) warn.push('改據點類型：各系統之後會依這欄分工廠／辦事處（例如工廠用的系統只抓工廠）。');
+  if (r && (r.status === 'planning' || r.status === 'closed') && (ch.status === 'active' || ch.status === 'closing') && !('show_on_home' in ch) && (v.site_type || r.site_type || 'factory') === 'factory') warn.push('改成' + FC_STATUS[ch.status] + '：首頁顯示會自動打開。');
   if (r && ('map_x' in ch) && ch.map_x === '') warn.push('經緯度改了：地圖位置改成依新經緯度自動算。');
   const ask = (fc.isNew ? '確定新增廠區 ' + v.code + ' ' + v.name + '？\n\n' : '確定儲存 ' + r.code + ' ' + r.name + ' 的修改？\n\n') +
     lines.join('\n') + (warn.length ? '\n\n⚠ ' + warn.join('\n⚠ ') : '');
