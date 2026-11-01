@@ -5033,9 +5033,10 @@
         <div id="saFltFacMenu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:#fff;border:1px solid var(--line-soft);border-radius:6px;box-shadow:0 8px 24px rgba(10,30,80,0.12);padding:8px 12px;z-index:60;white-space:nowrap;max-height:60vh;overflow:auto;"></div>
       </div>
       <select id="saFltDept" onchange="saFilter.dept=this.value;renderSystemAccessTable();" style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></select>
-      <span id="saFltSystem" style="display:inline-flex;gap:10px;align-items:center;padding:5px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></span>
+      <!-- v317-1：姓名搜尋移到部門旁邊（跟上面「單筆加入」同一個順序：廠區、部門、姓名） -->
       <input id="saFltKeyword" type="text" placeholder="姓名 / 工號 / Email" oninput="saFilter.keyword=this.value;renderSystemAccessTable();"
         style="padding:6px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;width:180px;">
+      <span id="saFltSystem" style="display:inline-flex;gap:10px;align-items:center;padding:5px 10px;border:1px solid var(--line-soft);border-radius:5px;font-size:12px;background:#fff;"></span>
       <button onclick="saClearFilter()" style="font-size:11px;color:var(--text-soft);background:none;border:1px solid var(--line-soft);border-radius:5px;padding:6px 10px;cursor:pointer;">清除</button>
       <!-- v299：欄位顯示選擇（英文名／部門／職稱／Email 可關；存這台瀏覽器） -->
       <div style="position:relative;">
@@ -5778,7 +5779,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V316';
+const APP_VER = 'V317-2';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6426,6 +6427,25 @@ function saveFactories(list) {
 }
 
 let FACTORIES = loadFactories();
+// v317-2：廠區篩選與廠區選單一律照首頁順序（先事業群順序、同一事業群再照各廠順序；跟首頁 homeGroups 同一把尺）。
+// 管理員在首頁調整順序後，這裡跟著變；名單裡有、主檔沒有的代碼（例如 DTO）排最後、照字母。
+function facHomeRankMap() {
+  let bus = (Array.isArray(OMS_BUS) && OMS_BUS.length)
+    ? OMS_BUS.filter(b => b.active !== false).slice().sort((a, b) => (a.sort_order ?? 100) - (b.sort_order ?? 100) || String(a.code).localeCompare(String(b.code))).map(b => b.name)
+    : ['信錦台北', '信鋐科技', '組裝產品事業群', '自製零件事業群', '敬得科技', '陸合企業'];
+  bus = bus.concat([...new Set(FACTORIES.map(f => f.group).filter(g => g && bus.indexOf(g) < 0))].sort());
+  const gi = g => { const i = bus.indexOf(g); return i < 0 ? 999 : i; };
+  const m = {};
+  FACTORIES.slice().sort((a, b) => gi(a.group) - gi(b.group) || (a.sort ?? 100) - (b.sort ?? 100) || a.code.localeCompare(b.code))
+    .forEach((f, i) => { m[f.code] = i; });
+  return m;
+}
+function facSortHome(arr) {   // arr＝代號陣列或廠區物件陣列，回傳排好的新陣列
+  const m = facHomeRankMap();
+  const k = x => (typeof x === 'string' ? x : x.code);
+  const r = x => { const v = m[k(x)]; return v == null ? 1e6 : v; };
+  return arr.slice().sort((a, b) => r(a) - r(b) || String(k(a)).localeCompare(String(k(b))));
+}
 
 const FIELDS = [
   { key: "company",     label: "公司",          required: true,  type: "select",
@@ -6456,7 +6476,7 @@ const FIELDS = [
   { key: "education",   label: "學歷",          required: true,  type: "select",
     options: ["高中以下", "高中", "高職", "專科", "大學", "碩士", "博士"] },
   { key: "postingFactory", label: "派駐廠區",   required: false, type: "select",
-    options: ["", ...FACTORIES.filter(f=>!f.disabled).sort((a,b)=>a.code.localeCompare(b.code)).map(f=>`${f.code} - ${f.name}`)] },
+    options: ["", ...facSortHome(FACTORIES.filter(f=>!f.disabled)).map(f=>`${f.code} - ${f.name}`)] },
   { key: "remark",      label: "備註",          required: false, type: "text" },
 ];
 
@@ -9084,13 +9104,13 @@ function refreshAllFactoryDropdowns() {
   // 更新派駐廠區選單 options（FIELDS 陣列）
   const pf = FIELDS.find(f => f.key === 'postingFactory');
   if (pf) {
-    const active = FACTORIES.filter(f => !f.disabled).sort((a,b) => a.code.localeCompare(b.code));
+    const active = facSortHome(FACTORIES.filter(f => !f.disabled));
     pf.options = ['', ...active.map(f => `${f.code} - ${f.name}`)];
   }
   // 更新 EDIT_FIELDS 的派駐廠區
   const epf = EDIT_FIELDS.find(f => f.key === 'postingFactory');
   if (epf) {
-    const active = FACTORIES.filter(f => !f.disabled).sort((a,b) => a.code.localeCompare(b.code));
+    const active = facSortHome(FACTORIES.filter(f => !f.disabled));
     epf.options = ['', ...active.map(f => `${f.code} - ${f.name}`)];
   }
 }
@@ -9282,7 +9302,7 @@ function renderUsersTable() {
   users = users.filter(u => u.role !== 'no_oms');
 
   // v282：填充篩選下拉（用全量 users，避免被篩選後縮小）
-  const _facs = [...new Set(users.map(u => u._factory).filter(x => x && x !== '—'))].sort();
+  const _facs = facSortHome([...new Set(users.map(u => u._factory).filter(x => x && x !== '—'))]);
   const _ffEl = document.getElementById('uFltFactory');
   if (_ffEl) { _ffEl.innerHTML = '<option value="">全部廠區</option>' + _facs.map(c => `<option value="${c}">${c}</option>`).join(''); _ffEl.value = userFilter.factory; }
   const _roles = [...new Set(users.map(u => u.role))];
@@ -9351,7 +9371,7 @@ function renderUsersTable() {
   const sel = document.getElementById('uFactory');
   if (sel) {
     const existingOpts = Array.from(sel.options).map(o => o.value);
-    FACTORIES.forEach(f => {
+    facSortHome(FACTORIES).forEach(f => {
       if (!existingOpts.includes(f.code)) {
         const opt = document.createElement('option');
         opt.value = f.code;
@@ -9450,7 +9470,7 @@ function openAddUserModal() {
   const sel = document.getElementById('uFactory');
   if (sel) {
     sel.innerHTML = '<option value="ALL">全部廠區</option>';
-    FACTORIES.forEach(f => {
+    facSortHome(FACTORIES).forEach(f => {
       const opt = document.createElement('option');
       opt.value = f.code;
       opt.textContent = f.code + ' · ' + f.name;
@@ -9476,7 +9496,7 @@ function openEditUserModal(index) {
   const sel = document.getElementById('uFactory');
   if (sel) {
     sel.innerHTML = '<option value="ALL">全部廠區</option>';
-    FACTORIES.forEach(f => {
+    facSortHome(FACTORIES).forEach(f => {
       const opt = document.createElement('option');
       opt.value = f.code;
       opt.textContent = f.code + ' · ' + f.name;
@@ -9560,7 +9580,7 @@ function buildFactoryCheckboxes(keep) {
   const container = document.getElementById('uFactoryCheckboxes');
   if (!container) return;
   const keepArr = Array.isArray(keep) ? keep : [];
-  const active = FACTORIES.filter(f => !f.disabled || keepArr.indexOf(f.code) >= 0).sort((a,b) => a.code.localeCompare(b.code));   // v315：已撤銷的只在原本有勾時列出
+  const active = facSortHome(FACTORIES.filter(f => !f.disabled || keepArr.indexOf(f.code) >= 0));   // v315：已撤銷的只在原本有勾時列出
   container.innerHTML = active.map(f => `
     <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer;white-space:nowrap;padding:2px 0;">
       <input type="checkbox" value="${f.code}" onchange="onFactoryCheckChange()" style="width:16px;height:16px;flex-shrink:0;cursor:pointer;">
@@ -9891,6 +9911,7 @@ const SYNCHUB_SYSTEMS = [
   { code: 'CFS', name: '客戶回饋系統' },
   { code: 'SOP', name: '標準作業程序系統' },   // v290：比照 PMP/CFS 先列授權欄，系統上線前可先開通人員
   { code: 'CAPA', name: '矯正預防措施系統' },  // v290：同上
+  { code: 'EAM', name: '企業資產管理系統' },  // v317：EAM 授權欄（EAM 登入查 systems 含 "EAM"，大寫）
 ];
 
 let systemAccessRows = [];  // 記憶體快取：[{factory_code, emp_id, name, eng_name, dept, title, email, systems:[]}]
@@ -10496,7 +10517,7 @@ function saBuildFacMenu(facs) {
     btn.title = sel.length ? '已選廠區：' + sel.join('、') : '可以勾選多個廠區';
   }
   const m = document.getElementById('saFltFacMenu'); if (!m) return;
-  if (!facs) facs = [...new Set(systemAccessRows.map(r => r.factory_code).filter(Boolean))].sort();
+  if (!facs) facs = facSortHome([...new Set(systemAccessRows.map(r => r.factory_code).filter(Boolean))]);
   const half = Math.max(1, Math.ceil(facs.length / 2));   // 分兩欄、先排滿左欄再排右欄
   m.innerHTML =
     '<div style="display:flex;align-items:center;gap:14px;font-size:10px;color:var(--text-soft);letter-spacing:1px;margin-bottom:6px;">' +
@@ -10550,7 +10571,7 @@ function saClearFilter() {
 
 function saPopulateFilterDropdowns() {
   // 下方篩選＝查「已授權名單」，所以只列名單中出現過的廠區/部門
-  const facs = [...new Set(systemAccessRows.map(r => r.factory_code).filter(Boolean))].sort();
+  const facs = facSortHome([...new Set(systemAccessRows.map(r => r.factory_code).filter(Boolean))]);
   // v307：廠區改成可複選。名單上已經沒有人的廠區，從已勾選裡自動拿掉
   saFilter.factories = saFilter.factories.filter(f => facs.includes(f));
   saBuildFacMenu(facs);
@@ -10573,7 +10594,7 @@ function openSaBatch() {
   saBatchSelected = new Set();
   const kwEl = document.getElementById('saBatchKeyword'); if (kwEl) kwEl.value = '';
   const facSel = document.getElementById('saBatchFactory');
-  const facs = Object.keys(employees).sort();
+  const facs = facSortHome(Object.keys(employees));
   const facLabel = c => { const f = (typeof FACTORIES !== 'undefined' ? FACTORIES : []).find(x => x.code === c); return f ? c + ' - ' + f.name : c; };
   facSel.innerHTML = facs.map(c => `<option value="${c}">${saEscapeCell(facLabel(c))}</option>`).join('');
   document.getElementById('saBatchSystems').innerHTML = SYNCHUB_SYSTEMS.map(s =>
@@ -10704,7 +10725,7 @@ function saAddScopeChange() {
 function saPopulateAddScope() {
   const facEl = document.getElementById('saAddFactory');
   if (!facEl) return;
-  const facs = Object.keys(employees).sort();
+  const facs = facSortHome(Object.keys(employees));
   facEl.innerHTML = '<option value="">全部廠區</option>' + facs.map(f => `<option value="${f}">${f}</option>`).join('');
   facEl.value = '';
   const deptEl = document.getElementById('saAddDept');
@@ -11285,7 +11306,7 @@ function openLogPage() {
   // 初始化篩選選單
   const factorySel = document.getElementById('logFilterFactory');
   factorySel.innerHTML = '<option value="">全部廠區</option>';
-  FACTORIES.forEach(f => {
+  facSortHome(FACTORIES).forEach(f => {
     const opt = document.createElement('option');
     opt.value = f.code;
     opt.textContent = f.code + ' · ' + f.name;
@@ -12251,10 +12272,10 @@ function renderDashFilterBar() {
   if (!bar) return;
   const R = dvRole();
   if (dashView === 'compare' || !(R.fullVision || R.isBu || R.isLimited)) { bar.innerHTML = ''; return; }
-  const perm = dvPermFactories().slice().sort((a, b) => a.code.localeCompare(b.code));
+  const perm = facSortHome(dvPermFactories());
   let html = '';
   if (R.fullVision) {
-    const bus = [...new Set(FACTORIES.map(f => f.group).filter(Boolean))];
+    const bus = [...new Set(facSortHome(FACTORIES).map(f => f.group).filter(Boolean))];
     html += `<select class="dv3-sel" onchange="changeDashBu(this.value)" title="事業群"><option value="">全集團</option>${bus.map(b => `<option value="${dvEsc(b)}"${b === dashFilterBu ? ' selected' : ''}>${dvEsc(b)}</option>`).join('')}</select>`;
   } else if (R.isBu) {
     const bus = getUserBuList(currentUser);
@@ -12616,7 +12637,7 @@ function dvRenderCompare() {
   const selF = dashCmpSel.map(c => avail.find(f => f.code === c)).filter(Boolean);
   const rows = selF.map(f => ({ f, s: dvStats(dvActive([f])) }));
   const G = dvStats(dvActive(dvPermFactories())), avgL = dvAvgLabel();
-  const remaining = avail.filter(f => !dashCmpSel.includes(f.code)).sort((a, b) => a.code.localeCompare(b.code));
+  const remaining = facSortHome(avail.filter(f => !dashCmpSel.includes(f.code)));
   // 快速帶入：各事業群（可比較的廠 ≥2）＋人數最多的 8 個
   const buCnt = {};
   avail.forEach(f => { if (f.group) buCnt[f.group] = (buCnt[f.group] || 0) + 1; });
@@ -14406,7 +14427,7 @@ function fcFormValues() {
 function fcNorm(k, val) {
   if (val === null || val === undefined || val === '') return '';
   if (k === 'show_on_home') return !!val;
-  if (k === 'lat' || k === 'lng') return Number(val);
+  if (k === 'lat' || k === 'lng') return Number(Number(val).toFixed(8));   // v317：資料庫只存 8 位小數，比對先四捨五入
   if (k === 'map_x' || k === 'map_y' || k === 'sort_order') return Math.round(Number(val));
   return String(val).trim();
 }
@@ -14508,7 +14529,7 @@ async function fcSave() {
     let rollErr = '';
     if (wasNew) {
       try {
-        await sbInsertRows('oms_factory_rollout', FC_SYS.map(s => ({ factory_code: p.code, system: s, action: 'open', required: s === 'GHG' ? '需要' : '待決定' })));
+        await sbInsertRows('oms_factory_rollout', FC_SYS.map(s => ({ factory_code: p.code, system: s, action: 'open', required: '待決定' })));
       } catch (e2) { console.warn('[v315] 建開通清單失敗', e2); rollErr = facErrMsg(e2); }
     }
     const readOk = await fcAfterWrite(p.code);
@@ -14565,7 +14586,7 @@ function fcRolloutHtml(r) {
     });
     h += '</tbody></table>';
   }
-  h += '<div style="display:flex;gap:6px;align-items:center;margin-top:12px;font-size:11.5px">加一列：<select id="fcr_new_sys">' + FC_SYS.concat(['CFS', 'SOP', 'CAPA']).map(s => '<option>' + s + '</option>').join('') + '</select>' +
+  h += '<div style="display:flex;gap:6px;align-items:center;margin-top:12px;font-size:11.5px">加一列：<select id="fcr_new_sys">' + FC_SYS.concat(['CFS', 'SOP', 'CAPA', 'EAM']).map(s => '<option>' + s + '</option>').join('') + '</select>' +
        '<select id="fcr_new_act">' + Object.keys(FC_RACTION).map(a => '<option value="' + a + '">' + FC_RACTION[a] + '</option>').join('') + '</select>' +
        '<button class="fc-mini" onclick="fcRolloutAdd(\'' + facEsc(r.code) + '\')"' + (canW ? '' : ' disabled') + '>＋ 加入</button></div>';
   h += '<div class="fc-note" style="padding:10px 0 0">OMS 讀不到其他系統的設定，開通或停用要請各系統做好後，再回這裡改成「已開通／已停用」（完成人與時間由資料庫自動填）。</div></div>';
