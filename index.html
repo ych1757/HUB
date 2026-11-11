@@ -5044,6 +5044,8 @@
     </div>
   </div>
   <div class="users-body" style="display:flex;flex-direction:column;overflow:hidden;">
+    <!-- v321：員工已離職或已從主檔刪除、但 SyncHub 登入帳號還開著的人（沒有這種人時不顯示） -->
+    <div id="saLeaverBox" style="display:none;margin-bottom:14px;"></div>
     <!-- 篩選列 -->
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
       <span style="font-size:11px;color:var(--text-soft);letter-spacing:1px;">篩選</span>
@@ -5804,7 +5806,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V320';
+const APP_VER = 'V321';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -7598,12 +7600,21 @@ function clearSearch() {
   filterTable();
 }
 
-function deleteEmp(code, index) {
+async function deleteEmp(code, index) {
   if (!currentUser || currentUser.role !== 'admin') {
     showToast('只有集團系統管理員可以刪除員工', 'error'); return;
   }
-  if (!confirm('確定要刪除此筆員工資料?')) return;
   const delEmp = employees[code][index];
+  if (!delEmp) return;
+  // v321：有登入帳號就在確認視窗講清楚會一併停用；讀不到帳號名冊也要講（不能看起來像沒有帳號）
+  let acc = null, accErr = '';
+  try { acc = await omsFindLoginAccount(delEmp.empId); } catch (e) { accErr = (e && e.message) || String(e); }
+  const willDisable = omsAccountNeedsDisable(acc);
+  let msg = '確定要刪除此筆員工資料?';
+  if (willDisable) msg += '\n\n' + delEmp.name + '（' + delEmp.empId + '）有 SyncHub 登入帳號，會一併停用（之後可在「OMS 角色權限」頁重新啟用）。';
+  else if (accErr) msg += '\n\n⚠ 讀不到登入帳號名冊（' + accErr + '），刪除後請到「系統資料授權」頁看他的帳號要不要停用。';
+  if (!confirm(msg)) return;
+  if (employees[code][index] !== delEmp) { showToast('名單已變動，請重新操作', 'error'); return; }
   const delEmpId = delEmp.empId;
   addLogEx(code, delEmp.empId, delEmp.name, '刪除', []);
   employees[code].splice(index, 1);
@@ -7611,7 +7622,13 @@ function deleteEmp(code, index) {
   // v230: 同步刪除 Supabase 資料
   deleteEmpFromSB(delEmpId).catch(e => console.error('deleteEmpFromSB:', e));
   refreshEmpTable(code);
-  showToast('已刪除');
+  if (!willDisable) { showToast('已刪除'); return; }
+  try {
+    await omsDisableLoginAccount(acc.username);
+    showToast('已刪除，並停用登入帳號 ' + acc.username, 'ok');
+  } catch (e) {
+    showToast('已刪除，但停用登入帳號失敗：' + ((e && e.message) || e) + '（請到「系統資料授權」頁停用）', 'error');
+  }
 }
 
 function exportData() {
@@ -9239,6 +9256,22 @@ async function sbCallAdminFn(action, payload) {
   if (!res.ok) throw new Error(j.error || ('操作失敗 ' + res.status));
   return j;
 }
+// ===== v321：員工離職或從主檔刪除時，停用他的 SyncHub 登入帳號（使用者 261111「可以，開始做」）=====
+// 規則（使用者 261111 同意）：只有「離職」與「從主檔刪除」會停用；留停、轉調不停用；改回在職不會自動啟用（管理員到「OMS 角色權限」頁按啟用）。
+// 停用＝管理後端 synchub-admin-users 的 update active:false（同時封鎖 Auth，拿不到登入憑證）；後端只接受管理員，所以
+//   管理員自己刪除／改離職→當場停用；HR 改離職或批次匯入少了人→進「系統資料授權」頁最上方的待停用清單，由管理員停用。
+async function omsFindLoginAccount(empId) {
+  const id = String(empId || '').trim().toUpperCase();
+  if (!id) return null;
+  // oms_roster＝帳號名冊（synchub_profiles 的公開欄位）；大小寫不同也要對到，所以整份讀回來在這裡比
+  const rows = await sbSelectAll('oms_roster', 'select=username,emp_id,role,active&order=username');
+  return rows.find(r => String(r.username || '').toUpperCase() === id || String(r.emp_id || '').toUpperCase() === id) || null;
+}
+function omsAccountNeedsDisable(acc) { return !!(acc && acc.active !== false && acc.role !== 'admin'); }
+async function omsDisableLoginAccount(username) {
+  await sbCallAdminFn('update', { username, active: false });
+}
+
 async function loadProfileUsers() {
   try {
     const j = await sbCallAdminFn('list');
@@ -9756,10 +9789,24 @@ function closeEditModal() {
   editingEmp = null; editingCode = ''; editingIndex = -1;
 }
 
-function saveEditModal() {
+async function saveEditModal() {
   if (!editingEmp || editingIndex < 0) return;
   const list = employees[editingCode];
   if (!list) return;
+
+  // v321：管理員把狀態改成「離職」→ 有登入帳號就先問，確定後存檔並停用（HR 改的由「系統資料授權」頁待停用清單接手）
+  let leaveAcc = null, leaveAccErr = '';
+  {
+    const st0 = list[editingIndex].status || '在職';
+    const st1 = document.getElementById('editStatusSelect').value;
+    if (st1 === '離職' && st0 !== '離職' && currentUser && currentUser.role === 'admin') {
+      const who = list[editingIndex];
+      try { leaveAcc = await omsFindLoginAccount(who.empId); } catch (e) { leaveAccErr = (e && e.message) || String(e); }
+      if (!omsAccountNeedsDisable(leaveAcc)) leaveAcc = null;
+      if (leaveAcc && !confirm(who.name + '（' + who.empId + '）改成離職後，他的 SyncHub 登入帳號會一併停用（之後可在「OMS 角色權限」頁重新啟用）。\n\n確定儲存？')) return;
+      if (!editingEmp || editingIndex < 0 || employees[editingCode] !== list) return;   // 等待期間視窗被關掉
+    }
+  }
 
   const before = JSON.parse(JSON.stringify(list[editingIndex]));
   const changes = [];
@@ -9808,6 +9855,17 @@ function saveEditModal() {
   renderBuPanel();
   closeEditModal();
   showToast('已儲存 ' + changes.length + ' 項變更', 'ok');
+  // v321：離職→停用登入帳號
+  if (leaveAcc) {
+    try {
+      await omsDisableLoginAccount(leaveAcc.username);
+      showToast('已儲存，並停用登入帳號 ' + leaveAcc.username, 'ok');
+    } catch (e) {
+      showToast('已儲存，但停用登入帳號失敗：' + ((e && e.message) || e) + '（請到「系統資料授權」頁停用）', 'error');
+    }
+  } else if (leaveAccErr) {
+    showToast('已儲存，但讀不到登入帳號名冊（' + leaveAccErr + '），請到「系統資料授權」頁看他的帳號要不要停用', 'error');
+  }
 }
 
 // --- 異動紀錄 Modal ---
@@ -10334,6 +10392,96 @@ async function openSystemAccessPage() {
   saPopulateFilterDropdowns();
   saPopulateAddScope();
   renderSystemAccessTable();
+  await saLoadLeavers();   // v321
+  saRenderLeavers();
+}
+
+// ===== v321：已離職或已從主檔刪除、但登入帳號還開著的人 =====
+let saLeavers = [];      // [{username, empId, name, factory, reason:'deleted'|'left', note}]
+let saLeaversErr = '';   // 比對不了的原因（顯示出來，不能當成「沒有人」）
+async function saLoadLeavers() {
+  saLeavers = []; saLeaversErr = '';
+  if (saProfilesErr) { saLeaversErr = '帳號清單讀不到（' + saProfilesErr + '）'; return; }
+  let emps;
+  try { emps = await sbSelectAll('employees', 'select=emp_id,name,factory_code,status,leave_date&order=emp_id'); }
+  catch (e) { saLeaversErr = '員工主檔讀不到（' + ((e && e.message) || e) + '）'; return; }
+  if (!emps.length) { saLeaversErr = '員工主檔讀到 0 筆'; return; }
+  const byId = {};
+  emps.forEach(r => { byId[String(r.emp_id || '').toUpperCase()] = r; });
+  const out = [];
+  (saProfiles || []).forEach(p => {
+    if (p.active === false || p.role === 'admin') return;
+    const id = String(p.emp_id || p.username || '').toUpperCase();
+    if (!id) return;
+    const e = byId[id];
+    const facs = Array.isArray(p.factories) ? p.factories.join('、') : (p.factories || '');
+    if (!e) out.push({ username: p.username, empId: p.emp_id || p.username, name: p.name || '', factory: facs, reason: 'deleted', note: '' });
+    else if (e.status === '離職') out.push({ username: p.username, empId: e.emp_id, name: e.name || p.name || '', factory: e.factory_code || facs, reason: 'left', note: e.leave_date ? '離職日 ' + String(e.leave_date).slice(0, 10) : '' });
+  });
+  // 從主檔刪除的人：補上誰、哪天刪的（讀不到就不寫，不影響清單）
+  const delIds = out.filter(x => x.reason === 'deleted').map(x => x.empId);
+  if (delIds.length) {
+    try {
+      const logs = await sbSelectAll('change_log', 'emp_id=in.(' + delIds.map(encodeURIComponent).join(',') + ')&action=eq.' + encodeURIComponent('刪除') + '&select=emp_id,factory_code,time,operator&order=time.desc');
+      out.forEach(x => {
+        if (x.reason !== 'deleted') return;
+        const lg = logs.find(l => String(l.emp_id || '').toUpperCase() === String(x.empId).toUpperCase());
+        if (lg) { x.note = String(lg.time || '').slice(0, 10) + (lg.operator ? ' ' + lg.operator : ''); if (lg.factory_code) x.factory = lg.factory_code; }
+      });
+    } catch (e) { console.warn('v321 讀刪除紀錄失敗', e); }
+  }
+  saLeavers = out;
+}
+function saRenderLeavers() {
+  const box = document.getElementById('saLeaverBox');
+  if (!box) return;
+  const esc = saEscapeCell;
+  if (saLeaversErr) {
+    box.style.display = '';
+    box.innerHTML = '<div style="padding:10px 14px;border:1px solid #E0B44C;background:#FFF8E6;border-radius:6px;font-size:12px;color:#8A5A00;">⚠ 沒辦法檢查「已離職但登入帳號還開著」的人：' + esc(saLeaversErr) + '。請重新打開這頁再試。</div>';
+    return;
+  }
+  if (!saLeavers.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const rows = saLeavers.map((x, i) =>
+    '<tr style="border-top:1px solid #F0DDB0;">' +
+      '<td style="padding:6px 8px;white-space:nowrap;">' + esc(x.empId) + '</td>' +
+      '<td style="padding:6px 8px;white-space:nowrap;">' + esc(x.name) + '</td>' +
+      '<td style="padding:6px 8px;white-space:nowrap;">' + esc(x.factory) + '</td>' +
+      '<td style="padding:6px 8px;white-space:nowrap;">' + (x.reason === 'deleted' ? '已從主檔刪除' : '主檔狀態為離職') + (x.note ? '（' + esc(x.note) + '）' : '') + '</td>' +
+      '<td style="padding:6px 8px;text-align:right;"><button onclick="saDisableLeavers([' + i + '])" style="font-size:11px;padding:4px 12px;border:1px solid #C9923A;background:#fff;color:#8A5A00;border-radius:5px;cursor:pointer;">停用</button></td>' +
+    '</tr>').join('');
+  box.style.display = '';
+  box.innerHTML =
+    '<div style="padding:10px 14px;border:1px solid #E0B44C;background:#FFF8E6;border-radius:6px;">' +
+      '<div style="font-size:13px;font-weight:600;color:#8A5A00;margin-bottom:6px;">⚠ 有 ' + saLeavers.length + ' 個登入帳號還開著，但員工已離職或已從主檔刪除</div>' +
+      '<table style="border-collapse:collapse;font-size:12px;color:#5A4200;">' +
+        '<tr style="color:#9A7A30;"><td style="padding:4px 8px;">工號</td><td style="padding:4px 8px;">姓名</td><td style="padding:4px 8px;">廠區</td><td style="padding:4px 8px;">原因</td><td></td></tr>' + rows +
+      '</table>' +
+      '<div style="display:flex;align-items:center;gap:12px;margin-top:8px;font-size:11px;color:#9A7A30;">' +
+        '<span>停用＝擋登入、拿不到資料；不會刪帳號，可在「OMS 角色權限」頁重新啟用</span>' +
+        (saLeavers.length > 1 ? '<button onclick="saDisableLeavers(null)" style="margin-left:auto;font-size:11px;padding:5px 14px;border:1px solid #C9923A;background:#C9923A;color:#fff;border-radius:5px;cursor:pointer;">全部停用（' + saLeavers.length + '）</button>' : '') +
+      '</div>' +
+    '</div>';
+}
+async function saDisableLeavers(idxs) {
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團系統管理員可停用帳號', 'error'); return; }
+  const list = (idxs ? idxs.map(i => saLeavers[i]) : saLeavers.slice()).filter(Boolean);
+  if (!list.length) return;
+  const names = list.slice(0, 10).map(x => x.name + '（' + x.empId + '）').join('、') + (list.length > 10 ? ' 等 ' + list.length + ' 人' : '');
+  if (!confirm('確定停用 ' + names + ' 的 SyncHub 登入帳號？\n\n停用後無法登入、拿不到資料；不會刪帳號，可在「OMS 角色權限」頁重新啟用。')) return;
+  let ok = 0; const fail = [];
+  for (const x of list) {
+    try { await omsDisableLoginAccount(x.username); ok++; }
+    catch (e) { fail.push(x.empId + '：' + ((e && e.message) || e)); }
+  }
+  // 重新讀帳號清單再算一次（以資料庫為準，不是以按了什麼為準）
+  try { const j = await sbCallAdminFn('list'); saProfiles = j.users || []; saProfilesErr = ''; }
+  catch (e) { saProfilesErr = (e && e.message) || String(e); }
+  renderSystemAccessTable();
+  await saLoadLeavers();
+  saRenderLeavers();
+  if (fail.length) showToast('停用 ' + ok + ' 個、失敗 ' + fail.length + ' 個：' + fail.join('；'), 'error');
+  else showToast('已停用 ' + ok + ' 個登入帳號', 'ok');
 }
 
 // ===== v311：權限名單匯出（系統資料授權、OMS 角色權限兩頁共用；使用者 261014「請參考GHG」）=====
