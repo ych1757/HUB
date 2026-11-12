@@ -5686,13 +5686,13 @@
           <span style="font-size:12px;color:var(--text-soft);margin-right:4px;">匯入模式：</span>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--line-soft);background:var(--bg-card);">
             <input type="radio" name="importMode" value="upsert" checked onchange="updateImportModeHint()">
-            <span style="font-weight:600;color:var(--navy);">追加模式</span>
-            <span style="color:var(--text-soft);">有工號就更新，沒有就新增，原有資料保留</span>
+            <span style="font-weight:600;color:var(--navy);">只新增或更新</span>
+            <span style="color:var(--text-soft);">有工號就更新，沒有就新增，不見的人不管</span>
           </label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--line-soft);background:var(--bg-card);">
-            <input type="radio" name="importMode" value="replace" onchange="updateImportModeHint()">
-            <span style="font-weight:600;color:var(--rust);">替換模式</span>
-            <span style="color:var(--text-soft);">清除該廠區所有資料，全部重新寫入</span>
+            <input type="radio" name="importMode" value="compare" onchange="updateImportModeHint()">
+            <span style="font-weight:600;color:var(--rust);">完整比對</span>
+            <span style="color:var(--text-soft);">定期轉入用：比對新進、資料有改、不見的人（不見的人要填原因，不會直接刪）</span>
           </label>
         </div>
         <div class="excel-drop-zone" id="excelDropZone" onclick="document.getElementById('excelFileInput').click()">
@@ -5715,6 +5715,7 @@
         <div class="import-progress-label" id="batchProgressLabel">請上傳員工清冊 Excel</div>
         <div class="import-actions">
           <button class="btn btn-primary" id="batchImportBtn" onclick="doBatchImport()" disabled>&#9654; 開始匯入</button>
+          <button class="btn btn-ghost" onclick="imOpenRuns()">📋 轉入紀錄</button>
           <button class="btn-danger" onclick="clearFactoryData()">清除此廠區資料</button>
         </div>
         <div class="import-log" id="batchLog">等待匯入指令...</div>
@@ -5806,7 +5807,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V324';
+const APP_VER = 'V325-1';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -7720,6 +7721,8 @@ async function doBatchImport() {
       return;
     }
   }
+  // v325：完整比對＝先開比對畫面，確認後才寫入
+  if (((document.querySelector('input[name="importMode"]:checked') || {}).value || 'upsert') === 'compare') { imOpenCompare(); return; }
   const data = activeBatchData;
   // v272：先記下現有員工(by 工號)，供追加模式合併時用現有值補空欄（須在替換模式清表前擷取）
   const _existingById = {};
@@ -7817,6 +7820,422 @@ async function doBatchImport() {
   document.getElementById('completedCount').textContent = (employees[code] || []).length;
   document.getElementById('empCount').textContent = (employees[code] || []).length;
   showToast('批次匯入完成 · ' + imported + ' 筆');
+}
+
+
+// ===================================================================================================
+// v325（使用者 261112「可以，照示意圖開始做」；示意圖 OMS_匯入比對_示意_261112.png）：人員資料轉入（比對）
+//   「完整比對」取代舊的「替換模式」（舊的會先刪掉整廠資料再重建）：上傳 Excel → 比對 OMS 現有資料 →
+//   新進的人／資料有改的人／不見的人（OMS 在職、Excel 沒有）→ 不見的人逐一選原因（不直接刪）→ 全部選完才能確認轉入。
+//   規則：只比對 Excel 有的欄位；Excel 空白的格子不覆蓋現有值（同 v272 合併規則）；出生日比對到年月、日期比對統一格式。
+//   每一筆變化寫進人員異動紀錄；每次轉入在 oms_import_runs 留一筆（SQL 325）。月份統計報表以後再做（使用者：資料還不齊全）。
+// ===================================================================================================
+let activeBatchCols = [];        // 這次 Excel 有的欄位（parseExcelBinary 記下）
+let activeBatchFile = '';
+let imState = null;
+const IM_LABEL = { company: '公司', name: '姓名', supervisor: '直屬主管工號', engName: '英文名', joinDate: '到職日',
+  department: '部門', mail: 'Email', title: '職稱', level: '職等', status: '狀態', category: '人員分類',
+  expense: '費用類別', account: '會計科目', gender: '性別', birth: '出生年月', leaveDate: '離職日',
+  education: '學歷', postingFactory: '派駐廠區', remark: '備註' };
+const IM_REASONS = [
+  { v: 'leave', t: '離職' }, { v: 'transfer', t: '轉調到其他廠' }, { v: 'suspend', t: '留職停薪' },
+  { v: 'delete', t: '資料錯誤，要刪除' }, { v: 'other', t: '其他（寫說明）' }];
+function imEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function imNorm(k, v) {
+  if (v == null) return '';
+  const s = String(v).trim();
+  if (!s) return '';
+  if (k === 'joinDate' || k === 'leaveDate') return fmtDate(s) || s;
+  if (k === 'birth') return birthToYM(s) || s;
+  if (k === 'expense') return s.toUpperCase();
+  return s;
+}
+function imIsActive(e) { return !e.status || e.status === '在職'; }
+function imFacLabel(code) { const f = FACTORIES.find(x => x.code === code); return f ? f.code + ' ' + f.name : (code || ''); }
+
+async function imOpenCompare() {
+  if (!currentFactory || !activeBatchData) return;
+  const code = currentFactory.code;
+  const rows = activeBatchData;
+  const cols = (activeBatchCols || []).filter(k => IM_LABEL[k]);
+  const existing = employees[code] || [];
+  const byId = {};
+  existing.forEach(e => { if (e.empId) byId[String(e.empId).trim().toUpperCase()] = e; });
+  const otherFac = {};
+  Object.keys(employees).forEach(fc => {
+    if (fc === code) return;
+    (employees[fc] || []).forEach(e => { if (e.empId) otherFac[String(e.empId).trim().toUpperCase()] = fc; });
+  });
+  const seen = {}, dupIds = [], news = [], changes = [];
+  let same = 0;
+  rows.forEach(r => {
+    const id = String(r.empId || '').trim().toUpperCase();
+    if (!id) return;
+    if (seen[id]) { dupIds.push(r.empId); return; }
+    seen[id] = true;
+    const ex = byId[id];
+    if (!ex) { news.push({ row: r, fromFac: otherFac[id] || '' }); return; }
+    const diffs = [];
+    cols.forEach(k => {
+      const nv = imNorm(k, r[k]);
+      if (!nv) return;                       // Excel 空白＝不覆蓋
+      const ov = imNorm(k, ex[k]);
+      if (nv !== ov) diffs.push({ key: k, label: IM_LABEL[k], old: ov, new: nv });
+    });
+    if (diffs.length) changes.push({ row: r, ex, diffs }); else same++;
+  });
+  const gones = existing.filter(e => imIsActive(e) && e.empId && !seen[String(e.empId).trim().toUpperCase()])
+    .map(e => ({ emp: e, reason: '', leaveDate: '', toFac: '', note: '' }));
+  imState = { code, file: activeBatchFile || '', rows, cols, news, changes, gones, same, dupIds, lastRun: null, lastErr: '', busy: false, done: null };
+  imShow();
+  imRender();
+  try {
+    const lr = await sbSelect('oms_import_runs', 'select=created_at,operator,excel_count&factory_code=eq.' + encodeURIComponent(code) + '&order=created_at.desc&limit=1');
+    imState.lastRun = (lr && lr[0]) || false;
+  } catch (e) {
+    imState.lastRun = null;
+    const m = ((e && e.message) || String(e));
+    imState.lastErr = /PGRST205|404|does not exist|Could not find the table/i.test(m)
+      ? '（轉入紀錄表還沒建立：這次轉入照常，只是不會留轉入紀錄）'
+      : '（轉入紀錄讀不到：' + m.slice(0, 80) + '）';
+  }
+  if (imState && !imState.busy) imRender();
+}
+
+function imShow() {
+  let ov = document.getElementById('imOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'imOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:#F3F6FB;overflow:auto;font-size:13px;color:#1d2a3a;';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'block';
+}
+function imClose() {
+  if (imState && imState.busy) return;
+  const ov = document.getElementById('imOverlay');
+  if (ov) ov.style.display = 'none';
+  imState = null;
+}
+
+function imGoneValid(g) {
+  if (!g.reason) return false;
+  if (g.reason === 'leave') return !!g.leaveDate;
+  if (g.reason === 'transfer') return !!g.toFac;
+  if (g.reason === 'other') return !!(g.note && g.note.trim());
+  return true;
+}
+function imSetGone(i, field, val) {
+  if (!imState || imState.busy) return;
+  const g = imState.gones[i];
+  if (!g) return;
+  g[field] = val;
+  if (field === 'reason') { g.leaveDate = g.leaveDate || ''; }
+  const y = window.scrollY, ov = document.getElementById('imOverlay'), st = ov ? ov.scrollTop : 0;
+  imRender();
+  if (ov) ov.scrollTop = st;
+  window.scrollTo(0, y);
+}
+
+function imRender() {
+  const ov = document.getElementById('imOverlay');
+  if (!ov || !imState) return;
+  const S = imState;
+  const card = 'background:#fff;border:1px solid #D6DEEA;border-radius:10px;padding:14px 16px;margin-bottom:14px;';
+  const th = 'background:#F6F8FC;color:#1F3864;font-weight:700;font-size:12.5px;padding:7px 8px;text-align:left;border-bottom:1px solid #E6ECF4;white-space:nowrap;position:sticky;top:0;';
+  const td = 'padding:6px 8px;border-bottom:1px solid #EDF1F7;white-space:nowrap;vertical-align:middle;';
+  const box = h => '<div style="max-height:340px;overflow:auto;border:1px solid #EDF1F7;border-radius:6px;">' + h + '</div>';
+  const nBad = S.gones.filter(g => !imGoneValid(g)).length;
+  let last = '';
+  if (S.lastRun) last = '上一次轉入：' + imEsc(fmtDate(String(S.lastRun.created_at).slice(0, 10))) + '（' + imEsc(S.lastRun.operator || '') + '，' + (S.lastRun.excel_count ?? '—') + ' 人）';
+  else if (S.lastRun === false) last = '這個廠還沒有轉入紀錄（這是第一次）';
+  else last = S.lastErr || '';
+  let h = '';
+  h += '<div style="background:#1F3864;color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:2;">'
+     + '<button onclick="imClose()" style="background:transparent;border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;">← 返回</button>'
+     + '<span style="font-size:18px;letter-spacing:3px;font-weight:700;">人員資料轉入（比對）</span>'
+     + '<span style="font-size:12px;opacity:.85;">' + imEsc(imFacLabel(S.code)) + '</span></div>';
+  h += '<div style="max-width:1180px;margin:16px auto;padding:0 16px;">';
+  if (S.done) {
+    h += '<div style="' + card + '"><div style="font-size:16px;font-weight:700;color:#1E7A46;margin-bottom:6px;">✓ 轉入完成</div>' + S.done + '</div>';
+    h += '<div style="text-align:right;"><button class="btn btn-primary" onclick="imClose()">關閉</button></div></div>';
+    ov.innerHTML = h; return;
+  }
+  h += '<div style="' + card + '">📄 ' + imEsc(S.file || 'Excel') + '　·　共 ' + S.rows.length + ' 人'
+     + '<div style="font-size:12px;color:#6B7A90;margin-top:6px;line-height:1.7;">這次 Excel 有的欄位：' + imEsc(S.cols.map(k => IM_LABEL[k]).join('、') || '（只有工號、姓名）')
+     + '。只比對這些欄位；Excel 空白的格子不會蓋掉 OMS 現有的值。' + (last ? '<br>' + last : '') + '</div>'
+     + (S.dupIds.length ? '<div style="color:#B0453C;font-size:12px;margin-top:6px;">⚠ Excel 裡工號重複 ' + S.dupIds.length + ' 筆（只取第一筆）：' + imEsc(S.dupIds.slice(0, 10).join('、')) + (S.dupIds.length > 10 ? '…' : '') + '</div>' : '')
+     + '</div>';
+  const sum = (bg, c, n, t) => '<div style="background:' + bg + ';border:1px solid #D6DEEA;border-radius:10px;padding:10px 14px;"><div style="font-size:24px;font-weight:800;color:' + c + ';">' + n + '</div><div style="font-size:12px;color:#6B7A90;">' + t + '</div></div>';
+  h += '<div style="' + card + '"><div style="font-weight:700;color:#1F3864;margin-bottom:8px;">比對結果</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;">'
+     + sum('#EAF7EF', '#1E7A46', S.news.length, '新進的人（Excel 有、OMS 沒有）')
+     + sum('#FFF6E0', '#9A6700', S.changes.length, '資料有改的人')
+     + sum('#FCEBE8', '#B0453C', S.gones.length, '不見的人（OMS 在職、Excel 沒有）＊要填原因')
+     + sum('#F3F5F9', '#4B5A70', S.same, '沒有變化') + '</div></div>';
+  // 新進
+  if (S.news.length) {
+    let t = '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + '">工號</th><th style="' + th + '">姓名</th><th style="' + th + '">部門</th><th style="' + th + '">職稱</th><th style="' + th + '">到職日</th><th style="' + th + '">員工狀態</th><th style="' + th + '">備註</th></tr>';
+    S.news.forEach(n => {
+      const r = n.row;
+      t += '<tr><td style="' + td + '">' + imEsc(r.empId) + '</td><td style="' + td + '">' + imEsc(r.name) + '</td><td style="' + td + '">' + imEsc(r.department) + '</td><td style="' + td + '">' + imEsc(r.title)
+        + '</td><td style="' + td + '">' + imEsc(fmtDate(r.joinDate)) + '</td><td style="' + td + '">' + imEsc(r.status || '在職') + '</td><td style="' + td + 'color:#9A6700;">'
+        + (n.fromFac ? '原在 ' + imEsc(imFacLabel(n.fromFac)) + '，轉入後改到本廠' : '') + '</td></tr>';
+    });
+    h += '<div style="' + card + '"><div style="font-weight:700;color:#1F3864;margin-bottom:8px;">🟢 新進的人（' + S.news.length + '）</div>' + box(t + '</table>') + '</div>';
+  }
+  // 有改
+  if (S.changes.length) {
+    let t = '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + '">工號</th><th style="' + th + '">姓名</th><th style="' + th + '">改了什麼（改前 → 改後）</th></tr>';
+    S.changes.forEach(c => {
+      t += '<tr><td style="' + td + '">' + imEsc(c.row.empId) + '</td><td style="' + td + '">' + imEsc(c.ex.name || c.row.name) + '</td><td style="' + td + 'white-space:normal;">'
+        + c.diffs.map(d => imEsc(d.label) + ' <span style="color:#8A94A6;text-decoration:line-through;">' + imEsc(d.old || '（空白）') + '</span> → <b style="color:#9A6700;">' + imEsc(d.new) + '</b>').join('　') + '</td></tr>';
+    });
+    h += '<div style="' + card + '"><div style="font-weight:700;color:#1F3864;margin-bottom:8px;">🟡 資料有改的人（' + S.changes.length + '）</div>' + box(t + '</table>') + '</div>';
+  }
+  // 不見
+  if (S.gones.length) {
+    const facOpts = facSortHome(FACTORIES.filter(f => !f.disabled && f.code !== S.code));
+    let t = '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + '">工號</th><th style="' + th + '">姓名</th><th style="' + th + '">部門</th><th style="' + th + '">原因＊</th><th style="' + th + '">補充</th><th style="' + th + '">結果</th></tr>';
+    S.gones.forEach((g, i) => {
+      const e = g.emp;
+      const sel = '<select onchange="imSetGone(' + i + ',\'reason\',this.value)" style="padding:4px 8px;border-radius:6px;border:1px solid ' + (g.reason ? '#B9C6DA' : '#B0453C') + ';' + (g.reason ? '' : 'color:#B0453C;background:#FFF7F6;') + '">'
+        + '<option value="">請選原因</option>' + IM_REASONS.map(o => '<option value="' + o.v + '"' + (g.reason === o.v ? ' selected' : '') + '>' + o.t + '</option>').join('') + '</select>';
+      let extra = '—', res = '—';
+      if (g.reason === 'leave') {
+        extra = '離職日 <input type="date" value="' + imEsc(g.leaveDate) + '" onchange="imSetGone(' + i + ',\'leaveDate\',this.value)" style="padding:3px 6px;border-radius:6px;border:1px solid ' + (g.leaveDate ? '#B9C6DA' : '#B0453C') + ';">';
+        res = '狀態改「離職」';
+      } else if (g.reason === 'transfer') {
+        extra = '轉去 <select onchange="imSetGone(' + i + ',\'toFac\',this.value)" style="padding:3px 6px;border-radius:6px;border:1px solid ' + (g.toFac ? '#B9C6DA' : '#B0453C') + ';"><option value="">選廠區</option>'
+          + facOpts.map(f => '<option value="' + imEsc(f.code) + '"' + (g.toFac === f.code ? ' selected' : '') + '>' + imEsc(f.code + ' ' + f.name) + '</option>').join('') + '</select>';
+        res = '狀態改「轉調」';
+      } else if (g.reason === 'suspend') { res = '狀態改「留停」'; }
+      else if (g.reason === 'delete') { res = '從主檔刪除'; }
+      else if (g.reason === 'other') {
+        extra = '<input type="text" placeholder="一定要寫說明" value="' + imEsc(g.note) + '" onchange="imSetGone(' + i + ',\'note\',this.value)" style="padding:3px 6px;border-radius:6px;width:220px;border:1px solid ' + ((g.note || '').trim() ? '#B9C6DA' : '#B0453C') + ';">';
+        res = '狀態不變，記下原因';
+      }
+      t += '<tr><td style="' + td + '">' + imEsc(e.empId) + '</td><td style="' + td + '">' + imEsc(e.name) + '</td><td style="' + td + '">' + imEsc(e.department) + '</td><td style="' + td + '">' + sel + '</td><td style="' + td + '">' + extra + '</td><td style="' + td + 'color:#4B5A70;">' + res + '</td></tr>';
+    });
+    h += '<div style="' + card + '"><div style="font-weight:700;color:#1F3864;margin-bottom:4px;">🔴 不見的人（' + S.gones.length + '）——每一位都要選原因</div>'
+       + '<div style="font-size:12px;color:#6B7A90;margin-bottom:8px;line-height:1.7;">OMS 裡在職、這次 Excel 沒有的人。<b>不會直接刪掉</b>：照你選的原因改員工狀態，原因寫進人員異動紀錄。'
+       + '選「離職」且有登入帳號的人，會出現在管理員「系統資料授權」頁的待停用清單。</div>' + box(t + '</table>') + '</div>';
+  }
+  const nothing = !S.news.length && !S.changes.length && !S.gones.length;
+  h += '<div style="' + card + 'display:flex;justify-content:flex-end;align-items:center;gap:10px;">'
+     + (nBad ? '<span style="color:#B0453C;">還有 ' + nBad + ' 位不見的人沒選原因或沒填完</span>' : (nothing ? '<span style="color:#6B7A90;">跟 OMS 完全一樣，沒有要轉入的變化</span>' : ''))
+     + '<span id="imBusyMsg" style="color:#2B6FD6;"></span>'
+     + '<button class="btn btn-ghost" onclick="imClose()">取消</button>'
+     + '<button class="btn btn-primary" id="imApplyBtn" onclick="imApply()"' + (nBad || nothing ? ' disabled style="opacity:.5;cursor:not-allowed;"' : '') + '>確認轉入</button></div>';
+  h += '</div>';
+  ov.innerHTML = h;
+}
+
+async function imInsertRows(table, rows) {
+  const res = await sbFetch(SB_URL + '/rest/v1/' + table, { method: 'POST', headers: sbHdr({ 'Prefer': 'return=minimal' }), body: JSON.stringify(rows) });
+  if (!res.ok) throw new Error(table + '：' + (await res.text()).slice(0, 200));
+}
+
+async function imApply() {
+  const S = imState;
+  if (!S || S.busy) return;
+  if (S.gones.some(g => !imGoneValid(g))) return;
+  const code = S.code;
+  const canImport = currentUser && (currentUser.role === 'admin' || currentUser.role === 'group_hr' || (currentUser.role === 'hr' && hasFactoryAccess(currentUser, code)));
+  if (!canImport) { showToast('沒有轉入這個廠的權限', 'error'); return; }
+  if (!confirm('確定轉入？\n新進 ' + S.news.length + ' 人、資料有改 ' + S.changes.length + ' 人、不見 ' + S.gones.length + ' 人（照你選的原因處理）。')) return;
+  S.busy = true;
+  const btn = document.getElementById('imApplyBtn'); if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
+  const msg = t => { const el = document.getElementById('imBusyMsg'); if (el) el.textContent = t; };
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  const op = currentUser ? (currentUser.name || currentUser.username) : '系統';
+  const opId = currentUser ? currentUser.username : '';
+  const upserts = [];   // { empId, row, merged, log }
+  const deletes = [];   // { emp, log }
+  const notes = [];     // 其他：只記原因
+  // 新進
+  S.news.forEach(n => {
+    const r = Object.assign({}, n.row);
+    if (!r.status) r.status = '在職';
+    const ch = Object.keys(IM_LABEL).filter(k => imNorm(k, r[k])).map(k => ({ field: IM_LABEL[k], key: k, old: '', new: imNorm(k, r[k]) }));
+    upserts.push({ empId: r.empId, merged: r, isNew: true,
+      log: { action: '新增', changes: ch.concat(n.fromFac ? [{ field: '轉入比對', old: '', new: '原在 ' + n.fromFac + '，轉入本廠' }] : []) } });
+  });
+  // 有改
+  S.changes.forEach(c => {
+    const m = Object.assign({}, c.ex);
+    // 日期用統一格式（YYYY-MM-DD）寫回；其他欄位用 Excel 原值（已在解析時轉成系統標準值）
+    c.diffs.forEach(d => { m[d.key] = (d.key === 'joinDate' || d.key === 'leaveDate') ? String(d.new).replace(/\//g, '-') : c.row[d.key]; });
+    const toLeave = c.diffs.some(d => d.key === 'status' && d.new === '離職');
+    upserts.push({ empId: m.empId, merged: m, ex: c.ex,
+      log: { action: toLeave ? '離職' : '修改', changes: c.diffs.map(d => ({ field: d.label, key: d.key, old: d.old, new: d.new })) } });
+  });
+  // 不見
+  const reasonCount = { 離職: 0, 轉調: 0, 留停: 0, 刪除: 0, 其他: 0 };
+  S.gones.forEach(g => {
+    const e = g.emp;
+    const before = e.status || '在職';
+    if (g.reason === 'leave') {
+      reasonCount.離職++;
+      upserts.push({ empId: e.empId, merged: Object.assign({}, e, { status: '離職', leaveDate: g.leaveDate }), ex: e,
+        log: { action: '離職', changes: [{ field: '狀態', key: 'status', old: before, new: '離職' }, { field: '離職日', key: 'leaveDate', old: imNorm('leaveDate', e.leaveDate), new: imNorm('leaveDate', g.leaveDate) }, { field: '轉入比對原因', old: '', new: '離職（這次轉入的 Excel 沒有此人）' }] } });
+    } else if (g.reason === 'transfer') {
+      reasonCount.轉調++;
+      upserts.push({ empId: e.empId, merged: Object.assign({}, e, { status: '轉調' }), ex: e,
+        log: { action: '狀態變更', changes: [{ field: '狀態', key: 'status', old: before, new: '轉調' }, { field: '轉調至', old: '', new: imFacLabel(g.toFac) }, { field: '轉入比對原因', old: '', new: '轉調到其他廠' }] } });
+    } else if (g.reason === 'suspend') {
+      reasonCount.留停++;
+      upserts.push({ empId: e.empId, merged: Object.assign({}, e, { status: '留停' }), ex: e,
+        log: { action: '狀態變更', changes: [{ field: '狀態', key: 'status', old: before, new: '留停' }, { field: '轉入比對原因', old: '', new: '留職停薪' }] } });
+    } else if (g.reason === 'delete') {
+      reasonCount.刪除++;
+      deletes.push({ emp: e, log: { action: '刪除', changes: [{ field: '刪除原因', old: '', new: '資料錯誤（轉入比對）' }] } });
+    } else {
+      reasonCount.其他++;
+      notes.push({ emp: e, log: { action: '轉入比對備註', changes: [{ field: '原因', old: '', new: g.note.trim() }, { field: '說明', old: '', new: '狀態不變，請管理員確認' }] } });
+    }
+  });
+  // 寫入員工主檔（每 50 筆；某一批失敗就改逐筆，找出是哪幾位）
+  const failed = [];
+  const okUps = [];
+  for (let i = 0; i < upserts.length; i += 50) {
+    const chunk = upserts.slice(i, i + 50);
+    msg('寫入員工資料 ' + Math.min(i + 50, upserts.length) + ' / ' + upserts.length + '…');
+    try {
+      await sbUpsert('employees', chunk.map(u => employeeToSbRow(u.merged, code)), 'emp_id');
+      okUps.push(...chunk);
+    } catch (e) {
+      for (const u of chunk) {
+        try { await sbUpsert('employees', [employeeToSbRow(u.merged, code)], 'emp_id'); okUps.push(u); }
+        catch (e2) { failed.push({ empId: u.empId, name: u.merged.name, why: /row-level security|42501/i.test(String(e2.message)) ? '沒有權限（工號可能已在其他廠，請洽管理員）' : String(e2.message).slice(0, 120) }); }
+      }
+    }
+  }
+  const okDel = [];
+  for (const d of deletes) {
+    msg('刪除資料錯誤的人…');
+    try { await sbDelete('employees', 'emp_id=eq.' + encodeURIComponent(d.emp.empId)); okDel.push(d); }
+    catch (e) { failed.push({ empId: d.emp.empId, name: d.emp.name, why: '刪除失敗：' + String(e.message).slice(0, 120) }); }
+  }
+  // 更新畫面上的資料
+  const list = employees[code] = employees[code] || [];
+  okUps.forEach(u => {
+    const pos = list.findIndex(x => x.empId && String(x.empId).toUpperCase() === String(u.empId).toUpperCase());
+    const obj = Object.assign({ _ts: Date.now() }, u.merged, { factory: imFacLabel(code) });
+    if (pos >= 0) list[pos] = Object.assign(list[pos], obj); else list.push(obj);
+    if (u.isNew) Object.keys(employees).forEach(fc => {   // 從別廠轉入：從原廠清單拿掉
+      if (fc === code) return;
+      const p2 = (employees[fc] || []).findIndex(x => x.empId && String(x.empId).toUpperCase() === String(u.empId).toUpperCase());
+      if (p2 >= 0) employees[fc].splice(p2, 1);
+    });
+  });
+  okDel.forEach(d => { const p = list.indexOf(d.emp); if (p >= 0) list.splice(p, 1); });
+  // 異動紀錄
+  msg('寫入人員異動紀錄…');
+  const entries = [];
+  const mk = (emp, log) => ({ time: now, operator: op, operatorId: opId, action: log.action, empName: emp.name || '', factoryCode: code, empId: emp.empId, changes: log.changes });
+  okUps.forEach(u => entries.push(mk(u.merged, u.log)));
+  okDel.forEach(d => entries.push(mk(d.emp, d.log)));
+  notes.forEach(n => entries.push(mk(n.emp, n.log)));
+  let logErr = '';
+  try {
+    for (let i = 0; i < entries.length; i += 50) await sbUpsert('change_log', entries.slice(i, i + 50).map(logToSbRow), '');
+    const logs = loadLogs();
+    entries.forEach(en => {
+      const key = en.factoryCode + '_' + en.empId;
+      (logs[key] = logs[key] || []).unshift(en);
+      (logs['_global'] = logs['_global'] || []).unshift(Object.assign({ key }, en));
+    });
+    saveLogs(logs);
+  } catch (e) { logErr = String(e.message || e).slice(0, 160); }
+  // 轉入紀錄
+  msg('寫入轉入紀錄…');
+  let runErr = '';
+  const failedIds = {}; failed.forEach(f => { failedIds[String(f.empId).toUpperCase()] = true; });
+  const notFailed = x => !failedIds[String(x).toUpperCase()];
+  try {
+    await imInsertRows('oms_import_runs', [{
+      factory_code: code, mode: 'compare', operator: op, operator_id: opId, file_name: S.file || '', excel_count: S.rows.length,
+      n_new: S.news.filter(n => notFailed(n.row.empId)).length,
+      n_changed: S.changes.filter(c => notFailed(c.row.empId)).length,
+      n_gone: S.gones.filter(g => notFailed(g.emp.empId)).length,
+      gone_reasons: reasonCount,
+      details: {
+        new: S.news.map(n => ({ empId: n.row.empId, name: n.row.name, fromFac: n.fromFac || undefined })),
+        changed: S.changes.map(c => ({ empId: c.row.empId, name: c.ex.name || c.row.name, diffs: c.diffs })),
+        gone: S.gones.map(g => ({ empId: g.emp.empId, name: g.emp.name, reason: (IM_REASONS.find(o => o.v === g.reason) || {}).t, leaveDate: g.leaveDate || undefined, toFac: g.toFac || undefined, note: g.note || undefined })),
+        failed, same: S.same, dupIds: S.dupIds, cols: S.cols }
+    }]);
+  } catch (e) { const m = String(e.message || e); runErr = /PGRST205|404|does not exist|Could not find the table/i.test(m) ? '轉入紀錄表還沒建立' : m.slice(0, 160); }
+  // 收尾
+  S.busy = false;
+  activeBatchData = null; activeBatchCols = []; activeBatchFile = '';
+  try { refreshEmpTable(code); } catch (e) {}
+  try { renderBuPanel(); } catch (e) {}
+  try { refreshBatchPanel(code); } catch (e) {}
+  const ce = document.getElementById('completedCount'); if (ce) ce.textContent = list.length;
+  const ec = document.getElementById('empCount'); if (ec) ec.textContent = list.length;
+  let done = '新進 ' + S.news.filter(n => notFailed(n.row.empId)).length + ' 人、資料有改 ' + S.changes.filter(c => notFailed(c.row.empId)).length
+    + ' 人、不見 ' + S.gones.length + ' 人（離職 ' + reasonCount.離職 + '、轉調 ' + reasonCount.轉調 + '、留停 ' + reasonCount.留停 + '、刪除 ' + reasonCount.刪除 + '、其他 ' + reasonCount.其他 + '）。';
+  if (failed.length) done += '<div style="color:#B0453C;margin-top:8px;">⚠ 有 ' + failed.length + ' 位沒有轉入成功：<br>' + failed.map(f => imEsc(f.empId + ' ' + (f.name || '') + '：' + f.why)).join('<br>') + '</div>';
+  if (logErr) done += '<div style="color:#B0453C;margin-top:8px;">⚠ 人員異動紀錄沒寫成功：' + imEsc(logErr) + '</div>';
+  if (runErr) done += '<div style="color:#B0453C;margin-top:8px;">⚠ 轉入紀錄沒存到（資料已轉入）：' + imEsc(runErr) + '</div>';
+  S.done = done;
+  imRender();
+  showToast(failed.length ? '轉入完成，但有 ' + failed.length + ' 位沒成功' : '轉入完成', failed.length ? 'error' : undefined);
+}
+
+// 轉入紀錄（看這個廠歷次轉入）
+async function imOpenRuns() {
+  if (!currentFactory) return;
+  const code = currentFactory.code;
+  imState = { runsMode: true };
+  imShow();
+  const ov = document.getElementById('imOverlay');
+  const head = '<div style="background:#1F3864;color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;">'
+    + '<button onclick="imClose()" style="background:transparent;border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;">← 返回</button>'
+    + '<span style="font-size:18px;letter-spacing:3px;font-weight:700;">轉入紀錄</span><span style="font-size:12px;opacity:.85;">' + imEsc(imFacLabel(code)) + '</span></div>';
+  ov.innerHTML = head + '<div style="max-width:1180px;margin:16px auto;padding:0 16px;">讀取中…</div>';
+  let rows = null, err = '';
+  try { rows = await sbSelectAll('oms_import_runs', 'select=*&factory_code=eq.' + encodeURIComponent(code) + '&order=created_at.desc'); }
+  catch (e) { const m = String(e.message || e); err = /PGRST205|404|does not exist|Could not find the table/i.test(m) ? '轉入紀錄表還沒建立' : m.slice(0, 160); }
+  const th = 'background:#F6F8FC;color:#1F3864;font-weight:700;font-size:12.5px;padding:7px 8px;text-align:left;border-bottom:1px solid #E6ECF4;white-space:nowrap;';
+  const td = 'padding:6px 8px;border-bottom:1px solid #EDF1F7;white-space:nowrap;vertical-align:top;';
+  let b = '<div style="background:#fff;border:1px solid #D6DEEA;border-radius:10px;padding:14px 16px;">'
+    + '<div style="font-size:12px;color:#6B7A90;margin-bottom:8px;">每次「完整比對」轉入留一筆。各廠月份人數變化的統計，等各廠都定期轉入、資料齊全後再做。</div>';
+  if (err) b += '<div style="color:#B0453C;">⚠ 讀不到轉入紀錄：' + imEsc(err) + '</div>';
+  else if (!rows || !rows.length) b += '<div style="color:#6B7A90;">這個廠還沒有轉入紀錄。</div>';
+  else {
+    window._imRuns = rows;
+    b += '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + '">轉入時間</th><th style="' + th + '">轉入人</th><th style="' + th + '">檔名</th><th style="' + th + '">Excel 人數</th><th style="' + th + '">新進</th><th style="' + th + '">資料有改</th><th style="' + th + '">不見（原因）</th><th style="' + th + '"></th></tr>';
+    rows.forEach((r, i) => {
+      const gr = r.gone_reasons || {};
+      const parts = Object.keys(gr).filter(k => gr[k]).map(k => k + ' ' + gr[k]);
+      const t = new Date(r.created_at);
+      b += '<tr><td style="' + td + '">' + imEsc(isNaN(t) ? r.created_at : t.toLocaleString('zh-TW', { hour12: false })) + '</td><td style="' + td + '">' + imEsc(r.operator) + '</td><td style="' + td + '">' + imEsc(r.file_name)
+        + '</td><td style="' + td + '">' + (r.excel_count ?? '—') + '</td><td style="' + td + '">' + r.n_new + '</td><td style="' + td + '">' + r.n_changed + '</td><td style="' + td + '">' + r.n_gone + (parts.length ? '（' + imEsc(parts.join('、')) + '）' : '')
+        + '</td><td style="' + td + '"><button class="btn btn-ghost" style="font-size:12px;padding:3px 10px;" onclick="imRunDetail(' + i + ')">看明細</button></td></tr>'
+        + '<tr id="imRunD' + i + '" style="display:none;"><td colspan="8" style="' + td + 'white-space:normal;background:#FAFBFD;"></td></tr>';
+    });
+    b += '</table>';
+  }
+  ov.innerHTML = head + '<div style="max-width:1180px;margin:16px auto;padding:0 16px;">' + b + '</div></div>';
+}
+function imRunDetail(i) {
+  const tr = document.getElementById('imRunD' + i);
+  const r = (window._imRuns || [])[i];
+  if (!tr || !r) return;
+  if (tr.style.display !== 'none') { tr.style.display = 'none'; return; }
+  const d = r.details || {};
+  const line = (t, arr, f) => arr && arr.length ? '<div style="margin:4px 0;"><b>' + t + '（' + arr.length + '）</b>：' + arr.map(f).map(imEsc).join('、') + '</div>' : '';
+  tr.firstChild.innerHTML =
+    line('新進', d.new, x => x.empId + ' ' + (x.name || '') + (x.fromFac ? '（原在 ' + x.fromFac + '）' : ''))
+    + line('資料有改', d.changed, x => x.empId + ' ' + (x.name || '') + '：' + (x.diffs || []).map(y => y.label + ' ' + (y.old || '空白') + '→' + y.new).join('，'))
+    + line('不見', d.gone, x => x.empId + ' ' + (x.name || '') + '：' + (x.reason || '') + (x.leaveDate ? ' ' + x.leaveDate : '') + (x.toFac ? ' → ' + x.toFac : '') + (x.note ? '（' + x.note + '）' : ''))
+    + line('沒轉入成功', d.failed, x => x.empId + ' ' + (x.name || '') + '：' + x.why)
+    || '<span style="color:#6B7A90;">（沒有明細）</span>';
+  tr.style.display = '';
 }
 
 function clearFactoryData() {
@@ -7930,6 +8349,8 @@ function parseExcelBinary(buffer, fileName) {
   if (idx.name < 0 || idx.empId < 0) {
     showToast('找不到「姓名」或「工號」欄位', 'error'); return;
   }
+  // v325：記下這次 Excel 有哪些欄位（完整比對只比這些，沒有的欄位不算有改）
+  const _cols325 = Object.keys(idx).filter(k => idx[k] >= 0 && k !== 'empId' && k !== 'factory');
 
   const get = (row, i) => i >= 0 && i < row.length ? c(row[i]) : '';
 
@@ -7996,6 +8417,7 @@ function parseExcelBinary(buffer, fileName) {
   if (!parsed.length) { showToast('解析結果為空，請確認 Excel 內容', 'error'); return; }
 
   activeBatchData = parsed;
+  activeBatchCols = _cols325; activeBatchFile = fileName || '';   // v325
   document.getElementById('excelLoadedBar').style.display = 'flex';
   document.getElementById('excelLoadedInfo').textContent =
     '✓ 已讀取「' + fileName + '」· 工作表：' + usedSheet + ' · 共 ' + parsed.length + ' 筆';
@@ -8006,6 +8428,7 @@ function parseExcelBinary(buffer, fileName) {
 
 function clearExcelData() {
   activeBatchData = null;
+  activeBatchCols = []; activeBatchFile = '';   // v325
   document.getElementById('excelLoadedBar').style.display = 'none';
   document.getElementById('excelLoadedInfo').textContent = '—';
   if (currentFactory) refreshBatchPanel(currentFactory.code);
