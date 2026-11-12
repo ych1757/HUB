@@ -7892,7 +7892,13 @@ async function imOpenCompare() {
   try {
     const lr = await sbSelect('oms_import_runs', 'select=created_at,operator,excel_count&factory_code=eq.' + encodeURIComponent(code) + '&order=created_at.desc&limit=1');
     imState.lastRun = (lr && lr[0]) || false;
-  } catch (e) { imState.lastRun = null; imState.lastErr = '（轉入紀錄讀不到：' + ((e && e.message) || e).toString().slice(0, 80) + '）'; }
+  } catch (e) {
+    imState.lastRun = null;
+    const m = ((e && e.message) || String(e));
+    imState.lastErr = /PGRST205|404|does not exist|Could not find the table/i.test(m)
+      ? '（轉入紀錄表還沒建立：這次轉入照常，只是不會留轉入紀錄）'
+      : '（轉入紀錄讀不到：' + m.slice(0, 80) + '）';
+  }
   if (imState && !imState.busy) imRender();
 }
 
@@ -7962,7 +7968,7 @@ function imRender() {
      + (S.dupIds.length ? '<div style="color:#B0453C;font-size:12px;margin-top:6px;">⚠ Excel 裡工號重複 ' + S.dupIds.length + ' 筆（只取第一筆）：' + imEsc(S.dupIds.slice(0, 10).join('、')) + (S.dupIds.length > 10 ? '…' : '') + '</div>' : '')
      + '</div>';
   const sum = (bg, c, n, t) => '<div style="background:' + bg + ';border:1px solid #D6DEEA;border-radius:10px;padding:10px 14px;"><div style="font-size:24px;font-weight:800;color:' + c + ';">' + n + '</div><div style="font-size:12px;color:#6B7A90;">' + t + '</div></div>';
-  h += '<div style="' + card + '"><div style="font-weight:700;color:#1F3864;margin-bottom:8px;">比對結果</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">'
+  h += '<div style="' + card + '"><div style="font-weight:700;color:#1F3864;margin-bottom:8px;">比對結果</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;">'
      + sum('#EAF7EF', '#1E7A46', S.news.length, '新進的人（Excel 有、OMS 沒有）')
      + sum('#FFF6E0', '#9A6700', S.changes.length, '資料有改的人')
      + sum('#FCEBE8', '#B0453C', S.gones.length, '不見的人（OMS 在職、Excel 沒有）＊要填原因')
@@ -8161,7 +8167,7 @@ async function imApply() {
         gone: S.gones.map(g => ({ empId: g.emp.empId, name: g.emp.name, reason: (IM_REASONS.find(o => o.v === g.reason) || {}).t, leaveDate: g.leaveDate || undefined, toFac: g.toFac || undefined, note: g.note || undefined })),
         failed, same: S.same, dupIds: S.dupIds, cols: S.cols }
     }]);
-  } catch (e) { runErr = String(e.message || e).slice(0, 160); }
+  } catch (e) { const m = String(e.message || e); runErr = /PGRST205|404|does not exist|Could not find the table/i.test(m) ? '轉入紀錄表還沒建立' : m.slice(0, 160); }
   // 收尾
   S.busy = false;
   activeBatchData = null; activeBatchCols = []; activeBatchFile = '';
@@ -8193,7 +8199,7 @@ async function imOpenRuns() {
   ov.innerHTML = head + '<div style="max-width:1180px;margin:16px auto;padding:0 16px;">讀取中…</div>';
   let rows = null, err = '';
   try { rows = await sbSelectAll('oms_import_runs', 'select=*&factory_code=eq.' + encodeURIComponent(code) + '&order=created_at.desc'); }
-  catch (e) { err = String(e.message || e).slice(0, 160); }
+  catch (e) { const m = String(e.message || e); err = /PGRST205|404|does not exist|Could not find the table/i.test(m) ? '轉入紀錄表還沒建立' : m.slice(0, 160); }
   const th = 'background:#F6F8FC;color:#1F3864;font-weight:700;font-size:12.5px;padding:7px 8px;text-align:left;border-bottom:1px solid #E6ECF4;white-space:nowrap;';
   const td = 'padding:6px 8px;border-bottom:1px solid #EDF1F7;white-space:nowrap;vertical-align:top;';
   let b = '<div style="background:#fff;border:1px solid #D6DEEA;border-radius:10px;padding:14px 16px;">'
