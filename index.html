@@ -5806,7 +5806,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V322';
+const APP_VER = 'V323';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6050,7 +6050,7 @@ function employeeToSbRow(emp, code) {
   };
 }
 function sbRowToUser(row) {
-  // bu と factories は JSONB で返ってくるが、文字列の場合は parse する
+  // bu 和 factories 是 JSONB；若回來的是字串就 parse
   let bu = row.bu || [];
   if (typeof bu === 'string') { try { bu = JSON.parse(bu); } catch(e) { bu = bu ? [bu] : []; } }
   let factories = row.factories;
@@ -6062,6 +6062,7 @@ function sbRowToUser(row) {
   return {
     id: row.id,
     username: row.username,
+    empId: row.emp_id || '',   // v323：登入頁工號提示用
     password: row.password,
     name: row.name || '',
     role: row.role,
@@ -6128,27 +6129,8 @@ async function loadEmployeesFromSB() {
   }
   return result;
 }
-// v266：登入前只讀公開精簡 view（僅在職、4 欄：工號/姓名/英文名/廠區），不含任何敏感 PII。
-// 完整 employees 待進 OMS（已過 Auth、有 JWT）後由 ensureFullEmployees() 補齊。
-async function loadEmployeesPickerFromSB() {
-  const rows = await sbSelectAll('employees_picker', 'order=factory_code,emp_id');
-  const fList = (typeof FACTORIES !== 'undefined') ? FACTORIES : [];
-  const result = {};
-  for (const row of rows) {
-    const code = row.factory_code;
-    if (!result[code]) result[code] = [];
-    const fac = fList.find(f => f.code === code);
-    const factoryLabel = fac ? fac.code + ' - ' + fac.name : (code || '');
-    result[code].push({
-      factory: factoryLabel,
-      name: row.name || '',
-      engName: row.eng_name || '',
-      empId: row.emp_id || '',
-      status: '在職',   // picker 只含在職，補上讓既有判斷式一致
-    });
-  }
-  return result;
-}
+// v323（使用者 261112「1 改用帳號名冊，做 V323」）：拿掉登入前讀工號名單 employees_picker（1,075 位員工不用登入就讀得到）；
+//   登入前不再載員工資料，完整 employees 照舊在進 OMS（已過 Auth）後由 ensureFullEmployees() 載入。
 async function persistAllToSB() {
   const rows = [];
   for (const [code, list] of Object.entries(employees)) {
@@ -6331,15 +6313,7 @@ async function appInit() {
   try {
     const hubModeP = Promise.all([loadHubHomeMode(), loadHubVideos(), loadOmsSystems()]);   // v319：系統清單一起讀（自己處理失敗，不會丟錯）
     const facP = loadFactoriesFromDB();   // v315：廠區主檔改讀資料庫（自己處理失敗，不會丟錯）   // v309／v313：首頁模式、影片清單跟名單同時讀（兩支都自己處理失敗與逾時，不會丟錯）
-    setMsg('載入員工名單…');
-    employees = await loadEmployeesPickerFromSB();   // v266：登入前只載公開精簡名單（無敏感 PII）
-    const total = Object.values(employees).reduce((s, a) => s + a.length, 0);
-    // v308：移除舊的「首次啟動匯入」。名單回 0 筆＝異常：只提示，不寫任何資料
-    if (total === 0) {
-      console.warn('appInit: 員工名單回 0 筆');
-      setMsg('⚠ 載不到員工名單（0 筆），工號提示暫時無法顯示；登入不受影響，持續發生請洽 DTO');
-      await new Promise(r => setTimeout(r, 3000));
-    }
+    // v323：登入前不再載工號名單（employees_picker）；登入頁的工號提示改用下面讀的帳號名冊（oms_roster）
     setMsg('載入使用者資料…');
     cachedUsers = await loadUsersFromSB();   // v269：來源＝oms_roster(synchub_profiles 正本)；移除舊的寫 oms_users 種子
     // v267：異動紀錄(change_log)改到進 OMS(已過 Auth)後才載入(見 ensureFullEmployees)，以便對它上 RLS
@@ -8220,7 +8194,8 @@ function showAuthPage(withPwdHint) {
 
 // v294-1：工號即時回饋（比照 QMS/MHR：打對工號馬上顯示是誰）。
 // 本地「全轉大寫的精確比對」（不用模糊查詢，避開萬用字元/大小寫/limit 三個坑），
-// 來源＝登入前已載入的公開精簡在職名單 employees_picker（無敏感個資）
+// v323：來源改為登入前本來就會讀的帳號名冊 oms_roster（cachedUsers），只顯示姓名；名冊沒有＝查無此帳號、停用＝提示洽 DTO；
+//   名冊讀不到（0 筆）時不顯示任何提示，免得誤報「查無」。
 let _authUserHintT = null;
 function onAuthUserInput() {
   clearTimeout(_authUserHintT);
@@ -8229,13 +8204,13 @@ function onAuthUserInput() {
     if (!el) return;
     const v = (document.getElementById('authUser').value || '').trim();
     if (!v || v.includes('@')) { el.textContent = ''; return; }  // Email／管理員帳號不做本地比對
-    let hit = null;
-    for (const code in employees) {
-      hit = (employees[code] || []).find(e => (e.empId || '').toUpperCase() === v.toUpperCase());
-      if (hit) break;
-    }
-    if (hit) { el.style.color = '#1E7A46'; el.textContent = '✓ ' + (hit.name || hit.empId) + '（' + (hit.factory || '') + '）'; }
-    else { el.style.color = '#B0453C'; el.textContent = '查無此工號'; }
+    const users = Array.isArray(cachedUsers) ? cachedUsers : [];
+    if (!users.length) { el.textContent = ''; return; }
+    const V = v.toUpperCase();
+    const hit = users.find(u => (u.empId || '').toUpperCase() === V) || users.find(u => (u.username || '').toUpperCase() === V);
+    if (hit && hit.active === false) { el.style.color = '#B0453C'; el.textContent = '此帳號已停用，請洽 DTO'; }
+    else if (hit) { el.style.color = '#1E7A46'; el.textContent = '✓ ' + (hit.name || hit.empId || hit.username); }
+    else { el.style.color = '#B0453C'; el.textContent = '查無此帳號'; }
   }, 250);
 }
 
