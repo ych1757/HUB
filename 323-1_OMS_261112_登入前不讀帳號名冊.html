@@ -8927,13 +8927,35 @@ async function doLogin() {
   const welcome = '歡迎，' + (currentUser.name || currentUser.username);
   if (currentUser.role === 'no_oms') {
     showSyncHub();
-    showSyncHubToast(welcome);
+    omsShowWelcome(welcome, 'syncHubUserBlock');
     return;
   }
   document.getElementById('authPage').style.display = 'none';
   document.getElementById('syncHubPage').classList.remove('show'); pauseHubVideo();
   await showMainApp();
-  if (currentUser) showToast(welcome, 'success');
+  if (currentUser) omsShowWelcome(welcome, 'topbarUser');
+}
+
+// v323-1：歡迎訊息出現在右上角登入者名字正下方（不用畫面下方的一般提示，免得壓到地圖圖例），約 3 秒後淡出
+function omsShowWelcome(msg, anchorId) {
+  let box = document.getElementById('omsWelcomeBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'omsWelcomeBox';
+    box.style.cssText = 'position:fixed;z-index:10050;background:#fff;color:#1F3864;border:1px solid #D6E0F0;border-left:4px solid #2B6FD6;'
+      + 'border-radius:8px;padding:10px 18px;font-size:15px;letter-spacing:1px;box-shadow:0 6px 18px rgba(20,40,80,.18);'
+      + 'opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(box);
+  }
+  box.textContent = msg;
+  const a = document.getElementById(anchorId);
+  const r = (a && a.offsetParent !== null) ? a.getBoundingClientRect() : null;
+  box.style.top = ((r ? r.bottom : 64) + 8) + 'px';
+  box.style.right = Math.max(12, r ? (window.innerWidth - r.right) : 24) + 'px';
+  box.style.left = 'auto';
+  requestAnimationFrame(() => { box.style.opacity = '1'; box.style.transform = 'translateY(0)'; });
+  clearTimeout(box._t);
+  box._t = setTimeout(() => { box.style.opacity = '0'; box.style.transform = 'translateY(-6px)'; }, 3000);
 }
 
 // Enter 鍵登入
