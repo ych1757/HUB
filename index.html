@@ -5806,7 +5806,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V323';
+const APP_VER = 'V323-1';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6313,9 +6313,10 @@ async function appInit() {
   try {
     const hubModeP = Promise.all([loadHubHomeMode(), loadHubVideos(), loadOmsSystems()]);   // v319：系統清單一起讀（自己處理失敗，不會丟錯）
     const facP = loadFactoriesFromDB();   // v315：廠區主檔改讀資料庫（自己處理失敗，不會丟錯）   // v309／v313：首頁模式、影片清單跟名單同時讀（兩支都自己處理失敗與逾時，不會丟錯）
-    // v323：登入前不再載工號名單（employees_picker）；登入頁的工號提示改用下面讀的帳號名冊（oms_roster）
-    setMsg('載入使用者資料…');
-    cachedUsers = await loadUsersFromSB();   // v269：來源＝oms_roster(synchub_profiles 正本)；移除舊的寫 oms_users 種子
+    // v323：登入前不再載工號名單（employees_picker）。
+    // v323-1（使用者 261112「請做V323-1」；人員資料保護計畫第一件做法 A）：登入前也不讀帳號名冊（oms_roster）；
+    //   登入用工號直接組帳號、Email 走 oms_login_resolve_email；身分一律登入後讀自己那一筆 synchub_profiles；
+    //   管理頁面要用的帳號名冊改在進 OMS 後（ensureFullEmployees）才讀。
     // v267：異動紀錄(change_log)改到進 OMS(已過 Auth)後才載入(見 ensureFullEmployees)，以便對它上 RLS
     await hubModeP;   // v309：大廳出現前就知道要不要顯示影片，畫面不會跳一下
     await facP;
@@ -8124,6 +8125,37 @@ function addLog(factoryCode, empId, empName, changes) {
 // --- 認證 ---
 let currentUser = null;
 
+// v323-1：重新整理後用登入憑證讀自己那一筆，確認帳號還在、沒停用，並更新角色、廠區（讀不到＝沿用，不鎖人）
+async function omsRecheckOwnProfile() {
+  if (!_omsJWT || !_omsAuthUser || !_omsAuthUser.id) return;
+  let prof = null;
+  try {
+    const rows = await sbSelect('synchub_profiles', 'id=eq.' + encodeURIComponent(_omsAuthUser.id));
+    prof = rows && rows[0];
+  } catch (e) { console.warn('[v323-1] 重新整理後核對身分失敗，沿用原身分', e); return; }
+  // 只在畫面還停在大廳時處理；已經點進 OMS 的話，進 OMS 時 showMainApp 已即時核對過（v298-2），這裡不把人拉回大廳
+  const hubPage = document.getElementById('syncHubPage');
+  if (!currentUser || !hubPage || !hubPage.classList.contains('show')) return;
+  if (!prof || prof.active === false) {
+    clearAuthSession();
+    try { sessionStorage.removeItem(OMS_SESSION_KEY); } catch (e) {}
+    currentUser = null;
+    showSyncHub();
+    showSyncHubToast(prof ? '此帳號已停用，請洽 DTO' : '找不到帳號設定檔，請洽 DTO');
+    return;
+  }
+  currentUser.name = prof.name || prof.username || currentUser.name;
+  currentUser.role = prof.role || 'no_oms';
+  if (prof.factories !== undefined && prof.factories !== null) currentUser.factories = prof.factories;
+  if (prof.bu !== undefined && prof.bu !== null) currentUser.bu = prof.bu;
+  currentUser.empId = prof.emp_id || prof.username || currentUser.empId;
+  saveSession(currentUser);
+  const nm = document.getElementById('syncHubUserName'), rl = document.getElementById('syncHubUserRole'), av = document.getElementById('syncHubUserAvatar');
+  if (nm) nm.textContent = currentUser.name || currentUser.username;
+  if (rl) rl.textContent = ROLE_LABELS[currentUser.role] || currentUser.role;
+  if (av) av.textContent = (currentUser.name || currentUser.username).charAt(0);
+}
+
 function initAuth() {
   const session = loadSession();
   if (session) {
@@ -8159,13 +8191,15 @@ function initAuth() {
       }
     } else {
       // 一般使用者 session（admin 等）
-      const users = loadUsers();
-      const user = users.find(u => u.username === session.username && u.active);
-      if (user) {
-        currentUser = user;
+      // v323-1：不再從開機讀的帳號名冊找回登入者（登入前不讀名冊了）。本分頁有登入憑證 → 先用存著的身分顯示大廳，
+      //   再用憑證讀自己那一筆 synchub_profiles 核對（停用＝登出、角色或廠區變了＝更新）；沒有憑證（過期或已登出）＝訪客。
+      if (_omsJWT && session.username) {
+        currentUser = session;
         showSyncHub();
+        omsRecheckOwnProfile();
         return;
       }
+      try { sessionStorage.removeItem(OMS_SESSION_KEY); } catch (e) {}
     }
   }
   // v289：免登入大廳——沒有有效 session 不再直接跳登入頁，先讓人看到圖標大廳（訪客模式）。
@@ -8192,26 +8226,12 @@ function showAuthPage(withPwdHint) {
   setTimeout(() => document.getElementById('authUser').focus(), 100);
 }
 
-// v294-1：工號即時回饋（比照 QMS/MHR：打對工號馬上顯示是誰）。
-// 本地「全轉大寫的精確比對」（不用模糊查詢，避開萬用字元/大小寫/limit 三個坑），
-// v323：來源改為登入前本來就會讀的帳號名冊 oms_roster（cachedUsers），只顯示姓名；名冊沒有＝查無此帳號、停用＝提示洽 DTO；
-//   名冊讀不到（0 筆）時不顯示任何提示，免得誤報「查無」。
-let _authUserHintT = null;
+// v323-1（使用者 261112「請做V323-1」；人員資料保護計畫第一件做法 A；決定 1「拿掉，登入後顯示」）：
+//   登入頁不再打工號就顯示姓名（登入前顯示姓名＝沒登入的人查得到誰是誰）；登入成功後才顯示「歡迎，○○○」。
+//   保留函式名稱：輸入框 oninput 還會呼叫它，只負責把提示清空。
 function onAuthUserInput() {
-  clearTimeout(_authUserHintT);
-  _authUserHintT = setTimeout(() => {
-    const el = document.getElementById('authUserHint');
-    if (!el) return;
-    const v = (document.getElementById('authUser').value || '').trim();
-    if (!v || v.includes('@')) { el.textContent = ''; return; }  // Email／管理員帳號不做本地比對
-    const users = Array.isArray(cachedUsers) ? cachedUsers : [];
-    if (!users.length) { el.textContent = ''; return; }
-    const V = v.toUpperCase();
-    const hit = users.find(u => (u.empId || '').toUpperCase() === V) || users.find(u => (u.username || '').toUpperCase() === V);
-    if (hit && hit.active === false) { el.style.color = '#B0453C'; el.textContent = '此帳號已停用，請洽 DTO'; }
-    else if (hit) { el.style.color = '#1E7A46'; el.textContent = '✓ ' + (hit.name || hit.empId || hit.username); }
-    else { el.style.color = '#B0453C'; el.textContent = '查無此帳號'; }
-  }, 250);
+  const el = document.getElementById('authUserHint');
+  if (el) el.textContent = '';
 }
 
 // ============ 簡繁字對應（姓名搜尋用）============
@@ -8696,6 +8716,8 @@ async function ensureFullEmployees() {
     if (msg) msg.textContent = '載入員工資料…';
     employees = await loadEmployeesFromSB();
     cachedLogs = await loadLogsFromSB();   // v267：異動紀錄改到登入後才載入
+    // v323-1：帳號名冊改到進 OMS 後才讀（讀不到不擋畫面，只影響管理頁的帳號相關欄位）
+    try { cachedUsers = await loadUsersFromSB(); } catch (e) { console.warn('[v323-1] 讀帳號名冊失敗', e); }
     _fullEmpLoaded = true;
   } catch (e) {
     console.error('載入完整資料失敗', e);
@@ -8901,13 +8923,39 @@ async function doLogin() {
   }
 
   // 4) 登入成功＝直接進 OMS；角色 no_oms（信錦員工）安靜回大廳（v298：點 OMS 卡時才提示，登入本身不囉嗦）
+  //    v323-1：登入成功才顯示「歡迎，○○○」（登入頁不再預先顯示姓名）
+  const welcome = '歡迎，' + (currentUser.name || currentUser.username);
   if (currentUser.role === 'no_oms') {
     showSyncHub();
+    omsShowWelcome(welcome, 'syncHubUserBlock');
     return;
   }
   document.getElementById('authPage').style.display = 'none';
   document.getElementById('syncHubPage').classList.remove('show'); pauseHubVideo();
   await showMainApp();
+  if (currentUser) omsShowWelcome(welcome, 'topbarUser');
+}
+
+// v323-1：歡迎訊息出現在右上角登入者名字正下方（不用畫面下方的一般提示，免得壓到地圖圖例），約 3 秒後淡出
+function omsShowWelcome(msg, anchorId) {
+  let box = document.getElementById('omsWelcomeBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'omsWelcomeBox';
+    box.style.cssText = 'position:fixed;z-index:10050;background:#fff;color:#1F3864;border:1px solid #D6E0F0;border-left:4px solid #2B6FD6;'
+      + 'border-radius:8px;padding:10px 18px;font-size:15px;letter-spacing:1px;box-shadow:0 6px 18px rgba(20,40,80,.18);'
+      + 'opacity:0;transform:translateY(-6px);transition:opacity .25s,transform .25s;pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(box);
+  }
+  box.textContent = msg;
+  const a = document.getElementById(anchorId);
+  const r = (a && a.offsetParent !== null) ? a.getBoundingClientRect() : null;
+  box.style.top = ((r ? r.bottom : 64) + 8) + 'px';
+  box.style.right = Math.max(12, r ? (window.innerWidth - r.right) : 24) + 'px';
+  box.style.left = 'auto';
+  requestAnimationFrame(() => { box.style.opacity = '1'; box.style.transform = 'translateY(0)'; });
+  clearTimeout(box._t);
+  box._t = setTimeout(() => { box.style.opacity = '0'; box.style.transform = 'translateY(-6px)'; }, 3000);
 }
 
 // Enter 鍵登入
