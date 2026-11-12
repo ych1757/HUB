@@ -5509,6 +5509,10 @@
                   <span>🏭</span>廠區變動控制
                 </button>
                 <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
+                <button id="mgmtItemFieldPerm" onclick="closeMgmtDropdown();openFieldPerms();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
+                  <span>🔒</span>欄位權限
+                </button>
+                <div style="height:1px;background:var(--line-soft);margin:0 10px;"></div>
                 <button id="mgmtItemLog" onclick="closeMgmtDropdown();openLogPage();" style="width:100%;padding:10px 14px;text-align:left;border:none;background:transparent;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text-main);display:flex;align-items:center;gap:8px;letter-spacing:0.5px;">
                   <span>📋</span>異動紀錄
                 </button>
@@ -5807,7 +5811,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V325-1';
+const APP_VER = 'V325-3';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6121,7 +6125,9 @@ let cachedUsers = [];
 let cachedLogs = { _global: [] };
 
 async function loadEmployeesFromSB() {
-  const rows = await sbSelectAll('employees', 'order=factory_code,emp_id');
+  // v325-2：非集團系統管理員／集團 HR 改讀函式 oms_employees_read（範圍＋被隱藏的欄位資料庫不送）
+  const rows = omsFPUsesFunc() ? await omsRpcAll('oms_employees_read', 'order=factory_code.asc,emp_id.asc')
+                               : await sbSelectAll('employees', 'order=factory_code,emp_id');
   const result = {};
   for (const row of rows) {
     const code = row.factory_code;
@@ -6141,7 +6147,7 @@ async function persistAllToSB() {
   // 分批送出，每批 50 筆
   const BATCH = 50;
   for (let i = 0; i < rows.length; i += BATCH) {
-    await sbUpsert('employees', rows.slice(i, i + BATCH), 'emp_id');
+    await omsUpsertEmployees(rows.slice(i, i + BATCH));   // v325-2
   }
 }
 
@@ -6152,7 +6158,7 @@ async function persistFactoryToSB(code) {
   const rows = list.map(emp => employeeToSbRow(emp, code));
   const BATCH = 50;
   for (let i = 0; i < rows.length; i += BATCH) {
-    await sbUpsert('employees', rows.slice(i, i + BATCH), 'emp_id');
+    await omsUpsertEmployees(rows.slice(i, i + BATCH));   // v325-2
   }
 }
 async function deleteEmpFromSB(empId) {
@@ -6170,7 +6176,9 @@ async function deleteUserFromSB(username) {
   await sbDelete('oms_users', 'username=eq.' + encodeURIComponent(username));
 }
 async function loadLogsFromSB() {
-  const rows = await sbSelectAll('change_log', 'order=time.desc,id.desc', 2000);  // v295：同秒多筆會撞翻頁邊界，加唯一鍵當第二排序
+  // v325-2：非集團系統管理員／集團 HR 改讀函式 oms_change_log_read（範圍＋被隱藏欄位的變更行拿掉）
+  const rows = omsFPUsesFunc() ? (await omsRpcAll('oms_change_log_read', 'order=time.desc,id.desc')).slice(0, 2000)
+                               : await sbSelectAll('change_log', 'order=time.desc,id.desc', 2000);  // v295：同秒多筆會撞翻頁邊界，加唯一鍵當第二排序
   const result = { _global: [] };
   for (const row of rows) {
     const entry = sbRowToLog(row);
@@ -6185,7 +6193,7 @@ async function loadLogsFromSB() {
   return result;
 }
 async function addLogToSB(entry) {
-  try { await sbUpsert('change_log', [logToSbRow(entry)], ''); } catch(e) { console.error('addLogToSB:', e); }
+  try { await omsAddLogRows([logToSbRow(entry)]); } catch(e) { console.error('addLogToSB:', e); }   // v325-2
 }
 
 
@@ -7240,6 +7248,7 @@ function openEmpModal(code, index) {
     statusEl.innerHTML = '<span class="modal-badge">' + (e.status||'在職') + '</span>';
     statusEl.className = 'modal-field-value';
   }
+  omsHideModalFields();   // v325-2
   document.getElementById('empModal').classList.add('show');
 }
 
@@ -7790,7 +7799,7 @@ async function doBatchImport() {
     const BATCH = 50;
     for (let j = 0; j < newRows.length; j += BATCH) {
       const chunk = newRows.slice(j, j + BATCH);
-      await sbUpsert('employees', chunk, 'emp_id'); // 工號衝突就更新
+      await omsUpsertEmployees(chunk); // 工號衝突就更新（v325-2：廠區 HR 走存檔函式）
       batchLogMsg('✓ 已寫入 ' + Math.min(j + BATCH, newRows.length) + ' / ' + newRows.length + ' 筆');
     }
     batchLogMsg('✓ Supabase 寫入完成！', 'log-done');
@@ -7857,7 +7866,7 @@ async function imOpenCompare() {
   if (!currentFactory || !activeBatchData) return;
   const code = currentFactory.code;
   const rows = activeBatchData;
-  const cols = (activeBatchCols || []).filter(k => IM_LABEL[k]);
+  const cols = (activeBatchCols || []).filter(k => IM_LABEL[k] && !omsFP.hiddenJs.has(k));   // v325-2：看不到的欄位不比對
   const existing = employees[code] || [];
   const byId = {};
   existing.forEach(e => { if (e.empId) byId[String(e.empId).trim().toUpperCase()] = e; });
@@ -8058,7 +8067,7 @@ async function imApply() {
   S.news.forEach(n => {
     const r = Object.assign({}, n.row);
     if (!r.status) r.status = '在職';
-    const ch = Object.keys(IM_LABEL).filter(k => imNorm(k, r[k])).map(k => ({ field: IM_LABEL[k], key: k, old: '', new: imNorm(k, r[k]) }));
+    const ch = Object.keys(IM_LABEL).filter(k => !omsFP.hiddenJs.has(k) && imNorm(k, r[k])).map(k => ({ field: IM_LABEL[k], key: k, old: '', new: imNorm(k, r[k]) }));
     upserts.push({ empId: r.empId, merged: r, isNew: true,
       log: { action: '新增', changes: ch.concat(n.fromFac ? [{ field: '轉入比對', old: '', new: '原在 ' + n.fromFac + '，轉入本廠' }] : []) } });
   });
@@ -8103,11 +8112,11 @@ async function imApply() {
     const chunk = upserts.slice(i, i + 50);
     msg('寫入員工資料 ' + Math.min(i + 50, upserts.length) + ' / ' + upserts.length + '…');
     try {
-      await sbUpsert('employees', chunk.map(u => employeeToSbRow(u.merged, code)), 'emp_id');
+      await omsUpsertEmployees(chunk.map(u => employeeToSbRow(u.merged, code)));
       okUps.push(...chunk);
     } catch (e) {
       for (const u of chunk) {
-        try { await sbUpsert('employees', [employeeToSbRow(u.merged, code)], 'emp_id'); okUps.push(u); }
+        try { await omsUpsertEmployees([employeeToSbRow(u.merged, code)]); okUps.push(u); }
         catch (e2) { failed.push({ empId: u.empId, name: u.merged.name, why: /row-level security|42501/i.test(String(e2.message)) ? '沒有權限（工號可能已在其他廠，請洽管理員）' : String(e2.message).slice(0, 120) }); }
       }
     }
@@ -8115,7 +8124,7 @@ async function imApply() {
   const okDel = [];
   for (const d of deletes) {
     msg('刪除資料錯誤的人…');
-    try { await sbDelete('employees', 'emp_id=eq.' + encodeURIComponent(d.emp.empId)); okDel.push(d); }
+    try { await omsDeleteEmployees([d.emp.empId]); okDel.push(d); }
     catch (e) { failed.push({ empId: d.emp.empId, name: d.emp.name, why: '刪除失敗：' + String(e.message).slice(0, 120) }); }
   }
   // 更新畫面上的資料
@@ -8140,7 +8149,7 @@ async function imApply() {
   notes.forEach(n => entries.push(mk(n.emp, n.log)));
   let logErr = '';
   try {
-    for (let i = 0; i < entries.length; i += 50) await sbUpsert('change_log', entries.slice(i, i + 50).map(logToSbRow), '');
+    for (let i = 0; i < entries.length; i += 50) await omsAddLogRows(entries.slice(i, i + 50).map(logToSbRow));
     const logs = loadLogs();
     entries.forEach(en => {
       const key = en.factoryCode + '_' + en.empId;
@@ -8236,6 +8245,298 @@ function imRunDetail(i) {
     + line('沒轉入成功', d.failed, x => x.empId + ' ' + (x.name || '') + '：' + x.why)
     || '<span style="color:#6B7A90;">（沒有明細）</span>';
   tr.style.display = '';
+}
+
+
+// ===================================================================================================
+// v325-2（使用者 261112「可以，照示意圖開始做」「同意，員工狀態固定可看」；示意圖 OMS_欄位權限頁_示意_261112.png；
+//   設計檔 OMS_欄位權限_設計_261112.md；配合 SQL 326（設定表＋函式）／327（收直接讀寫））：欄位權限
+//   ・集團系統管理員、集團 HR：照舊直接讀寫，看全部欄位。
+//   ・其他 OMS 角色：讀員工／異動紀錄改走資料庫函式（被隱藏的欄位資料庫就不送）；廠區 HR 寫入改走存檔函式（隱藏欄位保持原值）。
+//   ・被隱藏的欄位：新增表單、編輯視窗、員工表「顯示欄位」、員工詳細、匯出 CSV、資料缺漏檢查、轉入比對都不出現。
+//   ・戰情看板：性別、出生年月被隱藏時，用資料庫的「各廠×性別×出生年人數」把統計補回（只是統計，不是個人真值；那兩欄畫面上不顯示）。
+//   SQL 326 還沒跑（函式不存在）時：一切照舊（全部可看、直接讀寫）。
+// ===================================================================================================
+const OMS_FP_FULL_ROLES = ['admin', 'group_hr'];
+const OMS_FP_SET_ROLES = [
+  { role: 'hq_manager', label: '總部主管' }, { role: 'bu_manager', label: '事業群主管' },
+  { role: 'hr', label: '廠區 HR' }, { role: 'viewer', label: '廠區主管（唯讀）' }];
+let omsFP = { ok: false, catalog: [], hidden: new Set(), hiddenJs: new Set() };
+const _omsFPOrig = { FIELDS: FIELDS.slice(), EDIT_FIELDS: null, COL_DEFS: null, MISSING: null };
+
+function omsFPUsesFunc() { return !!(omsFP.ok && currentUser && OMS_FP_FULL_ROLES.indexOf(currentUser.role) < 0); }
+function omsFPWriteFunc() { return !!(omsFP.ok && currentUser && currentUser.role === 'hr'); }
+
+async function omsLoadFieldPerms() {
+  omsFP = { ok: false, catalog: [], hidden: new Set(), hiddenJs: new Set() };
+  try {
+    const cat = await sbSelect('oms_field_catalog', 'select=*&order=sort.asc');
+    const hid = await sbRpc('oms_my_hidden_fields', {});
+    if (!Array.isArray(cat) || !cat.length) return;
+    omsFP.ok = true;
+    omsFP.catalog = cat;
+    (Array.isArray(hid) ? hid : []).forEach(k => omsFP.hidden.add(k));
+    cat.forEach(c => { if (omsFP.hidden.has(c.field_key)) (c.js_keys || []).forEach(j => omsFP.hiddenJs.add(j)); });
+  } catch (e) { omsFP.ok = false; }
+}
+
+// 依隱藏欄位，把共用欄位清單（新增表單／匯出、編輯視窗、員工表欄位、缺漏檢查）原地拿掉被隱藏的欄位；登出時還原
+function omsApplyFieldDefs() {
+  if (!_omsFPOrig.EDIT_FIELDS) {
+    _omsFPOrig.EDIT_FIELDS = EDIT_FIELDS.slice();
+    _omsFPOrig.COL_DEFS = COL_DEFS.slice();
+    _omsFPOrig.MISSING = MISSING_CHECK_FIELDS.slice();
+  }
+  const H = omsFP.hiddenJs;
+  const hideCol = k => H.has(k) || (k === '_seniority' && H.has('joinDate')) || (k === '_age' && H.has('birth'));
+  const reset = (arr, orig, keep) => { arr.length = 0; orig.filter(keep).forEach(x => arr.push(x)); };
+  reset(FIELDS, _omsFPOrig.FIELDS, f => !H.has(f.key));
+  reset(EDIT_FIELDS, _omsFPOrig.EDIT_FIELDS, f => !H.has(f.key));
+  reset(COL_DEFS, _omsFPOrig.COL_DEFS, c => !hideCol(c.key));
+  reset(MISSING_CHECK_FIELDS, _omsFPOrig.MISSING, f => !H.has(f.key));
+  const valid = COL_DEFS.map(c => c.key);
+  colOrder = colOrder.filter(k => valid.indexOf(k) >= 0);
+  valid.forEach(k => { if (colOrder.indexOf(k) < 0) colOrder.push(k); });
+  visibleCols = visibleCols.filter(k => valid.indexOf(k) >= 0);
+  try { renderColPanel(); } catch (e) {}
+}
+function omsResetFieldPerms() {
+  omsFP = { ok: false, catalog: [], hidden: new Set(), hiddenJs: new Set() };
+  if (_omsFPOrig.EDIT_FIELDS) omsApplyFieldDefs();
+}
+
+// 員工詳細：被隱藏的欄位整格不顯示
+function omsHideModalFields() {
+  const H = omsFP.hiddenJs;
+  const map = { seniority: 'joinDate', age: 'birth' };
+  document.querySelectorAll('#empModal [id^="md-"]').forEach(el => {
+    const k = el.id.slice(3);
+    const hide = H.has(k) || (map[k] && H.has(map[k]));
+    const box = el.closest('.modal-field') || el.parentElement;
+    if (box) box.style.display = hide ? 'none' : '';
+  });
+}
+
+// 看板：性別／出生年月被隱藏時，用資料庫的分組人數把統計補回（同一廠、同在職與否的人之間分配，只用來算統計）
+async function omsApplyDemog() {
+  const hg = omsFP.hiddenJs.has('gender'), hb = omsFP.hiddenJs.has('birth');
+  if (!omsFP.ok || (!hg && !hb)) return;
+  let rows;
+  try { rows = await sbRpc('oms_emp_demog', {}); } catch (e) { return; }
+  if (!Array.isArray(rows)) return;
+  const isAct = e => !e.status || e.status === '在職';
+  const by = e => { const m = String(e.birth || '').match(/(\d{4})/); return m ? m[1] : ''; };
+  // 分組鍵：廠｜在職｜（看得到的那一欄）
+  const keyOf = (fc, act, g, y) => fc + '|' + (act ? 1 : 0) + '|' + (hg ? '' : (g || '')) + '|' + (hb ? '' : (y || ''));
+  const pools = {};
+  rows.forEach(r => {
+    const k = keyOf(r.factory_code, r.active, r.gender || '', r.birth_year ? String(r.birth_year) : '');
+    const p = pools[k] = pools[k] || [];
+    for (let i = 0; i < (r.n || 0); i++) p.push({ g: r.gender || '', y: r.birth_year ? String(r.birth_year) : '' });
+  });
+  Object.keys(employees).forEach(fc => {
+    (employees[fc] || []).slice().sort((a, b) => String(a.empId).localeCompare(String(b.empId))).forEach(e => {
+      const p = pools[keyOf(fc, isAct(e), e.gender || '', by(e))];
+      const v = p && p.length ? p.shift() : null;
+      if (hg) e.gender = v ? v.g : '';
+      if (hb) e.birth = (v && v.y) ? v.y + '/01' : '';
+      e._omsDemog = true;   // 只給看板統計用的分配值，不是本人的真值；不會存回資料庫（存檔函式不收被隱藏的欄位）
+    });
+  });
+}
+
+// 讀：非集團管理員／集團 HR 改走函式（分頁）
+async function omsRpcAll(fn, qs) {
+  const out = [];
+  const PAGE = 1000;
+  for (let off = 0; ; off += PAGE) {
+    const res = await sbFetch(SB_URL + '/rest/v1/rpc/' + fn + '?' + (qs ? qs + '&' : '') + 'limit=' + PAGE + '&offset=' + off,
+      { method: 'POST', headers: sbHdr(), body: '{}' });
+    if (!res.ok) throw new Error(fn + '：' + (await res.text()).slice(0, 160));
+    const part = await res.json();
+    out.push(...part);
+    if (part.length < PAGE) break;
+  }
+  return out;
+}
+
+// 寫：廠區 HR 改走函式；其他人照舊直接寫
+async function omsUpsertEmployees(rows) {
+  if (!rows || !rows.length) return;
+  if (omsFPWriteFunc()) { await sbRpc('oms_employees_save', { p_rows: rows }); return; }
+  await sbUpsert('employees', rows, 'emp_id');
+}
+async function omsDeleteEmployees(empIds) {
+  if (!empIds || !empIds.length) return;
+  if (omsFPWriteFunc()) { await sbRpc('oms_employees_delete', { p_emp_ids: empIds }); return; }
+  for (const id of empIds) await sbDelete('employees', 'emp_id=eq.' + encodeURIComponent(id));
+}
+async function omsAddLogRows(rows) {
+  if (!rows || !rows.length) return;
+  if (omsFPWriteFunc()) { await sbRpc('oms_change_log_add', { p_rows: rows }); return; }
+  await sbUpsert('change_log', rows, '');
+}
+
+// ================= 欄位權限設定頁（只有集團系統管理員）=================
+let fpPage = null;
+function fpEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+async function openFieldPerms() {
+  if (!currentUser || currentUser.role !== 'admin') { showToast('僅集團系統管理員可使用', 'error'); return; }
+  let ov = document.getElementById('fpOverlay');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'fpOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9000;background:#F3F6FB;overflow:auto;font-size:13px;color:#1d2a3a;';
+    document.body.appendChild(ov);
+  }
+  ov.style.display = 'block';
+  ov.innerHTML = fpHead() + '<div style="max-width:1180px;margin:16px auto;padding:0 16px;">讀取中…</div>';
+  fpPage = { cat: [], pol: {}, exc: [], users: [], err: '', edit: null, msg: '' };
+  try {
+    fpPage.cat = await sbSelect('oms_field_catalog', 'select=*&order=sort.asc');
+    const pol = await sbSelectAll('oms_field_policy', 'select=*&order=role.asc,field_key.asc');   // v325-3：設定表沒有 id，要自己給排序
+    pol.forEach(p => { fpPage.pol[p.role + '|' + p.field_key] = p.allowed; });
+    fpPage.exc = await sbSelectAll('oms_field_exception', 'select=*&order=profile_id.asc,field_key.asc');
+  } catch (e) {
+    const m = String(e.message || e);
+    fpPage.err = /PGRST205|404|does not exist|Could not find the table/i.test(m) ? '欄位權限的資料表還沒建立（SQL 326 還沒跑）。' : '讀不到欄位權限設定：' + m.slice(0, 160);
+  }
+  try { const j = await sbCallAdminFn('list'); fpPage.users = (j.users || []).filter(u => u.active !== false); } catch (e) { fpPage.users = []; }
+  fpRender();
+}
+function closeFieldPerms() { const ov = document.getElementById('fpOverlay'); if (ov) ov.style.display = 'none'; fpPage = null; }
+function fpHead() {
+  return '<div style="background:#1F3864;color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:2;">'
+    + '<button onclick="closeFieldPerms()" style="background:transparent;border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:6px;padding:4px 12px;cursor:pointer;">← 返回</button>'
+    + '<span style="font-size:18px;letter-spacing:3px;font-weight:700;">欄位權限</span>'
+    + '<span style="font-size:12px;opacity:.85;">管理工具 → 欄位權限（只有集團系統管理員看得到）</span></div>';
+}
+function fpAllowed(role, key) { const v = fpPage.pol[role + '|' + key]; return v === undefined ? true : !!v; }
+function fpToggle(role, key, val) { if (fpPage) { fpPage.pol[role + '|' + key] = !!val; fpPage.dirty = true; } }
+function fpRoleCount(role) { return (fpPage.users || []).filter(u => u.role === role).length; }
+function fpRender() {
+  const ov = document.getElementById('fpOverlay');
+  if (!ov || !fpPage) return;
+  const P = fpPage;
+  const card = 'background:#fff;border:1px solid #D6DEEA;border-radius:10px;padding:14px 16px;margin-bottom:14px;';
+  const th = 'background:#F6F8FC;color:#1F3864;font-weight:700;font-size:12.5px;padding:7px 8px;border-bottom:1px solid #E6ECF4;white-space:nowrap;text-align:center;';
+  const td = 'padding:6px 8px;border-bottom:1px solid #EDF1F7;white-space:nowrap;text-align:center;';
+  const lock = '<input type="checkbox" checked disabled title="固定可看，不能取消">';
+  let h = fpHead() + '<div style="max-width:1180px;margin:16px auto;padding:0 16px;">';
+  if (P.err) { ov.innerHTML = h + '<div style="' + card + 'color:#B0453C;">⚠ ' + fpEsc(P.err) + '</div></div>'; return; }
+  // ① 角色設定
+  h += '<div style="' + card + '"><div style="font-size:16px;font-weight:700;color:#1F3864;">① 依角色設定（預設）</div>'
+    + '<div style="font-size:12.5px;color:#6B7A90;margin:4px 0 10px;line-height:1.7;">打勾＝這個角色看得到這個欄位；沒有設定過＝全部打勾（跟以前一樣）。取消打勾後，資料庫不再送這一欄給該角色（員工表、員工詳細、匯出 CSV、編輯視窗、異動紀錄都看不到）。<br>'
+    + '廠區 HR 被取消的欄位：編輯時看不到也改不到，存檔保持原值、不會被清空。戰情看板的性別、年齡統計照樣看得到。<b>設定改了，對方要重新登入或重新整理才生效。</b></div>';
+  h += '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + 'text-align:left;">欄位</th>'
+    + '<th style="' + th + '">集團系統管理員<br><small style="font-weight:400;color:#6B7A90;">' + fpRoleCount('admin') + ' 人</small></th>'
+    + '<th style="' + th + '">集團 HR<br><small style="font-weight:400;color:#6B7A90;">' + fpRoleCount('group_hr') + ' 人</small></th>'
+    + OMS_FP_SET_ROLES.map(r => '<th style="' + th + '">' + r.label + '<br><small style="font-weight:400;color:#6B7A90;">' + fpRoleCount(r.role) + ' 人</small></th>').join('') + '</tr>';
+  h += '<tr><td style="' + td + 'text-align:left;font-weight:600;">工號、姓名、廠區、員工狀態<br><small style="color:#6B7A90;font-weight:400;">固定可看</small></td>' + '<td style="' + td + '">' + lock + '</td>'.repeat(1)
+    + ('<td style="' + td + '">' + lock + '</td>').repeat(1 + OMS_FP_SET_ROLES.length) + '</tr>';
+  P.cat.forEach(c => {
+    h += '<tr><td style="' + td + 'text-align:left;font-weight:600;">' + fpEsc(c.label) + '</td><td style="' + td + '">' + lock + '</td><td style="' + td + '">' + lock + '</td>'
+      + OMS_FP_SET_ROLES.map(r => '<td style="' + td + '"><input type="checkbox" ' + (fpAllowed(r.role, c.field_key) ? 'checked ' : '')
+        + 'onchange="fpToggle(\'' + r.role + '\',\'' + c.field_key + '\',this.checked)"></td>').join('') + '</tr>';
+  });
+  h += '</table><div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px;align-items:center;"><span id="fpMsg" style="color:#2B6FD6;">' + fpEsc(P.msg || '') + '</span>'
+    + '<button class="btn btn-ghost" onclick="fpResetAll()">全部勾回（還原預設）</button><button class="btn btn-primary" onclick="fpSavePolicy()">儲存</button></div></div>';
+  // ② 個人例外
+  const uById = {}; (P.users || []).forEach(u => { uById[u.id] = u; });
+  const byProf = {};
+  (P.exc || []).forEach(x => { (byProf[x.profile_id] = byProf[x.profile_id] || []).push(x); });
+  const labelOf = k => (P.cat.find(c => c.field_key === k) || {}).label || k;
+  h += '<div style="' + card + '"><div style="font-size:16px;font-weight:700;color:#1F3864;">② 個人例外（保留彈性）</div>'
+    + '<div style="font-size:12.5px;color:#6B7A90;margin:4px 0 10px;">替某一個帳號另外「加開」或「關掉」欄位，蓋過他角色的設定。沒有列在這裡的人，就照上面角色設定。集團系統管理員、集團 HR 不能設例外。</div>';
+  const profIds = Object.keys(byProf);
+  if (!profIds.length) h += '<div style="color:#6B7A90;margin-bottom:8px;">目前沒有個人例外。</div>';
+  else {
+    h += '<table style="border-collapse:collapse;width:100%;"><tr><th style="' + th + 'text-align:left;">帳號</th><th style="' + th + 'text-align:left;">姓名</th><th style="' + th + '">角色</th><th style="' + th + 'text-align:left;">加開</th><th style="' + th + 'text-align:left;">關掉</th><th style="' + th + '">最後修改</th><th style="' + th + '"></th></tr>';
+    profIds.forEach(pid => {
+      const xs = byProf[pid]; const u = uById[pid] || {};
+      const last = xs.slice().sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)))[0];
+      h += '<tr><td style="' + td + 'text-align:left;">' + fpEsc(u.username || xs[0].username || '') + '</td><td style="' + td + 'text-align:left;">' + fpEsc(u.name || '') + '</td><td style="' + td + '">' + fpEsc(ROLE_LABELS[u.role] || u.role || '') + '</td>'
+        + '<td style="' + td + 'text-align:left;">' + xs.filter(x => x.allowed).map(x => '<span style="background:#E2F3E7;color:#1E7A46;border-radius:10px;padding:1px 8px;margin-right:4px;">' + fpEsc(labelOf(x.field_key)) + '</span>').join('') + '</td>'
+        + '<td style="' + td + 'text-align:left;">' + xs.filter(x => !x.allowed).map(x => '<span style="background:#FCE4E1;color:#B0453C;border-radius:10px;padding:1px 8px;margin-right:4px;">' + fpEsc(labelOf(x.field_key)) + '</span>').join('') + '</td>'
+        + '<td style="' + td + '">' + fpEsc(String(last.updated_at || '').slice(0, 10)) + ' ' + fpEsc(last.updated_by || '') + '</td>'
+        + '<td style="' + td + '"><button class="btn btn-ghost" style="font-size:12px;padding:3px 10px;" onclick="fpEditExc(\'' + pid + '\')">編輯</button> '
+        + '<button class="btn btn-ghost" style="font-size:12px;padding:3px 10px;color:#B0453C;" onclick="fpDelExc(\'' + pid + '\')">刪除</button></td></tr>';
+    });
+    h += '</table>';
+  }
+  // 編輯區
+  const cand = (P.users || []).filter(u => OMS_FP_SET_ROLES.some(r => r.role === u.role)).sort((a, b) => String(a.username).localeCompare(String(b.username)));
+  if (P.edit) {
+    const E = P.edit;
+    h += '<div style="border:1px solid #D6DEEA;border-radius:8px;padding:12px;margin-top:12px;background:#FAFBFD;">'
+      + '<div style="margin-bottom:8px;">帳號：<select onchange="fpEditPick(this.value)" style="padding:4px 8px;border-radius:6px;"><option value="">選帳號</option>'
+      + cand.map(u => '<option value="' + u.id + '"' + (E.pid === u.id ? ' selected' : '') + '>' + fpEsc(u.username + ' ' + (u.name || '') + '（' + (ROLE_LABELS[u.role] || u.role) + '）') + '</option>').join('') + '</select></div>';
+    if (E.pid) {
+      const u = uById[E.pid] || {};
+      h += '<table style="border-collapse:collapse;"><tr><th style="' + th + 'text-align:left;">欄位</th><th style="' + th + '">他角色的設定</th><th style="' + th + '">這個人</th></tr>';
+      P.cat.forEach(c => {
+        const v = E.sel[c.field_key] || '';
+        h += '<tr><td style="' + td + 'text-align:left;">' + fpEsc(c.label) + '</td><td style="' + td + '">' + (fpAllowed(u.role, c.field_key) ? '可看' : '不可看') + '</td><td style="' + td + '">'
+          + '<select onchange="fpEditSet(\'' + c.field_key + '\',this.value)" style="padding:3px 6px;border-radius:6px;">'
+          + '<option value=""' + (v === '' ? ' selected' : '') + '>照角色設定</option><option value="1"' + (v === '1' ? ' selected' : '') + '>加開</option><option value="0"' + (v === '0' ? ' selected' : '') + '>關掉</option></select></td></tr>';
+      });
+      h += '</table>';
+    }
+    h += '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;"><button class="btn btn-ghost" onclick="fpEditCancel()">取消</button><button class="btn btn-primary" onclick="fpSaveExc()"' + (E.pid ? '' : ' disabled') + '>儲存這個人的例外</button></div></div>';
+  } else {
+    h += '<div style="display:flex;justify-content:flex-end;margin-top:10px;"><button class="btn btn-primary" onclick="fpEditExc(\'\')">＋ 新增例外</button></div>';
+  }
+  h += '<div style="font-size:12px;color:#6B7A90;margin-top:8px;">每次修改都記下誰、什麼時候改的。</div></div></div>';
+  ov.innerHTML = h;
+}
+function fpResetAll() {
+  if (!fpPage) return;
+  OMS_FP_SET_ROLES.forEach(r => fpPage.cat.forEach(c => { fpPage.pol[r.role + '|' + c.field_key] = true; }));
+  fpPage.msg = '已全部勾回，按「儲存」才會生效'; fpRender();
+}
+async function fpSavePolicy() {
+  if (!fpPage) return;
+  const who = currentUser ? (currentUser.name || currentUser.username) : '';
+  const rows = [];
+  OMS_FP_SET_ROLES.forEach(r => fpPage.cat.forEach(c => rows.push({ role: r.role, field_key: c.field_key, allowed: fpAllowed(r.role, c.field_key), updated_by: who, updated_at: new Date().toISOString() })));
+  const off = rows.filter(x => !x.allowed).length;
+  if (!confirm('儲存角色欄位設定？\n目前共有 ' + off + ' 個「不可看」。\n對方要重新登入或重新整理才生效。')) return;
+  try { await sbUpsert('oms_field_policy', rows, 'role,field_key'); fpPage.msg = '✓ 已儲存（' + new Date().toLocaleTimeString('zh-TW', { hour12: false }) + '）'; showToast('角色欄位設定已儲存'); }
+  catch (e) { fpPage.msg = '⚠ 沒有存成功：' + String(e.message || e).slice(0, 120); showToast('沒有存成功', 'error'); }
+  fpRender();
+}
+function fpEditExc(pid) {
+  if (!fpPage) return;
+  const sel = {};
+  (fpPage.exc || []).filter(x => x.profile_id === pid).forEach(x => { sel[x.field_key] = x.allowed ? '1' : '0'; });
+  fpPage.edit = { pid: pid || '', sel };
+  fpRender();
+}
+function fpEditPick(pid) { if (fpPage && fpPage.edit) fpEditExc(pid); }
+function fpEditSet(key, v) { if (fpPage && fpPage.edit) fpPage.edit.sel[key] = v; }
+function fpEditCancel() { if (fpPage) { fpPage.edit = null; fpRender(); } }
+async function fpSaveExc() {
+  if (!fpPage || !fpPage.edit || !fpPage.edit.pid) return;
+  const E = fpPage.edit;
+  const u = (fpPage.users || []).find(x => x.id === E.pid) || {};
+  const who = currentUser ? (currentUser.name || currentUser.username) : '';
+  const rows = Object.keys(E.sel).filter(k => E.sel[k] === '1' || E.sel[k] === '0')
+    .map(k => ({ profile_id: E.pid, username: u.username || '', field_key: k, allowed: E.sel[k] === '1', updated_by: who, updated_at: new Date().toISOString() }));
+  try {
+    await sbDelete('oms_field_exception', 'profile_id=eq.' + encodeURIComponent(E.pid));
+    if (rows.length) await sbUpsert('oms_field_exception', rows, 'profile_id,field_key');
+    fpPage.exc = await sbSelectAll('oms_field_exception', 'select=*&order=profile_id.asc,field_key.asc');
+    fpPage.edit = null; fpPage.msg = '';
+    showToast(rows.length ? '個人例外已儲存' : '這個人的例外已清除（照角色設定）');
+  } catch (e) { showToast('沒有存成功：' + String(e.message || e).slice(0, 100), 'error'); }
+  fpRender();
+}
+async function fpDelExc(pid) {
+  if (!fpPage) return;
+  const u = (fpPage.users || []).find(x => x.id === pid) || {};
+  if (!confirm('刪除 ' + (u.username || '') + ' ' + (u.name || '') + ' 的個人例外？刪除後照他角色的設定。')) return;
+  try { await sbDelete('oms_field_exception', 'profile_id=eq.' + encodeURIComponent(pid)); fpPage.exc = await sbSelectAll('oms_field_exception', 'select=*&order=profile_id.asc,field_key.asc'); showToast('已刪除'); }
+  catch (e) { showToast('沒有刪成功：' + String(e.message || e).slice(0, 100), 'error'); }
+  fpRender();
 }
 
 function clearFactoryData() {
@@ -9156,6 +9457,7 @@ function omsClearLoadedData() {
   facHeadcounts = null;
   _fullEmpLoaded = false;
   currentFactory = null;
+  if (typeof omsResetFieldPerms === 'function') omsResetFieldPerms();   // v325-2
 }
 async function ensureFullEmployees() {
   if (_fullEmpLoaded || !_omsJWT) return;
@@ -9164,11 +9466,14 @@ async function ensureFullEmployees() {
   try {
     if (overlay) overlay.style.display = 'flex';
     if (msg) msg.textContent = '載入員工資料…';
+    await omsLoadFieldPerms();   // v325-2：先知道哪些欄位被隱藏、要不要改走函式
     employees = await loadEmployeesFromSB();
     cachedLogs = await loadLogsFromSB();   // v267：異動紀錄改到登入後才載入
     // v323-1：帳號名冊改到進 OMS 後才讀（讀不到不擋畫面，只影響管理頁的帳號相關欄位）
     try { cachedUsers = await loadUsersFromSB(); } catch (e) { console.warn('[v323-1] 讀帳號名冊失敗', e); }
     await loadFacHeadcounts();   // v324：各廠在職人數（範圍外的廠用）
+    omsApplyFieldDefs();         // v325-2：被隱藏的欄位從表單、欄位清單拿掉
+    await omsApplyDemog();       // v325-2：性別／出生年月被隱藏時補回看板統計
     _fullEmpLoaded = true;
   } catch (e) {
     console.error('載入完整資料失敗', e);
@@ -9255,6 +9560,8 @@ async function showMainApp() {
   const mgmtItemSysList = document.getElementById('mgmtItemSysList');   // v319-1：系統清單管理（admin 限定）
   if (mgmtItemSysList) mgmtItemSysList.style.display = isAdmin ? 'flex' : 'none';
   if (mgmtItemFactory) mgmtItemFactory.style.display = isAdmin ? 'flex' : 'none';
+  const mgmtItemFieldPerm = document.getElementById('mgmtItemFieldPerm');   // v325-2
+  if (mgmtItemFieldPerm) mgmtItemFieldPerm.style.display = isAdmin ? 'flex' : 'none';
   if (mgmtItemLog) mgmtItemLog.style.display = isAdmin ? 'flex' : 'none';
   if (mgmtItemMissing) mgmtItemMissing.style.display = canCheckMissing ? 'flex' : 'none';
   if (mgmtItemAnomaly) mgmtItemAnomaly.style.display = canCheckAnomaly ? 'flex' : 'none';
