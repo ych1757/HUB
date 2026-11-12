@@ -5806,7 +5806,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V323-1';
+const APP_VER = 'V324';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -8140,6 +8140,7 @@ async function omsRecheckOwnProfile() {
     clearAuthSession();
     try { sessionStorage.removeItem(OMS_SESSION_KEY); } catch (e) {}
     currentUser = null;
+    omsClearLoadedData();   // v324
     showSyncHub();
     showSyncHubToast(prof ? '此帳號已停用，請洽 DTO' : '找不到帳號設定檔，請洽 DTO');
     return;
@@ -8691,6 +8692,7 @@ async function enterOMS() {
 function syncHubLogout() {
   currentUser = null;
   clearAuthSession();
+  omsClearLoadedData();   // v324
   try { sessionStorage.removeItem(OMS_SESSION_KEY); } catch(e) {}
   // v289：登出後留在大廳（訪客模式），不再跳登入頁
   showSyncHub();
@@ -8707,6 +8709,31 @@ function showSyncHubToast(msg, ms) {
 // 這樣登入前記憶體只有精簡名單，之後 employees 全表上 RLS 也不會弄壞登入前畫面。
 // v267：異動紀錄(change_log)也一併在這裡（登入後）載入，以便對它上 RLS。
 let _fullEmpLoaded = false;
+// v324（使用者 261112「可以，照示意圖開始做」；人員資料保護計畫第二件・示意圖第③塊）：
+//   SQL 324 起資料庫只送登入者「本來看得到的廠」的員工與異動紀錄（廠區 HR／廠區主管＝自己的廠、事業群主管＝自己事業群的廠）。
+//   左邊廠區列表要顯示各廠在職人數 → 範圍外的廠改用資料庫統計 oms_factory_headcounts()（只有數字），畫面跟以前一樣。
+//   讀不到（例如 SQL 324 還沒跑、或已還原）＝null，照舊用畫面上算的人數。
+let facHeadcounts = null;
+async function loadFacHeadcounts() {
+  try {
+    const rows = await sbRpc('oms_factory_headcounts', {});
+    if (Array.isArray(rows) && rows.length) {
+      const m = {};
+      rows.forEach(r => { if (r && r.factory_code) m[r.factory_code] = Number(r.active_n) || 0; });
+      facHeadcounts = m;
+    } else facHeadcounts = null;
+  } catch (e) { facHeadcounts = null; }
+}
+// v324：登出（或帳號被停用而登出）時清掉這個分頁裡已讀進來的員工、異動紀錄、帳號名冊、各廠人數，
+//   免得同一個分頁換人登入時沿用上一個人的資料（舊版登出不清、也不重讀）。
+function omsClearLoadedData() {
+  employees = {};
+  cachedLogs = { _global: [] };
+  cachedUsers = [];
+  facHeadcounts = null;
+  _fullEmpLoaded = false;
+  currentFactory = null;
+}
 async function ensureFullEmployees() {
   if (_fullEmpLoaded || !_omsJWT) return;
   const overlay = document.getElementById('sbLoadingOverlay');
@@ -8718,6 +8745,7 @@ async function ensureFullEmployees() {
     cachedLogs = await loadLogsFromSB();   // v267：異動紀錄改到登入後才載入
     // v323-1：帳號名冊改到進 OMS 後才讀（讀不到不擋畫面，只影響管理頁的帳號相關欄位）
     try { cachedUsers = await loadUsersFromSB(); } catch (e) { console.warn('[v323-1] 讀帳號名冊失敗', e); }
+    await loadFacHeadcounts();   // v324：各廠在職人數（範圍外的廠用）
     _fullEmpLoaded = true;
   } catch (e) {
     console.error('載入完整資料失敗', e);
@@ -8876,6 +8904,7 @@ async function doLogin() {
   }
 
   // 1) Auth 驗證 → 拿 JWT
+  omsClearLoadedData();   // v324：換人登入一律重讀，不沿用這個分頁之前讀進來的資料
   try {
     await sbAuthSignIn(email, pwd);
   } catch (e) {
@@ -8971,6 +9000,7 @@ function doLogout() {
   sessionStorage.removeItem(OMS_SESSION_KEY);
   clearAuthSession();
   currentUser = null;
+  omsClearLoadedData();   // v324
   closeUserMenu();
   // v289：OMS 內登出 → 收起主畫面、回訪客大廳（不再跳登入頁）
   const mainApp = document.getElementById('mainApp');
@@ -14308,7 +14338,11 @@ function renderBuPanel() {
   if (facSortMode && !(currentUser && currentUser.role === 'admin')) { facSortMode = false; facSortDraft = null; }   // 換人登入時不留管理員的調整模式
   container.innerHTML = '';
   const allData = employees;
-  const activeCount = code => (allData[code] || []).filter(e => !e.status || e.status === '在職').length;
+  // v324：看得到的廠照畫面上算（存檔後馬上更新）；範圍外的廠用資料庫統計的在職人數（資料庫不再送那些廠的員工）
+  const activeCount = code => {
+    if (facHeadcounts && !(typeof canAccessFactory === 'function' && canAccessFactory(code)) && (code in facHeadcounts)) return facHeadcounts[code];
+    return (allData[code] || []).filter(e => !e.status || e.status === '在職').length;
+  };
   const { metaByName, groups } = homeGroups();
   let { order } = homeGroups();
   if (facSortMode && facSortDraft) {
