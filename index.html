@@ -4904,7 +4904,7 @@
     </div>
 
     <!-- v299-2：從 QMS/MHR「初始密碼被擋」回來（?pwd=1）或按大廳提示條「立即登入」時顯示 -->
-    <div id="authPwdHint" style="display:none;margin:0 0 calc(var(--u)*0.9);padding:calc(var(--u)*0.5) calc(var(--u)*0.8);border:1px solid #E7C56A;border-radius:calc(var(--u)*0.4);background:#FFF6DC;color:#7A5200;font-size:calc(var(--u)*0.8);line-height:1.5;letter-spacing:calc(var(--u)*0.03);text-align:left;">請用工號＋初始密碼登入（<b>初始密碼請洽 DTO</b>），系統會要求您設定新密碼；設好後回 QMS／MHR 改用新密碼登入。<br><b>已設定過新密碼的同仁，請直接用新密碼登入</b>（不要再打初始密碼）。</div><!-- v302：261012 SH0016 改完密碼又打初始密碼→錯誤 -->
+    <div id="authPwdHint" style="display:none;margin:0 0 calc(var(--u)*0.9);padding:calc(var(--u)*0.5) calc(var(--u)*0.8);border:1px solid #E7C56A;border-radius:calc(var(--u)*0.4);background:#FFF6DC;color:#7A5200;font-size:calc(var(--u)*0.8);line-height:1.5;letter-spacing:calc(var(--u)*0.03);text-align:left;">請用工號＋初始密碼登入（<b>初始密碼請洽 DTO</b>），系統會要求您設定新密碼；設好後回 QMS／MHR 改用新密碼登入。<br><b>已設定過新密碼的同仁，請直接用新密碼登入</b>（不要再打初始密碼）。</div><!-- v302：261012 有同仁改完密碼後又打初始密碼→登入錯誤，所以加這行提示（v322 拿掉工號） -->
     <!-- v294：登入改「工號/Email＋密碼」單步（照 MHR）。大廳免登入後，登入＝進 OMS；廠區與角色由帳號設定檔帶出，不再選廠區選名字 -->
     <div class="auth-field">
       <label class="auth-label">工號 / Email</label>
@@ -5806,7 +5806,7 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V321';
+const APP_VER = 'V322';
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6206,29 +6206,14 @@ async function addLogToSB(entry) {
 }
 
 
-// v251: 進 OMS 密碼驗證機制（7 天免驗）
-const OMS_VERIFY_KEY = 'oms_verify_v1';
-const OMS_VERIFY_DAYS = 7;
-
-// 讀取驗證記錄 { username: timestamp }
-function loadOmsVerify() {
-  try { return JSON.parse(localStorage.getItem(OMS_VERIFY_KEY) || '{}'); }
-  catch(e) { return {}; }
-}
-// 記錄某帳號已在這台電腦驗證
-function markOmsVerified(username) {
-  const rec = loadOmsVerify();
-  rec[username] = Date.now();
-  try { localStorage.setItem(OMS_VERIFY_KEY, JSON.stringify(rec)); } catch(e) {}
-}
-// 檢查某帳號是否在 7 天內驗證過
-function isOmsVerified(username) {
-  const rec = loadOmsVerify();
-  const t = rec[username];
-  if (!t) return false;
-  const days = (Date.now() - t) / (1000 * 60 * 60 * 24);
-  return days < OMS_VERIFY_DAYS;
-}
+// v322（使用者 261112「可以，做 V322」）：開網頁就清掉舊版留在這台電腦的資料，現行版都不用：
+//   oms_employees＝V1～V229 單機版整份員工資料；oms_users_v1＝單機版帳號（含密碼欄）；oms_change_log_v1＝單機版異動紀錄；
+//   oms_verify_v1＝V251 七天免驗紀錄（v322 已拿掉這段程式）。資料正本都在資料庫，刪掉不影響任何功能。
+(function omsPurgeLegacyStorage() {
+  ['oms_employees', 'oms_users_v1', 'oms_change_log_v1', 'oms_verify_v1'].forEach(k => {
+    try { localStorage.removeItem(k); } catch (e) {}
+  });
+})();
 
 // 顯示進 OMS 密碼驗證視窗
 function showOmsVerifyModal() {
@@ -8075,9 +8060,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // true = 正式模式（僅授權帳號可進 OMS，符合 Auth 現況）
 const PRODUCTION_MODE = true;
 
-const OMS_USERS_KEY   = 'oms_users_v1';
 const OMS_SESSION_KEY = 'oms_session_v1';
-const OMS_LOG_KEY     = 'oms_change_log_v1';
 // BU 主管多 BU 輔助：取得 BU 陣列
 function getUserBuList(user) {
   if (!user || !user.bu) return [];
@@ -8145,89 +8128,7 @@ function saveLogs(logs) {
   cachedLogs = logs;
 }
 
-// ============================================================
-// 範例異動紀錄（首次載入或 _global 為空時自動建立，純展示用）
-// ============================================================
-function seedSampleLogs() {
-  const logs = loadLogs();
-  // 版本控制：偵測舊範例（v146 稽核室 / v147-v150 含主管欄位）
-  const oldSample = (logs['_global'] || []).find(e =>
-    e.empId === 'SS999' && e.empName === '王小明' &&
-    (e.changes||[]).some(c =>
-      c.new === '董事長室' || c.new === '稽核室' || c.new === '稽核專員' ||
-      c.field === '主管'  // v147-v150 含主管欄位的也算舊版
-    )
-  );
-  if (oldSample) {
-    // 清掉所有王小明的舊範例
-    if (logs['_global']) {
-      logs['_global'] = logs['_global'].filter(e => !(e.empId === 'SS999' && e.empName === '王小明'));
-    }
-    if (logs['SY_SS999']) delete logs['SY_SS999'];
-    if (logs['SH_SS999']) delete logs['SH_SS999'];
-    saveLogs(logs);
-  }
-  // 重新讀取
-  const logs2 = loadLogs();
-  // 若已有「王小明」新範例（含公司欄位）就不重複塞
-  const hasSample = (logs2['_global'] || []).some(e =>
-    e.empId === 'SS999' && e.empName === '王小明' &&
-    (e.changes||[]).some(c => c.field === '公司')
-  );
-  if (hasSample) return;
-
-  const sampleEntries = [
-    {
-      time: '2026-05-11T09:42:00',
-      operator: 'DTO',
-      operatorId: 'admin',
-      action: '轉調',
-      empName: '王小明',
-      factoryCode: 'SY',
-      empId: 'SS999',
-      changes: [
-        { field: '公司', old: '信鋐科技', new: '信錦台北' },
-        { field: '廠區', old: 'SH', new: 'SY' },
-        { field: '部門', old: '採購部', new: '生管部' },
-        { field: '職稱', old: '採購專員', new: '生管專員' }
-      ]
-    },
-    {
-      time: '2026-05-10T14:20:00',
-      operator: 'DTO',
-      operatorId: 'admin',
-      action: '新增',
-      empName: '王小明',
-      factoryCode: 'SH',
-      empId: 'SS999',
-      changes: [
-        { field: '姓名', old: '', new: '王小明' },
-        { field: '公司', old: '', new: '信鋐科技' },
-        { field: '廠區', old: '', new: 'SH' },
-        { field: '部門', old: '', new: '採購部' },
-        { field: '職稱', old: '', new: '採購專員' },
-        { field: '到職日', old: '', new: '2026-05-10' }
-      ]
-    }
-  ];
-
-  if (!logs2['_global']) logs2['_global'] = [];
-  // 加入 _global（最新的在前）
-  sampleEntries.forEach(e => {
-    logs2['_global'].unshift({ key: e.factoryCode + '_' + e.empId, ...e });
-  });
-  // 同時加入該員工各廠區的 key（跨廠區轉調的話會有 2 個 key）
-  sampleEntries.forEach(e => {
-    const key = e.factoryCode + '_' + e.empId;
-    if (!logs2[key]) logs2[key] = [];
-    logs2[key].unshift(e);
-  });
-
-  saveLogs(logs2);
-}
-
-// 頁面載入時自動執行 seed
-// v230: seedSampleLogs 已停用（使用 Supabase 真實資料）
+// v322：拿掉 v230 起停用的範例異動紀錄程式（seedSampleLogs）
 
 // 紀錄異動
 function addLog(factoryCode, empId, empName, changes) {
@@ -14210,7 +14111,7 @@ function drawRadar(factories, allEmp, size=200) {
 <div id="forcePwdOverlay" style="display:none;position:fixed;inset:0;background:rgba(10,30,80,0.45);z-index:99999;align-items:center;justify-content:center;">
   <div style="background:var(--bg-card);border-radius:12px;padding:36px 32px;width:400px;max-width:90vw;box-shadow:0 8px 32px rgba(10,30,80,0.18);">
     <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:6px;">首次登入 · 請設定新密碼</div>
-    <div style="font-size:12px;color:var(--text-soft);margin-bottom:24px;">密碼至少 8 碼，需含英文字母與數字</div><!-- v302-1：原寫「須為 8 碼」且欄位 maxlength=8，超過會被截成前 8 碼（261012 SH0016 中招） -->
+    <div style="font-size:12px;color:var(--text-soft);margin-bottom:24px;">密碼至少 8 碼，需含英文字母與數字</div><!-- v302-1：原寫「須為 8 碼」且欄位 maxlength=8，超過會被截成前 8 碼（261012 有同仁中招；v322 拿掉工號） -->
     <div style="margin-bottom:16px;">
       <label style="font-size:12px;color:var(--text-soft);display:block;margin-bottom:6px;">新密碼（至少 8 碼）</label>
       <input id="newPwd1" type="password" maxlength="72" placeholder="至少 8 碼，含英文與數字"
