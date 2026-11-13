@@ -5811,7 +5811,11 @@
 // Supabase 設定（v230）
 // ============================================================
 // v293：畫面版號單一出處（出新版 SOP＝cp 檔 → 先改 APP_VER → 才改功能；注入三處＝分頁標題／大廳頂欄右上／登入頁頁腳，比照 QMS/MHR）
-const APP_VER = 'V325-3';
+const APP_VER = 'V326';
+// v326（261113）：帳號名冊只給管理員——①登入後只有集團系統管理員才讀帳號名冊（其他角色用不到，原本每個人都讀進 214 筆）
+//   ②管理員讀帳號名冊改走管理後端 synchub-admin-users 的 list（後端驗管理員身分），不再讀公開的 oms_roster
+//   ③讀不到帳號名冊時，廠區控制頁「OMS 角色範圍含此廠的帳號」顯示「讀不到」，不再顯示 0 個
+//   為計畫書步驟 10（收掉 oms_roster 等名單的公開讀取）先改好 OMS 這一端。
 document.addEventListener('DOMContentLoaded', () => {
   document.title = 'SyncHub · 信錦智匯 ' + APP_VER;
   const vt = document.getElementById('syncHubVerTag'); if (vt) vt.textContent = APP_VER;
@@ -6122,6 +6126,7 @@ function logToSbRow(entry) {
 
 // --- Supabase CRUD ---
 let cachedUsers = [];
+let cachedUsersErr = '';   // v326：帳號名冊讀不到的原因（讀不到時畫面要顯示「讀不到」，不能當成 0 個帳號）
 let cachedLogs = { _global: [] };
 
 async function loadEmployeesFromSB() {
@@ -6166,8 +6171,10 @@ async function deleteEmpFromSB(empId) {
 }
 async function loadUsersFromSB() {
   // v269：帳號名單改讀正本 synchub_profiles 的精簡視圖 oms_roster（舊表 oms_users 已淘汰）
-  const rows = await sbSelect('oms_roster', '');
-  return rows.map(sbRowToUser);
+  // v326：改走管理後端 list（後端驗管理員），不讀公開的 oms_roster；只有管理員會呼叫（ensureFullEmployees）
+  const j = await sbCallAdminFn('list');
+  if (!j || !Array.isArray(j.users)) throw new Error('管理後端沒有回傳帳號清單');
+  return j.users.map(sbRowToUser);
 }
 async function saveUserToSB(user) {
   await sbUpsert('oms_users', [userToSbRow(user)], 'username');
@@ -9454,6 +9461,7 @@ function omsClearLoadedData() {
   employees = {};
   cachedLogs = { _global: [] };
   cachedUsers = [];
+  cachedUsersErr = '';   // v326
   facHeadcounts = null;
   _fullEmpLoaded = false;
   currentFactory = null;
@@ -9470,7 +9478,11 @@ async function ensureFullEmployees() {
     employees = await loadEmployeesFromSB();
     cachedLogs = await loadLogsFromSB();   // v267：異動紀錄改到登入後才載入
     // v323-1：帳號名冊改到進 OMS 後才讀（讀不到不擋畫面，只影響管理頁的帳號相關欄位）
-    try { cachedUsers = await loadUsersFromSB(); } catch (e) { console.warn('[v323-1] 讀帳號名冊失敗', e); }
+    // v326：只有集團系統管理員才讀（用到的異動紀錄操作人下拉、廠區控制頁都只給管理員）；其他角色不讀
+    if (currentUser && currentUser.role === 'admin') {
+      try { cachedUsers = await loadUsersFromSB(); cachedUsersErr = ''; }
+      catch (e) { cachedUsers = []; cachedUsersErr = (e && e.message) || String(e); console.warn('[v326] 讀帳號名冊失敗', e); }
+    } else { cachedUsers = []; cachedUsersErr = ''; }
     await loadFacHeadcounts();   // v324：各廠在職人數（範圍外的廠用）
     omsApplyFieldDefs();         // v325-2：被隱藏的欄位從表單、欄位清單拿掉
     await omsApplyDemog();       // v325-2：性別／出生年月被隱藏時補回看板統計
@@ -9947,8 +9959,10 @@ async function sbCallAdminFn(action, payload) {
 async function omsFindLoginAccount(empId) {
   const id = String(empId || '').trim().toUpperCase();
   if (!id) return null;
-  // oms_roster＝帳號名冊（synchub_profiles 的公開欄位）；大小寫不同也要對到，所以整份讀回來在這裡比
-  const rows = await sbSelectAll('oms_roster', 'select=username,emp_id,role,active&order=username');
+  // v326：改走管理後端 list（後端驗管理員；呼叫處都只給管理員），不讀公開的 oms_roster；大小寫不同也要對到，所以整份讀回來在這裡比
+  const j = await sbCallAdminFn('list');
+  if (!j || !Array.isArray(j.users)) throw new Error('管理後端沒有回傳帳號清單');
+  const rows = j.users;
   return rows.find(r => String(r.username || '').toUpperCase() === id || String(r.emp_id || '').toUpperCase() === id) || null;
 }
 function omsAccountNeedsDisable(acc) { return !!(acc && acc.active !== false && acc.role !== 'admin'); }
@@ -9969,11 +9983,9 @@ async function loadProfileUsers() {
     profileUsers = [];
     profileUsersErr = (e && e.message) || String(e);   // v311
   }
-  // v284：使用者異動後順手刷新登入判角色用的 cachedUsers(讀 oms_roster)，
-  // 讓 admin 在同一分頁建/改帳號後，該員工免重整就能登入(不再落 no_oms)。
-  // 失敗不影響帳號管理頁(沿用舊快取)，只是同分頁即時性打折。
-  try { cachedUsers = await loadUsersFromSB(); }
-  catch (e) { console.warn('v284 刷新 cachedUsers 失敗，沿用舊快取', e); }
+  // v284：使用者異動後順手刷新 cachedUsers（異動紀錄操作人下拉、廠區控制頁影響人數用）。
+  // v326：直接用上面同一次 list 的結果，不再另外讀公開的 oms_roster；list 失敗就沿用舊快取（不覆蓋成空的）。
+  if (!profileUsersErr) { cachedUsers = profileUsers.map(sbRowToUser); cachedUsersErr = ''; }
   // v298：載入授權名單裡勾了 OMS 的人 → 供「待設定角色」提醒列
   try {
     const sa = await sbSelectAll('system_access', 'order=factory_code.asc,emp_id.asc');
@@ -12511,7 +12523,7 @@ function openLogPage() {
   // 操作人
   const opSel = document.getElementById('logFilterOperator');
   const users = loadUsers();
-  opSel.innerHTML = '<option value="">全部操作人</option>';
+  opSel.innerHTML = '<option value="">全部操作人</option>' + (cachedUsersErr ? '<option value="" disabled>（帳號名冊讀不到，無法列出操作人）</option>' : '');   // v326
   // v270：操作人下拉只列「能編輯員工資料」的角色（admin/集團HR/廠區HR），其餘不會是操作人
   users.filter(u => ['admin','group_hr','hr'].includes(u.role)).forEach(u => {
     const opt = document.createElement('option');
@@ -15828,13 +15840,13 @@ function fcImpactNums(r) {
     if (u.role === 'bu_manager' && r.bu && (Array.isArray(u.bu) ? u.bu.indexOf(r.bu) >= 0 : u.bu === r.bu)) return true;
     return false;
   }).length;
-  return { active: fcActive(r.code), access: fc.access ? (fc.access[r.code] || 0) : null, roles: inScope };
+  return { active: fcActive(r.code), access: fc.access ? (fc.access[r.code] || 0) : null, roles: cachedUsersErr ? null : inScope };   // v326：讀不到帳號名冊＝null（顯示「讀不到」）
 }
 function fcImpactHtml(r) {
   const n = fcImpactNums(r);
   return '<div class="fc-imp"><span>在職人數（OMS 員工資料）</span><b>' + n.active + ' 人</b>' +
     '<span>任職此廠的授權人數（授權當時的快照）</span><b>' + (n.access == null ? '讀不到' : n.access + ' 人') + '</b>' +
-    '<span>OMS 角色範圍含此廠的帳號（指定此廠＋事業群主管；不含全集團範圍的帳號）</span><b>' + n.roles + ' 個</b>' +
+    '<span>OMS 角色範圍含此廠的帳號（指定此廠＋事業群主管；不含全集團範圍的帳號）</span><b>' + (n.roles == null ? '讀不到' : n.roles + ' 個') + '</b>' +
     '<span>GHG／QMS／MHR／PMP 範圍含此廠的人</span><b style="font-weight:400;color:var(--text-soft)">各系統自查</b></div>' +
     '<div class="fc-note">撤銷不會自動改人員資料或權限；要調人請到該廠員工清單、系統資料授權頁處理。</div>';
 }
